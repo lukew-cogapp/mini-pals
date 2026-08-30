@@ -22,6 +22,8 @@ extends Node3D
 ## autoloads do not exist yet and the whole thing fails to compile.
 const ROCK_SCENE_PATH := "res://scenes/models/rock_medium_2.tscn"
 
+var _hill_mat: StandardMaterial3D
+
 
 ## Ground height at a point, as the maximum over every mound covering it.
 ##
@@ -82,9 +84,9 @@ func _mound(index: int, hill: Array) -> void:
 			# Two triangles, wound so the dome faces up. The other winding
 			# leaves the hill invisible from anywhere a player stands.
 			for v in [quad[0], quad[2], quad[1]]:
-				_vertex(st, v)
+				_vertex(st, v, hill[3])
 			for v in [quad[0], quad[3], quad[2]]:
-				_vertex(st, v)
+				_vertex(st, v, hill[3])
 
 	st.generate_normals()
 	var mesh := st.commit()
@@ -92,8 +94,7 @@ func _mound(index: int, hill: Array) -> void:
 	var node := MeshInstance3D.new()
 	node.name = "Hill%d" % index
 	node.mesh = mesh
-	if grass:
-		node.material_override = grass
+	node.material_override = _hill_material()
 	add_child(node)
 
 	var body := StaticBody3D.new()
@@ -111,6 +112,21 @@ func _mound(index: int, hill: Array) -> void:
 	add_child(body)
 
 
+## The grass material, with vertex colours switched on so the height tint
+## shows. A duplicate rather than the shared resource itself: `grass` is also
+## on the flat island, and turning the flag on there would tint the ground by
+## whatever vertex colours the plane happens to carry.
+func _hill_material() -> Material:
+	if _hill_mat != null:
+		return _hill_mat
+	var base := grass as StandardMaterial3D
+	if base == null:
+		return grass
+	_hill_mat = base.duplicate()
+	_hill_mat.vertex_color_use_as_albedo = true
+	return _hill_mat
+
+
 ## A point on the dome surface, in world space. Uses the same `height_at`
 ## every caller does, so the drawn hill and the queried hill cannot drift.
 func _surface_point(centre: Vector3, r: float, angle: float) -> Vector3:
@@ -119,9 +135,14 @@ func _surface_point(centre: Vector3, r: float, angle: float) -> Vector3:
 	return Vector3(x, height_at(x, z), z)
 
 
-func _vertex(st: SurfaceTool, v: Vector3) -> void:
+## `top` is the mound's own summit height, so the tint runs the full range on
+## a low mound as well as a tall one.
+func _vertex(st: SurfaceTool, v: Vector3, top: float) -> void:
 	# UVs in world units, so grass tiles at the same scale as the flat disc.
 	st.set_uv(Vector2(v.x, v.z))
+	st.set_color(Tuning.HILL_SHADE_LOW.lerp(
+		Tuning.HILL_SHADE_HIGH, clampf(v.y / maxf(top, 0.001), 0.0, 1.0)
+	))
 	st.add_vertex(v)
 
 
@@ -291,11 +312,19 @@ func _mouth_rocks(root: Node3D) -> void:
 		var side := 1.0 if i % 2 == 0 else -1.0
 		var along := float(i / 2) / maxf(Tuning.CAVE_ROCK_COUNT / 2.0, 1.0)
 		var boulder := rock_scene.instantiate() as Node3D
-		boulder.position = Vector3(
+		var at := Vector3(
 			side * (half_w + rng.randf_range(1.0, 2.0)),
-			rng.randf_range(-1.2, 0.4),
+			0.0,
 			1.5 - along * Tuning.CAVE_DEPTH * 0.8,
 		)
+		# Sit it on the ground under it, the way every scattered prop is sat.
+		# These march back INTO the hillside, where the ground is climbing, so
+		# a fixed offset from the root left the far ones hanging in the air.
+		# The root is rotated and raised, so the height has to be asked in
+		# world space and brought back into local.
+		var here := root.transform * at
+		at.y = height_at(here.x, here.z) - root.position.y + rng.randf_range(-1.2, -0.2)
+		boulder.position = at
 		boulder.rotation.y = rng.randf() * TAU
 		boulder.scale = Vector3.ONE * rng.randf_range(
 			Tuning.CAVE_ROCK_SCALE_MIN, Tuning.CAVE_ROCK_SCALE_MAX

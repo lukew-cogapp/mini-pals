@@ -1,4 +1,4 @@
-[gd_scene load_steps=37 format=3]
+[gd_scene load_steps=41 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1"]
 [ext_resource type="Material" path="res://materials/ground.tres" id="2"]
@@ -31,6 +31,10 @@
 [ext_resource type="PackedScene" path="res://scenes/pal_mudwader.tscn" id="29"]
 [ext_resource type="PackedScene" path="res://scenes/pal_glimmerfin.tscn" id="30"]
 [ext_resource type="Material" path="res://materials/shallow_water.tres" id="31"]
+[ext_resource type="Script" path="res://scripts/terrain.gd" id="32"]
+[ext_resource type="Material" path="res://materials/rock.tres" id="33"]
+[ext_resource type="PackedScene" path="res://scenes/pal_grottolo.tscn" id="34"]
+[ext_resource type="Material" path="res://materials/far_land.tres" id="35"]
 
 [sub_resource type="PlaneMesh" id="1"]
 size = Vector2(120, 120)
@@ -83,6 +87,12 @@ ash = ExtResource("23")
 
 
 
+[node name="Terrain" type="Node3D" parent="."]
+script = ExtResource("32")
+grass = ExtResource("2")
+rock = ExtResource("33")
+far_land = ExtResource("35")
+
 [node name="Scenery" type="Node3D" parent="."]
 script = ExtResource("3")
 tree_scenes = [ExtResource("4"), ExtResource("17"), ExtResource("18"), ExtResource("19"), ExtResource("20")]
@@ -97,6 +107,7 @@ amphibian_scene = ExtResource("29")
 fish_scene = ExtResource("30")
 altar_scene = ExtResource("11")
 workbench_scene = ExtResource("7")
+cave_pal_scene = ExtResource("34")
 
 [node name="Player" parent="." instance=ExtResource("1")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)

@@ -95,10 +95,98 @@ func _init() -> void:
 
 	await _shoot_hud()
 
+	await _shoot_terrain()
+
 	print("SHOTS_WRITTEN=", _shots.size())
 	for s in _shots:
 		print("  ", s.name)
 	quit()
+
+
+## The hills, the cave mouth and the cave species. The whole point of the
+## hills is how the island reads, and that is the one thing no assertion can
+## check: relief that measures 7.5 m can still look flat under a high sun.
+func _shoot_terrain() -> void:
+	var terrain: Node3D = _world.get_node("Terrain")
+	var tallest: Array = Tuning.HILLS[0]
+	for hill in Tuning.HILLS:
+		if float(hill[3]) > float(tallest[3]):
+			tallest = hill
+
+	# The island from above and off to one side. A shot from straight up
+	# flattens a dome back into a disc, so this is deliberately oblique:
+	# relief only reads when the light rakes across it.
+	await _shoot_free(
+		"31_island_relief",
+		Vector3(-40, 95, 150),
+		Vector3(-20, 0, 0),
+	)
+
+	# One hill from ground level, which is how the player meets it.
+	var summit := Vector3(tallest[0], 0.0, tallest[1])
+	var radius: float = tallest[2]
+	var eye := summit + Vector3(radius * 1.7, 3.0, radius * 1.7)
+	await _shoot_free("32_hill_from_below", eye, summit + Vector3.UP * 3.0)
+
+	# The cave mouth, from outside on the approach the player walks in on.
+	# Far enough back to clear the mound's own skirt: framed from inside the
+	# hill's radius the camera stands on the slope above the mouth and the
+	# shot shows a doorway on flat grass, which is how the hill it is cut
+	# into came to look absent.
+	var mouth: Vector3 = terrain.mouth_position()
+	var out := Vector3(sin(Tuning.CAVE_FACING), 0.0, cos(Tuning.CAVE_FACING))
+	var hill_r: float = Tuning.HILLS[0][2]
+	await _shoot_free(
+		"33_cave_mouth",
+		mouth + out * (hill_r * 1.4) + Vector3.UP * 7.0,
+		mouth + Vector3.UP * 2.0,
+	)
+
+	# And from just inside, looking further in: this is the shot that says
+	# whether the hollow reads as a place or as a black box.
+	await _shoot_free(
+		"34_cave_inside",
+		mouth + out * 1.5 + Vector3.UP * 1.7,
+		mouth - out * Tuning.CAVE_DEPTH + Vector3.UP * 1.4,
+	)
+
+	# The horizon, from the beach looking out to sea. Waist height on the
+	# sand, which is where a player actually stands when they look out, and
+	# aimed along a bearing with an island on it.
+	var bearing: float = Tuning.DISTANT_ISLANDS[0][0]
+	var seaward := Vector3(cos(bearing), 0.0, sin(bearing))
+	var beach := seaward * (Tuning.ISLAND_RADIUS - 4.0)
+	await _shoot_free(
+		"36_horizon_from_beach",
+		beach + Vector3.UP * 1.7,
+		beach + seaward * 40.0 + Vector3.UP * 3.0,
+	)
+
+	# And from high up, where several islands are in frame at once and the
+	# fog has less depth to work through.
+	await _shoot_free(
+		"37_horizon_from_high",
+		Vector3(0, 70, 0) + seaward * 60.0,
+		seaward * 320.0 + Vector3.UP * 10.0,
+	)
+
+	# The cave species itself, framed on the nearest one to the mouth.
+	var best: Node3D = null
+	var best_d := INF
+	for node in get_nodes_in_group("pal"):
+		var pal := node as Node3D
+		if pal == null or pal.display_name != "Grottolo":
+			continue
+		var d: float = pal.global_position.distance_to(mouth)
+		if d < best_d:
+			best = pal
+			best_d = d
+	if best:
+		await _shoot_free(
+			"35_grottolo",
+			best.global_position + out * 3.0 + Vector3.UP * 1.6,
+			best.global_position + Vector3.UP * 0.8,
+		)
 
 
 ## Walk in a direction, then shoot from ahead of the travel so the face

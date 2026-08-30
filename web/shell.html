@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<!--
+  Loading shell for the web build. The game is about 27 MB over the wire, so
+  a first-time visitor stares at this for the better part of a minute on a
+  slow connection. Godot's stock shell shows a bare grey bar with no hint of
+  what is happening or how long is left, which reads as a broken page.
+
+  Godot substitutes the $GODOT_* placeholders at export time. Keep them.
+-->
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+	<title>$GODOT_PROJECT_NAME</title>
+	<style>
+		:root {
+			/* The game's own sunset palette, so the wait belongs to it. */
+			--sky-top: #2b2044;
+			--sky-low: #d98a5c;
+			--ink: #f4e6d4;
+			--bar: #f0c070;
+		}
+		html, body {
+			margin: 0;
+			padding: 0;
+			height: 100%;
+			overflow: hidden;
+			background: var(--sky-top);
+		}
+		body {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+			color: var(--ink);
+			background: linear-gradient(180deg, var(--sky-top) 0%, #6b4a6b 55%, var(--sky-low) 100%);
+		}
+		#canvas {
+			display: block;
+			width: 100%;
+			height: 100%;
+			border: 0;
+			outline: none;
+		}
+		/* Godot draws into the canvas the moment it is ready, so the loader
+		   sits above it and is removed rather than faded under it. */
+		#loader {
+			position: fixed;
+			inset: 0;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 22px;
+			text-align: center;
+			padding: 24px;
+		}
+		#title {
+			font-size: clamp(32px, 7vw, 64px);
+			font-weight: 700;
+			letter-spacing: 0.02em;
+			text-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+			margin: 0;
+		}
+		#tagline {
+			margin: -12px 0 0;
+			font-size: clamp(14px, 2.4vw, 18px);
+			opacity: 0.85;
+		}
+		#track {
+			width: min(420px, 78vw);
+			height: 12px;
+			border-radius: 999px;
+			background: rgba(0, 0, 0, 0.32);
+			overflow: hidden;
+			box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+		}
+		#fill {
+			height: 100%;
+			width: 0%;
+			border-radius: 999px;
+			background: var(--bar);
+			transition: width 0.25s ease-out;
+		}
+		#status {
+			font-size: 15px;
+			opacity: 0.8;
+			min-height: 1.2em;
+		}
+		#hint {
+			position: fixed;
+			bottom: 18px;
+			font-size: 13px;
+			opacity: 0.55;
+		}
+		#loader.failed #fill { background: #d05a4a; }
+	</style>
+</head>
+<body>
+	<canvas id="canvas">
+		Your browser does not support the canvas tag.
+	</canvas>
+
+	<div id="loader">
+		<h1 id="title">$GODOT_PROJECT_NAME</h1>
+		<p id="tagline">Walk the island. Catch the pals.</p>
+		<div id="track"><div id="fill"></div></div>
+		<div id="status">Starting up</div>
+		<div id="hint">First visit downloads about 27 MB. Later visits are cached.</div>
+	</div>
+
+	<script src="$GODOT_URL"></script>
+	<script>
+		const loader = document.getElementById('loader');
+		const fill = document.getElementById('fill');
+		const status = document.getElementById('status');
+
+		function say(text) { status.textContent = text; }
+
+		// Godot reports bytes only once the server sends a length. Without one
+		// the numbers stay at zero, so the bar falls back to saying it is
+		// working rather than sitting at 0% looking stuck.
+		function onProgress(current, total) {
+			if (total > 0) {
+				const pct = Math.min(100, (current / total) * 100);
+				fill.style.width = pct + '%';
+				say('Loading ' + Math.round(pct) + '%');
+			} else {
+				fill.style.width = '100%';
+				say('Loading');
+			}
+		}
+
+		const engine = new Engine($GODOT_CONFIG);
+		engine.startGame({
+			onProgress: onProgress,
+			onPrintError: function (...args) { console.error(...args); },
+		}).then(() => {
+			say('Ready');
+			loader.remove();
+		}, (err) => {
+			loader.classList.add('failed');
+			fill.style.width = '100%';
+			say(err.message || 'Something went wrong loading the game.');
+			console.error(err);
+		});
+	</script>
+</body>
+</html>

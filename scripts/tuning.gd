@@ -283,7 +283,12 @@ const PAL_BAND := 0.6
 # --- Active-pal buffs ---
 ## speed is a fraction of player speed, gather is bonus items per punch,
 ## damage is extra hitpoints per punch. See the species-jobs block below.
-const PAL_BUFF_CAPS := {&"speed": 0.5, &"gather": 3.0, &"damage": DEMON_DAMAGE_BUFF_CAP}
+const PAL_BUFF_CAPS := {
+	&"speed": 0.5,
+	&"gather": 3.0,
+	&"damage": DEMON_DAMAGE_BUFF_CAP,
+	&"stone": GROTTOLO_STONE_CAP,
+}
 
 # --- Catching ---
 ## Horizontal lob pace; lower reads floatier and arcs higher.
@@ -434,6 +439,7 @@ const ITEM_ICONS := {
 	"altar_key": "res://ui/icons/altar_key.svg",
 	"fin": "res://ui/icons/fin.svg",
 	"scale": "res://ui/icons/scale.svg",
+	"glow_cap": "res://ui/icons/glow_cap.svg",
 }
 ## Rows are built once and reused, so the list needs a ceiling. Well above the
 ## seven items that exist; extra items past it are not shown.
@@ -667,3 +673,170 @@ const RIVAL_HIT_IMPULSE_FACTOR := 0.6
 ## "somewhere ahead of me", which at the 90 degree cone GATHER_FACING_DOT
 ## describes would still light up most of the screen.
 const PAL_HEALTH_BAR_FACING_DOT := 0.8
+
+## --- Hills and the cave ---------------------------------------------------
+
+## The island was one flat plane and read as flat. These are hand-placed
+## mounds sitting on that plane rather than a heightmap: the ground body,
+## the shore wall, the zones and the seeded scatter all still work off a
+## flat y = 0 world, and a mound is just scenery with a shape.
+##
+## Each entry is [centre x, centre z, radius, height]. A mound is a radial
+## cosine dome, so `Terrain.height_at` has a closed form and scatter can sit
+## a prop on the surface without a raycast, which is what matters: the world
+## is built inside _ready, before the physics server has seen any of it.
+##
+## Placement rules these obey, and any new mound must too:
+##   - clear of the spawn at the origin by SCATTER_CLEAR_RADIUS, so the
+##     player does not start on a slope,
+##   - clear of the shore wall, so no mound lets anything climb it,
+##   - off the scorched blob, so the altar's ground stays flat.
+##
+## Steepness is the whole point, and 45 degrees is the hard ceiling: that is
+## the player's `floor_max_angle`, and a dome past it is not a hill but a
+## wall. Measured rather than assumed, by walking the controller up a sweep
+## of domes: 43.3 degrees summits, 45.3 stalls at 71% of the height, and
+## anything steeper never leaves the skirt. A cosine dome is steepest at half
+## its radius, at atan(PI * height / (2 * radius)), so these sit at 36 to 40
+## degrees, which reads as a hill with margin left before the cliff.
+##
+## Four rather than the original five, and narrower: the first set covered
+## about 42% of the island at 12 to 17 degrees, so standing on a slope was
+## the default and none of it read as anything but flat ground. These cover
+## about 13%, which leaves real flat between them to see them from.
+const HILLS := [
+	[-46.0, -30.0, 26.0, 12.0],
+	[-30.0, 34.0, 18.0, 9.5],
+	[30.0, 44.0, 16.0, 8.5],
+	[-64.0, 14.0, 14.0, 7.5],
+]
+
+## Radial and ring segments per mound. 32 wide is smooth enough that the
+## silhouette does not read as faceted from across the island, and 12 deep
+## keeps the slope even; both feed the trimesh collider too, so higher costs
+## collision time as well as vertices.
+const HILL_SEGMENTS := 32
+const HILL_RINGS := 12
+
+## How far past its nominal radius a mound's skirt is drawn, so the mesh
+## meets the ground plane at zero height instead of ending on a lip the
+## player would have to step over.
+const HILL_SKIRT := 1.06
+
+## Slope shading. A mound uses the same grass material as the flat ground, and
+## StandardMaterial3D does not vary with slope, so a lit dome and level ground
+## catch the light almost identically and the shape does not read even when
+## the geometry is right. These tint the mesh's own vertex colours by height,
+## dark in the hollows and light on the crown, which the hill material shows
+## through `vertex_color_use_as_albedo`. No shader, and it costs nothing.
+const HILL_SHADE_LOW := Color(0.72, 0.78, 0.68)
+const HILL_SHADE_HIGH := Color(1.06, 1.05, 0.94)
+
+## The cave, dug into the side of the biggest hill. Not a real interior: a
+## mouth of scaled rocks with a dark hollow behind it, big enough to walk
+## into and stand up in.
+##
+## Sits on the far side of the island from the spawn, so finding it is a
+## walk rather than something you trip over on the way out of camp.
+const CAVE_POS := Vector3(-46.0, 0.0, -30.0)
+## Which way the mouth faces, in radians about Y. Pointed back towards the
+## spawn so the opening is visible on the approach rather than round the
+## back of the hill.
+const CAVE_FACING := 0.9
+## Distance from the hill centre out to the mouth. Two bounds meet here and
+## the value has to satisfy both. Too far out and the hill is shallower than
+## CAVE_HEIGHT, so the roof stands proud of the grass and the cave reads as a
+## doorway on a lawn. Too far in and the hollow, which runs CAVE_DEPTH back
+## towards the centre, passes under the summit and out the far side, and the
+## mouth ends up inside the hill with no way to walk out.
+##
+## At 13 m into the 26 m mound the surface is about 6 m, matching the hollow,
+## and its back wall sits under about 12 m of hill.
+const CAVE_MOUTH_DISTANCE := 13.0
+## Inside dimensions. Wide and tall enough that the player's capsule and a
+## following pal both fit through the opening with room either side.
+const CAVE_WIDTH := 7.0
+const CAVE_DEPTH := 11.0
+const CAVE_HEIGHT := 4.5
+## Boulders ringing the mouth, and how big each is. The rock model is about
+## 3 m across at scale 1, so these read as cliff faces rather than pebbles.
+const CAVE_ROCK_COUNT := 9
+const CAVE_ROCK_SCALE_MIN := 1.8
+const CAVE_ROCK_SCALE_MAX := 3.2
+## Floor of the hollow, relative to the hill surface at the mouth. Slightly
+## sunk, so walking in reads as going inside rather than past.
+const CAVE_FLOOR_DROP := 0.3
+## The dark. One low, cold omni light deep in the hollow rather than no
+## light at all: pitch black reads as a bug, a dim glow reads as a cave.
+const CAVE_LIGHT_ENERGY := 0.85
+const CAVE_LIGHT_RANGE := 12.0
+const CAVE_LIGHT_COLOR := Color(0.42, 0.5, 0.72)
+const CAVE_LIGHT_HEIGHT := 2.6
+
+
+
+## --- Distant islands on the horizon ---------------------------------------
+
+## Pure decoration, out past everything the player can reach. No collider, no
+## zone, nothing spawns on them: they exist so the horizon is land and sky
+## rather than an empty ring of water, and so the map looks like it could
+## grow later.
+##
+## Each entry is [bearing in radians, distance, radius, height]. Placed by
+## hand at uneven bearings and distances, so the horizon does not read as a
+## ring of identical bumps.
+##
+## The heights are much larger than they look like they should be, and that
+## is the point: at 300 m a 20 m dome sits below the horizon line and the
+## fog erases what little of it shows. These read as headlands because they
+## are tall enough to break the skyline, not because of their colour, which
+## was the first thing tried and made no difference in either direction. The gap between the last bearing and the first is
+## deliberate: one stretch of open sea keeps the world from feeling walled.
+##
+## Distances all sit between DISTANT_ISLAND_MIN_RADIUS and the water's edge,
+## which the terrain test asserts: one placed inside the shallow wall would
+## be swimmable-to, and a dome with no collider would be swum straight
+## through.
+const DISTANT_ISLANDS := [
+	[0.35, 276.0, 46.0, 42.0],
+	[1.15, 330.0, 62.0, 58.0],
+	[2.05, 262.0, 34.0, 27.0],
+	[2.80, 310.0, 52.0, 64.0],
+	[3.95, 290.0, 40.0, 34.0],
+	[4.60, 326.0, 70.0, 72.0],
+]
+
+## Nothing may be placed nearer than this. The shallow wall is the last thing
+## the player reaches, so a decorative island has to start beyond it with
+## room to spare, or its skirt would meet water the player can swim in.
+const DISTANT_ISLAND_MIN_RADIUS := SHALLOW_WALL_RADIUS + 40.0
+
+## Coarser than the hills: at 300 m these are a few dozen pixels tall, and
+## the segments would cost vertices nobody can see.
+const DISTANT_ISLAND_SEGMENTS := 20
+const DISTANT_ISLAND_RINGS := 5
+
+## How far the dome's base is pushed below the water surface, so the island
+## meets the sea rather than floating over it or showing a rim underneath.
+## Measured from WATER_LEVEL, which is where the far water actually is.
+const DISTANT_ISLAND_SINK := 2.0
+
+## --- Grottolo: the cave species -------------------------------------------
+
+## Spawns in the cave and nowhere else, so the cave is worth finding.
+const GROTTOLO_COUNT := 5
+## Metres from the cave mouth a Grottolo may be, spawning and wandering
+## alike, which is what makes the species a reason to go in. Derived from the
+## hollow rather than picked: a spawn at the back corner is CAVE_DEPTH along
+## and half CAVE_WIDTH across, and the bound has to cover that or the species
+## does not fit in the room it lives in.
+const GROTTOLO_RADIUS := CAVE_DEPTH + CAVE_WIDTH * 0.5
+## Its job is stone yield, in extra items per punch per level, capped like
+## every other buff. A cave species paying out in stone is the one thing
+## the mouth of a rock hill should give you.
+## How far a Grottolo strays from where it spawned. Small: the hollow is
+## CAVE_DEPTH deep, and a wander radius approaching that would walk them out
+## of the mouth one at a time until the cave was empty.
+const GROTTOLO_WANDER_RADIUS := 3.0
+const GROTTOLO_STONE_PER_LEVEL := 0.25
+const GROTTOLO_STONE_CAP := 1.5

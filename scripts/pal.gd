@@ -27,6 +27,10 @@ enum State { WANDER, IDLE, FLEE, FOLLOW, RIDDEN, ATTACK, DEFEND, GATHER }
 ## to be caught from a mount, so one that could walk ashore would break the
 ## gate the mount is there to open.
 @export var water_only := false
+## Confined to the cave, spawning and wandering alike. The cave species is
+## the reward for finding the cave, so one that wandered out onto the open
+## grass would be met before the place it lives in.
+@export var cave_only := false
 ## How this species reacts to the player. One enum rather than a pair of
 ## flags, because "aggressive and skittish" is not a thing a pal can be and
 ## two booleans would let a scene say it.
@@ -980,6 +984,20 @@ func _enter_wander() -> void:
 	_target = _home + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
 	if water_only:
 		_target = _clamp_to_fish_ring(_target)
+	elif cave_only:
+		_target = _clamp_to_cave(_target)
+
+
+## Pull a point back inside the hollow. Measured from where the pal spawned
+## rather than from a world constant, so the species stays with its cave
+## wherever the cave is put.
+func _clamp_to_cave(point: Vector3) -> Vector3:
+	var flat := Vector3(point.x - _home.x, 0.0, point.z - _home.z)
+	var dist := flat.length()
+	if dist <= Tuning.GROTTOLO_WANDER_RADIUS:
+		return point
+	flat = flat / dist * Tuning.GROTTOLO_WANDER_RADIUS
+	return Vector3(_home.x + flat.x, point.y, _home.z + flat.z)
 
 
 ## Pull a point back into the band fish are allowed to occupy. The inner edge

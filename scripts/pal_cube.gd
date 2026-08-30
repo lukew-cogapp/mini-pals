@@ -8,9 +8,14 @@ var _life := Tuning.CUBE_LIFETIME
 var _spent := false
 var _rng := RandomNumberGenerator.new()
 
-@onready var _mesh: Node3D = $Mesh
+## The thrown thing. Both meshes sit in the scene and one is shown on throw:
+## a runtime load would stutter the first throw of a session, and cubes are
+## thrown constantly.
+@onready var _cube: Node3D = $Mesh
+@onready var _mushroom: Node3D = $Mushroom
+@onready var _mesh: Node3D = _cube
 ## Model art is not unit-sized, so the pop tween scales from this, not 1.
-@onready var _mesh_scale: Vector3 = _mesh.scale
+@onready var _mesh_scale: Vector3 = _cube.scale
 @onready var _burst: GPUParticles3D = $Burst
 
 
@@ -24,6 +29,13 @@ func _ready() -> void:
 func throw(from: Vector3, velocity: Vector3) -> void:
 	global_position = from
 	_velocity = velocity
+	# The King's job is free throws, so what leaves your hand is one of his
+	# mushrooms rather than a crafted cube.
+	var mushroom := Party.infinite_cubes()
+	_cube.visible = not mushroom
+	_mushroom.visible = mushroom
+	_mesh = _mushroom if mushroom else _cube
+	_mesh_scale = _mesh.scale
 
 
 func _physics_process(delta: float) -> void:

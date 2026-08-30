@@ -23,6 +23,10 @@ func punch() -> void:
 	_hits += 1
 	var bonus := int(Party.buff(&"gather"))
 	var n := Tuning.GATHER_YIELD + bonus
+	# The cave species pays out on rock only, so its job is a reason to go
+	# mining rather than a second, better Glimmerfin.
+	if is_in_group("rock"):
+		n += int(Party.buff(&"stone"))
 	Inventory.add(item, n)
 	# The extra items otherwise land silently in the corner counter, so a
 	# buffed punch gets a brighter chime than a bare one.

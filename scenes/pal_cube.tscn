@@ -1,7 +1,8 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/pal_cube.gd" id="1"]
 [ext_resource type="PackedScene" path="res://assets/platformer/Cube_Question.gltf" id="3"]
+[ext_resource type="PackedScene" path="res://assets/nature/Mushroom_Common.gltf" id="4"]
 
 [sub_resource type="BoxShape3D" id="2"]
 size = Vector3(0.8, 0.8, 0.8)
@@ -36,6 +37,12 @@ script = ExtResource("1")
 
 [node name="Mesh" parent="." instance=ExtResource("3")]
 transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 0, 0, 0)
+
+; Sized to the cube it stands in for, and lifted so the stalk base sits at
+; the origin rather than the cap centre.
+[node name="Mushroom" parent="." instance=ExtResource("4")]
+transform = Transform3D(1.1, 0, 0, 0, 1.1, 0, 0, 0, 1.1, 0, -0.25, 0)
+visible = false
 
 [node name="Collision" type="CollisionShape3D" parent="."]
 shape = SubResource("2")

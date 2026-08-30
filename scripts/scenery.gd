@@ -17,9 +17,26 @@ extends Node3D
 @export var shell_scene: PackedScene
 @export var altar_scene: PackedScene
 @export var workbench_scene: PackedScene
+@export var cave_pal_scene: PackedScene
 
 var _respawn_rng := RandomNumberGenerator.new()
 var _respawn_wait := 0.0
+
+
+## Ground height under a point, from the authored mounds.
+##
+## Arithmetic rather than a raycast on purpose: scatter runs inside _ready,
+## before the physics server has seen a single collider, so a ray would
+## report empty space and bury every prop on every hill.
+func _ground_y(pos: Vector3) -> float:
+	return Terrain.height_at(pos.x, pos.z)
+
+
+## Sit a node on the ground, keeping whatever vertical offset it already had.
+## The shore dressing drops itself onto the lower beach that way, and a hill
+## must add to that rather than replace it.
+func _sit(item: Node3D) -> void:
+	item.position.y += _ground_y(item.position)
 
 
 func _ready() -> void:
@@ -40,6 +57,7 @@ func _ready() -> void:
 	_scatter_demons(rng)
 	_scatter_amphibians(rng)
 	_scatter_fish(rng)
+	_scatter_cave_pals(rng)
 	_place_altar()
 	_place_workbenches()
 	# Unseeded, deliberately: the initial layout must be identical every run,
@@ -71,6 +89,29 @@ func _scatter_fish(rng: RandomNumberGenerator) -> void:
 		_spawn_pal(fish_scene, rng)
 
 
+## The cave species, in the hollow and nowhere else on the island. That is
+## the whole point of it: the cave has to be worth the walk, and a Grottolo
+## found on the open grass would make it a detour instead of a destination.
+##
+## Placed around the mouth rather than through `_pal_position`, so they are
+## back in the dark where the player has to go in to reach them.
+func _scatter_cave_pals(rng: RandomNumberGenerator) -> void:
+	if cave_pal_scene == null:
+		return
+	var terrain := get_parent().get_node_or_null("Terrain")
+	var mouth: Vector3 = terrain.mouth_position() if terrain else Tuning.CAVE_POS
+	for i in Tuning.GROTTOLO_COUNT:
+		# Spread back along the hollow from just inside the mouth, on the
+		# axis the cave was built along.
+		var back := -Vector3(sin(Tuning.CAVE_FACING), 0.0, cos(Tuning.CAVE_FACING))
+		var along := rng.randf_range(1.0, Tuning.CAVE_DEPTH - 1.0)
+		var across := (
+			Vector3(back.z, 0.0, -back.x)
+			* rng.randf_range(-Tuning.CAVE_WIDTH * 0.3, Tuning.CAVE_WIDTH * 0.3)
+		)
+		_spawn_pal(cave_pal_scene, rng, mouth + back * along + across)
+
+
 ## One pal of `scene`, levelled and placed where its species belongs.
 ##
 ## Both the initial scatter and the respawn trickle come through here, so a
@@ -92,6 +133,12 @@ func _spawn_pal(
 	# reproducible in both. Each species rolls inside its own band.
 	pal.level = rng.randi_range(pal.level_min, pal.level_max)
 	pal.position = _pal_position(scene, rng) if at == Vector3.INF else at
+	# Species positions are picked on the flat plane, so a pal on a hillside
+	# needs lifting onto it. The cave species is the exception: its position
+	# is already a point on the hollow's floor, inside the hill rather than
+	# on top of it, and sitting it would put it through the roof.
+	if scene != cave_pal_scene:
+		_sit(pal)
 	pal.rotation.y = rng.randf() * TAU
 	add_child(pal)
 	if arrive:
@@ -145,6 +192,7 @@ func _scatter(
 				break
 		var item := scenes[rng.randi() % scenes.size()].instantiate() as Node3D
 		item.position = pos
+		_sit(item)
 		item.rotation.y = rng.randf() * TAU
 		item.scale = Vector3.ONE * rng.randf_range(scale_min, scale_max)
 		add_child(item)
@@ -160,6 +208,7 @@ func _place_workbenches() -> void:
 	for at in Tuning.WORKBENCH_POSITIONS:
 		var bench := workbench_scene.instantiate() as Node3D
 		bench.position = at
+		_sit(bench)
 		add_child(bench)
 
 
@@ -168,6 +217,7 @@ func _place_altar() -> void:
 		return
 	var altar := altar_scene.instantiate() as Node3D
 	altar.position = Tuning.ALTAR_POS
+	_sit(altar)
 	add_child(altar)
 
 
@@ -209,6 +259,7 @@ func _scatter_biome(
 	for i in count:
 		var item := scenes[rng.randi() % scenes.size()].instantiate() as Node3D
 		item.position = _in_ash(rng, Tuning.ALTAR_CLEAR_RADIUS)
+		_sit(item)
 		item.rotation.y = rng.randf() * TAU
 		item.scale = Vector3.ONE * rng.randf_range(scale_min, scale_max)
 		add_child(item)
@@ -243,6 +294,7 @@ func _scatter_shore(
 		# Out past the grass, so sit on the lower beach instead.
 		if band.x >= 1.0:
 			item.position.y = -0.35
+		_sit(item)
 		item.rotation.y = rng.randf() * TAU
 		item.scale = Vector3.ONE * rng.randf_range(scale_min, scale_max)
 		add_child(item)
