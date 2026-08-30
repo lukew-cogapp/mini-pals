@@ -20,6 +20,7 @@ shape = SubResource("1")
 [node name="Model" type="Node3D" parent="."]
 
 [node name="Dog" parent="Model" instance=ExtResource("2")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
 
 [node name="Seat" type="Marker3D" parent="Model"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)

@@ -1,0 +1,44 @@
+ERROR: Can't use get_node() with absolute paths from outside the active scene tree.
+   at: get_node_or_null (scene/main/node.cpp:1910)
+   GDScript backtrace (most recent call first):
+       [0] _init (res://verify_gather.gd:18)
+ERROR: Node not found: "/root/Inventory" (absolute path attempted from "root").
+   at: get_node (scene/main/node.cpp:1973)
+   GDScript backtrace (most recent call first):
+       [0] _init (res://verify_gather.gd:18)
+ERROR: Can't use get_node() with absolute paths from outside the active scene tree.
+   at: get_node_or_null (scene/main/node.cpp:1910)
+   GDScript backtrace (most recent call first):
+       [0] _init (res://verify_gather.gd:19)
+ERROR: Node not found: "/root/Tuning" (absolute path attempted from "root").
+   at: get_node (scene/main/node.cpp:1973)
+   GDScript backtrace (most recent call first):
+       [0] _init (res://verify_gather.gd:19)
+SCRIPT ERROR: Compile Error: Identifier not found: Inventory
+          at: GDScript::reload (res://scripts/player.gd:110)
+          GDScript backtrace (most recent call first):
+              [0] _init (res://verify_gather.gd:20)
+ERROR: Failed to load script "res://scripts/player.gd" with error "Compilation failed".
+   at: load (modules/gdscript/gdscript_resource_format.cpp:46)
+   GDScript backtrace (most recent call first):
+       [0] _init (res://verify_gather.gd:20)
+SCRIPT ERROR: Compile Error: Identifier not found: Inventory
+          at: GDScript::reload (res://scripts/resource_node.gd:24)
+          GDScript backtrace (most recent call first):
+              [0] _init (res://verify_gather.gd:20)
+ERROR: Failed to load script "res://scripts/resource_node.gd" with error "Compilation failed".
+   at: load (modules/gdscript/gdscript_resource_format.cpp:46)
+   GDScript backtrace (most recent call first):
+       [0] _init (res://verify_gather.gd:20)
+SCRIPT ERROR: Compile Error: Identifier not found: Inventory
+          at: GDScript::reload (res://scripts/build_menu.gd:12)
+          GDScript backtrace (most recent call first):
+              [0] _init (res://verify_gather.gd:20)
+ERROR: Failed to load script "res://scripts/build_menu.gd" with error "Compilation failed".
+   at: load (modules/gdscript/gdscript_resource_format.cpp:46)
+   GDScript backtrace (most recent call first):
+       [0] _init (res://verify_gather.gd:20)
+SCRIPT ERROR: Attempt to call function 'count' in base 'null instance' on a null instance.
+          at: _init (res://verify_gather.gd:30)
+          GDScript backtrace (most recent call first):
+              [0] _init (res://verify_gather.gd:30)

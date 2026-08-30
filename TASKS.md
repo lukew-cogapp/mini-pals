@@ -9,6 +9,7 @@
 - [x] Collision on trees/rocks; step over rocks, trees block
 - [x] Wolf pal: wander, flee, catch, follow, ride
 - [x] Player is a cat dragon (Cat body + wings), walk/idle animation
+- [x] Flip Quaternius models 180 deg: they face +Z, Godot forward is -Z
 - [x] Camera FOV 60, window 1600x900 maximised
 - [x] Xbox pad bindings on every action
 - [x] Gathering, inventory, workbench, build menu (agent-built)

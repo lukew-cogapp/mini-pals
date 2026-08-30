@@ -38,6 +38,13 @@ Two conventions the owner asked for, worth keeping:
 `atan2(-dir.x, -dir.z)`. Using `atan2(x, z)` points it backwards; the tell is
 a model that moons you as you walk. Cost us one bug already.
 
+**Quaternius models face +Z, Godot forward is -Z.** So every imported monster
+needs a 180 degree Y flip in its model scene:
+`transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)`. Do it in the
+model scene, not by inverting the controller maths, or the two fixes cancel
+out and the next model is wrong again. Anything attached to the body (wings,
+seat markers) needs its Z negated to match.
+
 **`.tscn` sub-resources must be declared before the node that uses them.**
 A `SubResource("2")` referenced above its own `[sub_resource]` block fails with
 `Condition "!int_resources.has(id)" is true` and a parse error on the *using*
