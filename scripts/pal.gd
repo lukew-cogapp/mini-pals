@@ -9,6 +9,13 @@ enum State { WANDER, IDLE, FLEE, FOLLOW, RIDDEN, ATTACK, DEFEND }
 
 @export var display_name := "Wolf"
 @export var rideable := false
+## Carries a rider past the shore wall. The wall's collision drops while a
+## swimmer is ridden, so this flag is what opens the shallows.
+@export var swimmer := false
+## Confined to the shallow zone for spawning and wandering alike. Fish exist
+## to be caught from a mount, so one that could walk ashore would break the
+## gate the mount is there to open.
+@export var water_only := false
 ## Hunts the player on sight instead of fleeing. Never flees.
 @export var aggressive := false
 ## Wild spawn level band, so species map to a difficulty gradient.
@@ -62,6 +69,11 @@ func _ready() -> void:
 	# Grow the model only; the collider stays put so cubes still land.
 	var grow := 1.0 + (level - 1) * Tuning.PAL_LEVEL_SCALE_STEP
 	_model_root.scale = Vector3.ONE * grow
+	# Fish stand on the same flat ground plane as everything else, which sits
+	# above the shallow surface, so unsunk they float clear of the water they
+	# are supposed to be swimming in.
+	if water_only:
+		sink_model(Tuning.FISH_SINK)
 	_make_label(grow)
 	_enter_idle()
 
@@ -95,8 +107,18 @@ func _find_anim(n: Node) -> AnimationPlayer:
 	return null
 
 
+## Animation names by intent, not by clip. The Glub rig is a flyer and has no
+## Walk or Idle at all, so a fish asked to walk would stand frozen; its
+## Fast_Flying and Flying_Idle cycles read as swimming instead.
+const SWIM_CLIPS := {"Walk": "Fast_Flying", "Run": "Fast_Flying", "Idle": "Flying_Idle"}
+
+
 func _play(anim: String) -> void:
-	if _anim and _anim.has_animation(anim) and _anim.current_animation != anim:
+	if _anim == null:
+		return
+	if not _anim.has_animation(anim) and SWIM_CLIPS.has(anim):
+		anim = SWIM_CLIPS[anim]
+	if _anim.has_animation(anim) and _anim.current_animation != anim:
 		_anim.play(anim)
 
 
@@ -328,6 +350,12 @@ func face(dir: Vector3, delta: float, speed: float) -> void:
 	rotation.y = lerp_angle(rotation.y, target, speed * delta)
 
 
+## Drop the visuals by `depth` without moving the collider, so a wading
+## swimmer looks submerged while still standing on the one flat ground plane.
+func sink_model(depth: float) -> void:
+	_model_root.position.y = -depth
+
+
 ## Where a rider sits: the Seat marker, which turns and scales with the pal.
 func seat_position() -> Vector3:
 	return $Model/Seat.global_position
@@ -356,6 +384,21 @@ func _enter_wander() -> void:
 	var angle := _rng.randf() * TAU
 	var dist := _rng.randf_range(2.0, Tuning.PAL_WANDER_RADIUS)
 	_target = _home + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
+	if water_only:
+		_target = _clamp_to_fish_ring(_target)
+
+
+## Pull a point back into the band fish are allowed to occupy. The inner edge
+## is the gate: FISH_RING_MIN is set beyond a cube's reach from the shore
+## wall, so a fish that wandered inside it would be catchable on foot.
+func _clamp_to_fish_ring(point: Vector3) -> Vector3:
+	var flat := Vector3(point.x, 0.0, point.z)
+	var dist := flat.length()
+	if dist < 0.01:
+		return Vector3(Tuning.FISH_RING_MIN, point.y, 0.0)
+	var clamped := clampf(dist, Tuning.FISH_RING_MIN, Tuning.FISH_RING_MAX)
+	flat = flat / dist * clamped
+	return Vector3(flat.x, point.y, flat.z)
 
 
 func _enter_flee() -> void:

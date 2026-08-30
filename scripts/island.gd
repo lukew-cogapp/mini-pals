@@ -7,6 +7,7 @@ extends Node3D
 @export var grass: Material
 @export var sand: Material
 @export var water: Material
+@export var shallow: Material
 @export var ash: Material
 
 
@@ -16,8 +17,12 @@ func _ready() -> void:
 	_ash_blob()
 	_disc("Beach", Tuning.ISLAND_RADIUS + Tuning.BEACH_WIDTH, -0.35, sand, 64)
 	_disc("Water", Tuning.WATER_RADIUS, Tuning.WATER_LEVEL, water, 48)
+	# Over the deep disc and lighter, so the wadeable ring reads as its own
+	# place and the hard edge past it reads as off-limits.
+	_disc("Shallows", Tuning.SHALLOW_WALL_RADIUS, Tuning.SHALLOW_LEVEL, shallow, 64)
 	_ground_body()
 	_shore_wall()
+	_shallow_wall()
 
 
 ## Zones for the discs just built, in the same pass and from the same
@@ -29,8 +34,15 @@ func _zones() -> void:
 	# Walkable ground stops at the shore wall, not at the painted sand.
 	_zone("LandZone", Zone.Kind.LAND, Tuning.SHORE_WALL_RADIUS, 0.0)
 	_ash_zone()
-	# Everything from the shore wall out to the far edge of the water disc.
-	_zone("DeepZone", Zone.Kind.DEEP, Tuning.WATER_RADIUS, Tuning.SHORE_WALL_RADIUS)
+	# The wadeable ring, between the two walls.
+	_zone(
+		"ShallowZone",
+		Zone.Kind.SHALLOW,
+		Tuning.SHALLOW_WALL_RADIUS,
+		Tuning.SHORE_WALL_RADIUS,
+	)
+	# Everything past the shallow wall, where nothing may go.
+	_zone("DeepZone", Zone.Kind.DEEP, Tuning.WATER_RADIUS, Tuning.SHALLOW_WALL_RADIUS)
 
 
 ## The scorched blob, as a zone. Its cylinder is the bounding circle of the
@@ -134,21 +146,33 @@ func _ground_body() -> void:
 
 
 ## A ring of walls just past the sand, invisible, so the island reads as open
-## while the player cannot wander into the water.
+## while the player cannot wander into the water. Its collision drops while a
+## swimmer is ridden; see player.gd _toggle_ride.
 func _shore_wall() -> void:
+	_wall_ring("ShoreWall", Tuning.SHORE_WALL_RADIUS, Tuning.SHORE_WALL_HEIGHT)
+
+
+## The outer edge of the shallows, always on. Nothing gets past this: not the
+## player, not a mount, not a fish.
+func _shallow_wall() -> void:
+	_wall_ring("ShallowWall", Tuning.SHALLOW_WALL_RADIUS, Tuning.SHALLOW_WALL_HEIGHT)
+
+
+func _wall_ring(name: String, radius: float, height: float) -> void:
 	var body := StaticBody3D.new()
-	body.name = "ShoreWall"
+	body.name = name
 	add_child(body)
 	var segments := 24
-	var seg_width := TAU * Tuning.SHORE_WALL_RADIUS / segments * 1.05
+	# Overlapped by 5%, or a walker slips through the gap between two boxes.
+	var seg_width := TAU * radius / segments * 1.05
 	for i in segments:
 		var angle := TAU * i / segments
 		var box := BoxShape3D.new()
-		box.size = Vector3(seg_width, Tuning.SHORE_WALL_HEIGHT, 1.0)
+		box.size = Vector3(seg_width, height, 1.0)
 		var shape := CollisionShape3D.new()
 		shape.shape = box
-		var at := Vector3(cos(angle), 0.0, sin(angle)) * Tuning.SHORE_WALL_RADIUS
-		shape.position = at + Vector3.UP * (Tuning.SHORE_WALL_HEIGHT * 0.5 - 1.0)
+		var at := Vector3(cos(angle), 0.0, sin(angle)) * radius
+		shape.position = at + Vector3.UP * (height * 0.5 - 1.0)
 		# Long side tangent to the shore, short side radial.
 		shape.rotation.y = PI * 0.5 - angle
 		body.add_child(shape)

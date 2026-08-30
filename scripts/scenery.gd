@@ -8,6 +8,8 @@ extends Node3D
 @export var pal_scene: PackedScene
 @export var pal_scene_b: PackedScene
 @export var demon_scene: PackedScene
+@export var amphibian_scene: PackedScene
+@export var fish_scene: PackedScene
 @export var palm_scene: PackedScene
 @export var shell_scene: PackedScene
 @export var altar_scene: PackedScene
@@ -28,6 +30,8 @@ func _ready() -> void:
 	_scatter_shore(shell_scene, Tuning.SHELL_COUNT, Tuning.SHELL_BAND, 0.6, 1.4, rng)
 	_scatter_pals(rng)
 	_scatter_demons(rng)
+	_scatter_amphibians(rng)
+	_scatter_fish(rng)
 	_place_altar()
 
 
@@ -57,6 +61,38 @@ func _scatter_demons(rng: RandomNumberGenerator) -> void:
 		demon.position = _in_ash(rng, 0.0)
 		demon.rotation.y = rng.randf() * TAU
 		add_child(demon)
+
+
+## Amphibians wade ashore onto the sand, where a player on foot can reach
+## them. Catching one is the only way into the water, so they must be
+## catchable without one.
+func _scatter_amphibians(rng: RandomNumberGenerator) -> void:
+	if amphibian_scene == null:
+		return
+	for i in Tuning.AMPHIBIAN_COUNT:
+		var pal := amphibian_scene.instantiate() as Pal
+		pal.level = rng.randi_range(pal.level_min, pal.level_max)
+		pal.position = _on_island(
+			rng,
+			Tuning.ISLAND_RADIUS * Tuning.AMPHIBIAN_BAND.x,
+			Tuning.ISLAND_RADIUS * Tuning.AMPHIBIAN_BAND.y,
+		)
+		pal.rotation.y = rng.randf() * TAU
+		add_child(pal)
+
+
+## Fish, out in the shallows past a cube's reach from the shore. The inner
+## radius is the gate the whole feature turns on; test/water_test.gd asserts
+## it against CUBE_AIM_DISTANCE.
+func _scatter_fish(rng: RandomNumberGenerator) -> void:
+	if fish_scene == null:
+		return
+	for i in Tuning.FISH_COUNT:
+		var pal := fish_scene.instantiate() as Pal
+		pal.level = rng.randi_range(pal.level_min, pal.level_max)
+		pal.position = _on_island(rng, Tuning.FISH_RING_MIN, Tuning.FISH_RING_MAX)
+		pal.rotation.y = rng.randf() * TAU
+		add_child(pal)
 
 
 func _scatter(

@@ -173,8 +173,8 @@ Scatter is seeded (`Tuning.SCATTER_SEED`), so the world is identical each run.
 Change the seed for a new layout.
 
 Regions are `Zone` nodes (`scripts/zone.gd`, `class_name Zone extends Area3D`,
-group `zone`), not radii from the origin. `island.gd` builds LAND, ASH and DEEP
-in the same pass as the discs they describe, so the two cannot drift apart, and
+group `zone`), not radii from the origin. `island.gd` builds LAND, ASH, SHALLOW
+and DEEP in the same pass as the discs they describe, so the two cannot drift apart, and
 callers ask `Zone.is_inside(world, point, kind)` or `Zone.zone_at(world, point)`.
 Membership is `Zone.contains`, answered from the zone's own numbers, so a
 second island just adds its own zones and no maths changes. Zones sit alone on
@@ -236,8 +236,41 @@ raycasts its own step each frame rather than relying on `body_entered`.
 
 Dismounting probes four directions around the mount for a spot clear of
 geometry and inside `SHORE_WALL_RADIUS`, and refuses with a message if none
-is safe. Death dismounts with `force`, which accepts an unsafe spot rather
-than trapping the player on a corpse.
+is safe. Out in the shallows none of those four is land, so a mount off the
+land tries straight back towards the island first (`_beach_dismount_position`)
+and the rider always ends up ashore. Death dismounts with `force`, which
+accepts an unsafe spot rather than trapping the player on a corpse.
+
+## The shallows
+
+A gated two-step loop: catch a Mudwader on the beach, ride it into the water,
+cube a Glimmerfin out there. Both species set `swimmer = true` on `Pal`; the
+fish also sets `water_only`.
+
+The gate is arithmetic, not a rule. A cube is aimed `CUBE_AIM_DISTANCE` (30)
+from the camera and a walker stops at `SHORE_WALL_RADIUS` (114), so the
+furthest a throw from shore reaches is 144. `FISH_RING_MIN` is 148, and
+`_clamp_to_fish_ring` holds wandering fish inside 148..179 as well, so no fish
+is ever reachable on foot. `test/water_test.gd` asserts
+`FISH_RING_MIN - SHORE_WALL_RADIUS > CUBE_AIM_DISTANCE`, because retuning any
+one of the three would otherwise reopen the gate silently.
+
+Two walls, both segmented rings from `_wall_ring`. The shore wall's shapes are
+disabled while a `swimmer` is ridden (`player.gd _set_shore_wall_enabled`) and
+restored on dismount; the shallow wall at `SHALLOW_WALL_RADIUS` (184) is always
+on and stops everyone. A segmented ring leaks between segments, so
+`water_bounds_test.gd` drives at the gap on both.
+
+The ground stays one `WorldBoundaryShape3D` at y=0, so the shallows are walked
+on at grass height and only look submerged. Depth is faked by dropping the
+model and not the collider: `Pal.sink_model`, called with `SWIM_SINK` while
+riding off the land and with `FISH_SINK` once in `_ready` for a fish. Without
+the fish sink they float clear of the water, which the screenshots caught and
+inspection did not.
+
+The Glub rig is a flyer with no `Walk` or `Idle` at all, so a fish asked to
+walk stands frozen. `Pal.SWIM_CLIPS` maps Walk/Run/Idle onto
+`Fast_Flying`/`Flying_Idle`, which read as swimming.
 
 Feedback the player's own body gives: every swing of `punch` plays
 `Bite_Front` for `BITE_ANIM_TIME` (the cat rig has no `Punch` clip) and a

@@ -464,6 +464,9 @@ func _toggle_ride() -> void:
 		# Riding puts us inside the pal's collider, which would jam its
 		# move_and_slide against ours every frame.
 		_set_collision_enabled(false)
+		# A swimmer is the only way into the shallows, so the shore wall
+		# stands down for as long as one is being ridden.
+		_set_shore_wall_enabled(not mount.swimmer)
 
 
 func _dismount(force := false) -> bool:
@@ -477,6 +480,7 @@ func _dismount(force := false) -> bool:
 	old_mount.state = Pal.State.FOLLOW
 	mount = null
 	_set_collision_enabled(true)
+	_set_shore_wall_enabled(true)
 	global_position = landing
 	velocity = Vector3.ZERO
 	_record_trail()
@@ -486,6 +490,16 @@ func _dismount(force := false) -> bool:
 func _safe_dismount_position(from_mount: Pal) -> Variant:
 	var basis := from_mount.global_transform.basis
 	var candidates: Array[Vector3] = [basis.x, -basis.x, -basis.z, basis.z]
+	# Out in the shallows none of the four sides is land, so try straight back
+	# towards the island first. Without this a swimmer in the water could only
+	# ever refuse, and the rider would be stuck aboard.
+	var inland := -Vector3(
+		from_mount.global_position.x, 0.0, from_mount.global_position.z
+	)
+	if not Zone.is_inside(get_world_3d(), from_mount.global_position, Zone.Kind.LAND):
+		var beached: Variant = _beach_dismount_position(from_mount, inland)
+		if beached != null:
+			return beached
 	for dir in candidates:
 		dir.y = 0.0
 		if dir.length() < 0.01:
@@ -493,6 +507,28 @@ func _safe_dismount_position(from_mount: Pal) -> Variant:
 		var landing: Vector3 = (
 			from_mount.global_position
 			+ dir.normalized() * Tuning.RIDE_DISMOUNT_SIDE
+			+ Vector3.UP * Tuning.RIDE_DISMOUNT_UP
+		)
+		if _dismount_spot_is_safe(landing, from_mount):
+			return landing
+	return null
+
+
+## Walk inland from a mount in the water until a spot on land is clear. Steps
+## by the same clearance the four-way probe insets by, so the first hit is
+## just inside the shore wall rather than flush against it.
+func _beach_dismount_position(from_mount: Pal, inland: Vector3) -> Variant:
+	if inland.length() < 0.01:
+		return null
+	var dir := inland.normalized()
+	var start := Vector3(from_mount.global_position.x, 0.0, from_mount.global_position.z)
+	var out := start.length()
+	var step := Tuning.RIDE_DISMOUNT_CLEARANCE
+	var tries := int((out - Tuning.SHORE_WALL_RADIUS) / step) + Tuning.DISMOUNT_BEACH_STEPS
+	for i in maxi(tries, 1):
+		var landing := (
+			start
+			+ dir * (step * (i + 1))
 			+ Vector3.UP * Tuning.RIDE_DISMOUNT_UP
 		)
 		if _dismount_spot_is_safe(landing, from_mount):
@@ -521,6 +557,13 @@ func _dismount_spot_is_safe(landing: Vector3, from_mount: Pal) -> bool:
 			continue
 		return false
 	return true
+
+
+## A swimmer off the land is in the water; anything else never is.
+func _mount_is_wading() -> bool:
+	if mount == null or not mount.swimmer:
+		return false
+	return not Zone.is_inside(get_world_3d(), mount.global_position, Zone.Kind.LAND)
 
 
 ## Horizontal direction the body faces. Godot forward: -Z.
@@ -554,6 +597,18 @@ func _set_collision_enabled(on: bool) -> void:
 	$CollisionShape3D.disabled = not on
 
 
+## The shore wall's segments, toggled as one. Disabling the shapes rather
+## than the body keeps the node in the tree, so the ride can put it back
+## without rebuilding the ring.
+func _set_shore_wall_enabled(on: bool) -> void:
+	var wall := get_tree().get_root().find_child("ShoreWall", true, false)
+	if wall == null:
+		return
+	for child in wall.get_children():
+		if child is CollisionShape3D:
+			child.set_deferred("disabled", not on)
+
+
 ## While mounted the pal does the moving and we sit on its seat.
 func _ride(delta: float) -> void:
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
@@ -562,11 +617,20 @@ func _ride(delta: float) -> void:
 	direction.y = 0.0
 	direction = direction.normalized()
 
+	# The ground is one flat plane at y = 0, so the shallows are walked on at
+	# grass height. Wading is faked by dropping the model and slowing down.
+	var wading := _mount_is_wading()
+	var speed: float = (
+		Tuning.RIDE_SPEED * Tuning.SWIM_SPEED_FACTOR if wading else Tuning.RIDE_SPEED
+	)
+	var sink := Tuning.SWIM_SINK if wading else 0.0
+	mount.sink_model(sink)
+
 	if not mount.is_on_floor():
 		mount.velocity += get_gravity() * delta
 	if direction:
-		mount.velocity.x = direction.x * Tuning.RIDE_SPEED
-		mount.velocity.z = direction.z * Tuning.RIDE_SPEED
+		mount.velocity.x = direction.x * speed
+		mount.velocity.z = direction.z * speed
 		mount.face(direction, delta, Tuning.RIDE_TURN_SPEED)
 		mount._play("Walk")
 	else:

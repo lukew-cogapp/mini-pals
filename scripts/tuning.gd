@@ -326,3 +326,42 @@ const HEALTH_FILL_COLOR := Color(0.85, 0.25, 0.25)
 ## than the first.
 const CATCH_SHAKE_LEAN := 0.5
 const CATCH_SHAKE_LEAN_GROWTH := 0.18
+
+## --- Shallows: the water ring only a swimmer can reach --------------------
+
+## Outer edge of the wadeable ring. A wall stands here for everyone, rider
+## and pal alike, so the shallows are the last place the game is playable.
+const SHALLOW_WALL_RADIUS := 184.0
+const SHALLOW_WALL_HEIGHT := 14.0
+
+## Where fish are allowed to be, spawning and wandering both. The inner edge
+## is what gates the loop: a cube thrown from the shore wall reaches
+## SHORE_WALL_RADIUS + CUBE_AIM_DISTANCE, so keeping every fish beyond that
+## makes the mount the only way to a catch. test/water_test.gd asserts it,
+## because retuning any one of the three would otherwise reopen the gate.
+const FISH_RING_MIN := 148.0
+const FISH_RING_MAX := 179.0
+const FISH_COUNT := 14
+
+## Amphibians wade ashore to be caught on land, so they spawn on the sand
+## band rather than in the water.
+const AMPHIBIAN_COUNT := 6
+const AMPHIBIAN_BAND := Vector2(0.95, 1.03)
+
+## Swim feel. A ridden swimmer off the land sits lower and moves slower, so
+## leaving the beach reads as entering water without a buoyancy sim.
+const SWIM_SINK := 0.55
+const SWIM_SPEED_FACTOR := 0.6
+
+## The deep water disc is drawn over the shallow one, so the shallow ring
+## needs lifting clear of it or the two z-fight.
+const SHALLOW_LEVEL := -0.55
+
+## Extra inland steps a dismount in the water tries past the shore wall, so
+## it walks clear of the wall instead of landing against it.
+const DISMOUNT_BEACH_STEPS := 8
+
+## How far a fish's model drops below the ground plane. The shallow surface
+## is at SHALLOW_LEVEL, so anything less than that gap leaves the fish
+## visibly floating on top of the water instead of in it.
+const FISH_SINK := 1.1

@@ -85,6 +85,8 @@ func _init() -> void:
 	await _shoot_rig_and_throw()
 	await _shoot_wolf_walking()
 
+	await _shoot_shallows()
+
 	await _shoot_ui()
 
 	print("SHOTS_WRITTEN=", _shots.size())
@@ -262,3 +264,47 @@ func _capture(name: String) -> void:
 		printerr("save failed: ", path, " err=", err)
 	else:
 		_shots.append({"name": name, "path": path})
+
+
+## The shallows: fish out in the water, and the amphibian mount wading in it.
+## Nothing else in the harness reaches this far out, and the two things worth
+## looking at here are whether the fish read as being in water and whether a
+## ridden swimmer looks submerged rather than floating on top.
+func _shoot_shallows() -> void:
+	var fish: Node3D = null
+	for node in get_nodes_in_group("pal"):
+		if node.water_only:
+			fish = node
+			break
+	if fish:
+		# Low and close, so the waterline crosses the body in frame.
+		await _shoot_at("23_shallows_fish", fish, Vector3(6.0, 2.0, 6.0))
+		# Wide, to show shallow against deep with the shore behind.
+		var out: Vector3 = fish.global_position
+		await _shoot_free(
+			"24_shallows_wide",
+			out.normalized() * (Tuning.SHALLOW_WALL_RADIUS + 40.0) + Vector3.UP * 30.0,
+			Vector3(out.x * 0.7, 0.0, out.z * 0.7),
+		)
+
+	# Ride an amphibian out past the shore wall and shoot it in the water.
+	var pal = load("res://scenes/pal_mudwader.tscn").instantiate()
+	_world.add_child(pal)
+	await process_frame
+	var radial := Vector3(1.0, 0.0, 0.0)
+	pal.global_position = radial * (Tuning.SHORE_WALL_RADIUS + 12.0) + Vector3.UP
+	pal.caught = true
+	pal.state = pal.State.RIDDEN
+	_player.global_position = pal.seat_position()
+	_player.mount = pal
+	_player._set_collision_enabled(false)
+	_player._set_shore_wall_enabled(false)
+	# A few frames of riding, so _ride applies the sink before the shot.
+	for i in 20:
+		await physics_frame
+	await _shoot_at("25_riding_in_water", pal, Vector3(5.0, 2.0, 5.0))
+	await _shoot_at("26_riding_in_water_low", pal, Vector3(4.0, 0.9, 0.0))
+
+	_player.mount = null
+	_player._set_collision_enabled(true)
+	_player._set_shore_wall_enabled(true)
