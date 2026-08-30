@@ -27,8 +27,13 @@ func throw(from: Vector3, velocity: Vector3) -> void:
 func _physics_process(delta: float) -> void:
 	if _spent:
 		return
+	var from := global_position
 	_velocity.y -= Tuning.CUBE_GRAVITY * delta
 	global_position += _velocity * delta
+	var pal := _sweep_pal(from, global_position)
+	if pal:
+		_hit_pal(pal)
+		return
 	# Tumble on two axes so the flat faces catch the light; a single-axis
 	# spin reads as a wheel, not a thrown cube.
 	rotate_x(-delta * 6.0)
@@ -47,10 +52,22 @@ func _on_body_entered(body: Node3D) -> void:
 	if _spent or not body is Pal:
 		return
 	var pal := body as Pal
+	_hit_pal(pal)
+
+
+func _hit_pal(pal: Pal) -> void:
 	if pal.caught or pal.dying:
 		return
 	_spent = true
 	_capture(pal)
+
+
+func _sweep_pal(from: Vector3, to: Vector3) -> Pal:
+	var ray := PhysicsRayQueryParameters3D.create(from, to, collision_mask)
+	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+	if hit:
+		return hit.collider as Pal
+	return null
 
 
 ## Suck the pal in, wobble while it decides, then burst open either way.
