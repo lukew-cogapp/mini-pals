@@ -421,9 +421,8 @@ func xp_worth() -> int:
 ## Low level and missing health both make the ball more likely to hold.
 func catch_chance() -> float:
 	var missing := 1.0 - float(hp) / float(max_hp)
-	var chance := Tuning.CUBE_CATCH_CHANCE \
-		- (level - 1) * Tuning.CUBE_CATCH_LEVEL_PENALTY \
-		+ missing * Tuning.CUBE_CATCH_HEALTH_BONUS
+	var chance := (Tuning.CUBE_CATCH_CHANCE + missing * Tuning.CUBE_CATCH_HEALTH_BONUS) \
+		* pow(Tuning.CUBE_CATCH_LEVEL_FALLOFF, level - 1)
 	return clampf(chance, Tuning.CUBE_CATCH_MIN, Tuning.CUBE_CATCH_MAX)
 
 

@@ -19,8 +19,8 @@ const GROUND_SIZE := 120.0
 
 # --- Scenery scatter ---
 const SCATTER_SEED := 20260830
-const TREE_COUNT := 90
-const ROCK_COUNT := 70
+const TREE_COUNT := 260
+const ROCK_COUNT := 190
 const SCATTER_CLEAR_RADIUS := 6.0
 ## Kit trees stand ~7m and rocks ~2m at scale 1, so these are smaller than
 ## the primitives they replaced to keep the same spread of sizes on screen.
@@ -43,7 +43,7 @@ const PAL_FLEE_DISTANCE := 6.0
 const PAL_TURN_SPEED := 6.0
 const PAL_FOLLOW_DISTANCE := 3.0
 const PAL_FOLLOW_SPEED := 6.0
-const PAL_COUNT := 8
+const PAL_COUNT := 20
 
 # --- Pal levels and combat ---
 const PAL_LEVEL_MIN := 1
@@ -83,7 +83,7 @@ const AGGRESSIVE_BONUS_HP := 4
 const AGGRESSIVE_ATTACK_DAMAGE := 2.0
 
 # --- Demons ---
-const DEMON_COUNT := 5
+const DEMON_COUNT := 12
 ## Fractions of half the ground size: an annulus at the rim, so the
 ## middle of the map stays safe to potter about in.
 const DEMON_RING_MIN := 0.55
@@ -111,7 +111,10 @@ const CUBE_LOB_TIME_MAX := 1.4  # Long throws stay a lob, not a mortar shot.
 const CUBE_GRAVITY := 10.0
 const CUBE_HALF_SIZE := 0.4
 const CUBE_CATCH_CHANCE := 0.55
-const CUBE_CATCH_LEVEL_PENALTY := 0.09
+## Level scales the chance rather than subtracting from it. A subtraction
+## large enough to make a level 10 boss hard also sank the whole curve below
+## CUBE_CATCH_MIN, so damage stopped moving the number at all.
+const CUBE_CATCH_LEVEL_FALLOFF := 0.88
 const CUBE_CATCH_HEALTH_BONUS := 0.35
 const CUBE_CATCH_MIN := 0.05
 const CUBE_CATCH_MAX := 0.9
@@ -168,7 +171,7 @@ const RECIPES := [
 ]
 ## Out in the demon annulus, so reaching the altar is a journey; kept
 ## inside the island's grass (ISLAND_RADIUS minus the beach).
-const ALTAR_POS := Vector3(33.0, 0.0, -33.0)
+const ALTAR_POS := Vector3(64.0, 0.0, -64.0)
 const ALTAR_CLEAR_RADIUS := 8.0
 const ALTAR_RANGE := 5.0
 const BOSS_LEVEL := 10
@@ -192,15 +195,15 @@ const FIGHT_GLOW_HEIGHT := 1.0
 const FIGHT_GLOW_COLOR := Color(1.0, 0.55, 0.25)
 
 # --- Island ---
-const ISLAND_RADIUS := 58.0
+const ISLAND_RADIUS := 110.0
 const BEACH_WIDTH := 6.0
 const WATER_RADIUS := 400.0
 const WATER_LEVEL := -0.9
 ## Kept just inside the beach so you cannot paddle out to the wall.
-const SHORE_WALL_RADIUS := 62.0
+const SHORE_WALL_RADIUS := 114.0
 const SHORE_WALL_HEIGHT := 14.0
-const PALM_COUNT := 26
-const SHELL_COUNT := 40
+const PALM_COUNT := 48
+const SHELL_COUNT := 72
 
 ## Thrown from the right shoulder. Straight ahead the cat's own body hides
 ## the cube for the first few frames, which reads as nothing happening.
