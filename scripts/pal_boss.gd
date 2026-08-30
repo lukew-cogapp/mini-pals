@@ -1,7 +1,7 @@
 extends Pal
 ## The Mushroom King, summoned at the altar. Catching it wins the game.
-## The base catch maths already punish its level, so a fresh boss sits at
-## CUBE_CATCH_MIN until it has been worn down.
+## Its level and BOSS_BONUS_HP make it the hardest catch in the game, but the
+## odds still climb as it is worn down, which is the fight.
 
 
 func _level_hp() -> int:
