@@ -4,6 +4,14 @@ Kept current as work lands.
 
 ## Next
 
+- [ ] Water traversal: a rideable amphibian to reach the shallows, and a fish
+      that lives there and cannot leave. Catching the first is the gate to the
+      second. Shallow band needs to be ~70m wide or the fish have nowhere to
+      swim once they are pushed past `CUBE_AIM_DISTANCE` from shore
+- [ ] More islands, now that regions are Zones rather than radii
+- [ ] Remaining juice: level-up moment, the win moment, FOV stretch with
+      speed, and a second HUD message slot (catch, XP and level-up text
+      currently overwrite each other)
 - [ ] Gather feedback in the world: sound plays, but no hit effect
 - [ ] Adopt **GUT** for tests (researched, recommended over GdUnit4)
       `godot --headless -d -s addons/gut/gut_cmdln.gd -gdir=res://test -ginclude_subdirs -gexit`
@@ -12,6 +20,15 @@ Kept current as work lands.
       needs a real wing mesh
 
 ## Done
+
+- [x] Regions are `Zone` Area3Ds, not distances from the world origin
+- [x] Followers fight for you but never land the killing blow
+- [x] Camera shake, catch hitstop, hurt flash, and a catch wobble count that
+      no longer leaks the roll
+- [x] The swing animates and a miss is audible
+- [x] Catch odds scale by level instead of subtracting, so damage always
+      moves the number and the boss is no longer stuck at 5%
+- [x] Quaternius nature kit for trees and rocks; real art on the pal cube
 
 - [x] Catch sequence: pal shrinks into the cube, three shakes, particle burst,
       escape bursts the pal back out at full size
