@@ -8,7 +8,9 @@ var _life := Tuning.CUBE_LIFETIME
 var _spent := false
 var _rng := RandomNumberGenerator.new()
 
-@onready var _mesh: MeshInstance3D = $Mesh
+@onready var _mesh: Node3D = $Mesh
+## Model art is not unit-sized, so the pop tween scales from this, not 1.
+@onready var _mesh_scale: Vector3 = _mesh.scale
 @onready var _burst: GPUParticles3D = $Burst
 
 
@@ -112,7 +114,7 @@ func _succeed(pal: Pal) -> void:
 	Audio.play("caught", global_position)
 	_burst.emitting = true
 	var settle := create_tween()
-	settle.tween_property(_mesh, "scale", Vector3.ONE * 1.3, Tuning.CATCH_SETTLE_TIME * 0.4)
+	settle.tween_property(_mesh, "scale", _mesh_scale * 1.3, Tuning.CATCH_SETTLE_TIME * 0.4)
 	settle.tween_property(_mesh, "scale", Vector3.ZERO, Tuning.CATCH_SETTLE_TIME * 0.6) \
 		.set_ease(Tween.EASE_IN)
 	await settle.finished
