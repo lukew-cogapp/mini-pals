@@ -19,6 +19,7 @@ func _init() -> void:
 
 	await _test_player_cannot_walk_between_shore_wall_segments()
 	await _test_mount_cannot_walk_between_shore_wall_segments()
+	await _test_dismount_picks_an_inland_spot_at_the_shore()
 
 	print("FAILURES=", _fails)
 	quit(1 if _fails > 0 else 0)
@@ -96,4 +97,39 @@ func _test_mount_cannot_walk_between_shore_wall_segments() -> void:
 
 	_player.mount = null
 	_player._set_collision_enabled(true)
+	wolf.queue_free()
+
+
+func _test_dismount_picks_an_inland_spot_at_the_shore() -> void:
+	var angle := TAU / 48.0
+	var radial := Vector3(cos(angle), 0.0, sin(angle))
+	var tangent := Vector3(-radial.z, 0.0, radial.x)
+	var wolf = load("res://scenes/pal_wolf.tscn").instantiate()
+	_world.add_child(wolf)
+	await process_frame
+
+	wolf.global_position = radial * (Tuning.SHORE_WALL_RADIUS - 1.0) + Vector3.UP
+	wolf.look_at(wolf.global_position + tangent, Vector3.UP)
+	wolf.caught = true
+	wolf.state = wolf.State.RIDDEN
+	_player.global_position = wolf.seat_position()
+	_player.velocity = Vector3.ZERO
+	_player.mount = wolf
+	_player._set_collision_enabled(false)
+
+	var dismounted: bool = _player._dismount()
+	var radius := Vector2(_player.global_position.x, _player.global_position.z).length()
+	_check(
+		"dismount at the shore lands inside the wall",
+		dismounted and radius < Tuning.SHORE_WALL_RADIUS - Tuning.RIDE_DISMOUNT_CLEARANCE,
+		"dismounted=%s radius=%.2f pos=%s" % [
+			dismounted,
+			radius,
+			_player.global_position,
+		],
+	)
+
+	if _player.mount:
+		_player.mount = null
+		_player._set_collision_enabled(true)
 	wolf.queue_free()

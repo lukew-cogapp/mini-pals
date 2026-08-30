@@ -137,6 +137,7 @@ const RIDE_MOUNT_DISTANCE := 3.0
 # Seat height is scene geometry: the Seat marker in each pal scene.
 const RIDE_DISMOUNT_SIDE := 1.2
 const RIDE_DISMOUNT_UP := 0.5
+const RIDE_DISMOUNT_CLEARANCE := 0.75
 
 # --- Party ---
 const SUMMON_SIDE := 1.4

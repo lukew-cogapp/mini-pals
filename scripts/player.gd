@@ -183,7 +183,7 @@ func damage(amount: float, from_position: Vector3) -> bool:
 func _die() -> void:
 	_dead = true
 	if mount:
-		_dismount()
+		_dismount(true)
 	velocity = Vector3.ZERO
 	set_physics_process(false)
 	Audio.play("player_death", global_position)
@@ -328,17 +328,58 @@ func _toggle_ride() -> void:
 		_set_collision_enabled(false)
 
 
-func _dismount() -> void:
-	# +X is the mount's right side under the -Z-forward convention.
-	var landing := (
-		mount.global_position
-		+ mount.global_transform.basis.x * Tuning.RIDE_DISMOUNT_SIDE
-	)
-	mount.state = Pal.State.FOLLOW
+func _dismount(force := false) -> bool:
+	var landing: Variant = _safe_dismount_position(mount)
+	if landing == null:
+		if not force:
+			Hud.flash("No safe place to dismount.")
+			return false
+		landing = mount.global_position + Vector3.UP * Tuning.RIDE_DISMOUNT_UP
+	var old_mount := mount
+	old_mount.state = Pal.State.FOLLOW
 	mount = null
 	_set_collision_enabled(true)
-	global_position = landing + Vector3.UP * Tuning.RIDE_DISMOUNT_UP
+	global_position = landing
 	velocity = Vector3.ZERO
+	_record_trail()
+	return true
+
+
+func _safe_dismount_position(from_mount: Pal) -> Variant:
+	var basis := from_mount.global_transform.basis
+	var candidates: Array[Vector3] = [basis.x, -basis.x, -basis.z, basis.z]
+	for dir in candidates:
+		dir.y = 0.0
+		if dir.length() < 0.01:
+			continue
+		var landing: Vector3 = (
+			from_mount.global_position
+			+ dir.normalized() * Tuning.RIDE_DISMOUNT_SIDE
+			+ Vector3.UP * Tuning.RIDE_DISMOUNT_UP
+		)
+		if _dismount_spot_is_safe(landing, from_mount):
+			return landing
+	return null
+
+
+func _dismount_spot_is_safe(landing: Vector3, from_mount: Pal) -> bool:
+	var radius := Vector2(landing.x, landing.z).length()
+	if radius > Tuning.SHORE_WALL_RADIUS - Tuning.RIDE_DISMOUNT_CLEARANCE:
+		return false
+
+	var shape_node: CollisionShape3D = $CollisionShape3D
+	var params := PhysicsShapeQueryParameters3D.new()
+	params.shape = shape_node.shape
+	params.transform = Transform3D(Basis.IDENTITY, landing + shape_node.position)
+	params.collision_mask = collision_mask
+	params.exclude = [get_rid(), from_mount.get_rid()]
+	var hits := get_world_3d().direct_space_state.intersect_shape(params, 8)
+	for hit in hits:
+		var collider := hit.collider as Node
+		if collider and collider.name == "GroundBody":
+			continue
+		return false
+	return true
 
 
 ## Horizontal direction the body faces. Godot forward: -Z.
