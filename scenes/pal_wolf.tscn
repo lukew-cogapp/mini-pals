@@ -12,6 +12,10 @@ collision_layer = 4
 script = ExtResource("1")
 display_name = "Wolf"
 rideable = true
+; A dog. The quickest thing on the island: fleeing at 5.5 * 1.35 = 7.4 it
+; outwalks the player's 5.0, so a chase is a real chase, and it still loses to
+; the sprint of 9.0, so the chase is winnable.
+speed_factor = 1.35
 level_min = 1
 level_max = 3
 drop_item = "pelt"

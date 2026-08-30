@@ -12,6 +12,10 @@ collision_layer = 4
 script = ExtResource("1")
 display_name = "Glimmerfin"
 rideable = false
+; A fish, and a darting one, but NEUTRAL and penned in the shallows, so this
+; only shows in its wander. A rider closes at RIDE_SPEED * SWIM_SPEED_FACTOR
+; (15.95) whatever the fish does.
+speed_factor = 1.15
 swimmer = true
 water_only = true
 ; NEUTRAL: it is confined to a ring only a mount reaches, so fleeing a rider

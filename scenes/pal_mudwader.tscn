@@ -12,6 +12,10 @@ collision_layer = 4
 script = ExtResource("1")
 display_name = "Mudwader"
 rideable = true
+; A big amphibian, heavy on land: wandering at 2.2 * 0.7 = 1.54. Riding is
+; untouched, because the player drives a mount at RIDE_SPEED directly and
+; never through speed(), so the water traversal it exists for is unchanged.
+speed_factor = 0.7
 model_scale = 0.56
 swimmer = true
 ; NEUTRAL: a big amphibian scurrying off like a wolf reads wrong. It still

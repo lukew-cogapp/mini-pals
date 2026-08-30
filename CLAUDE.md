@@ -178,6 +178,13 @@ since a pipe hides the failing line:
 Check `FAILURES=` is PRESENT, not just zero: an absent line means the run
 died, and that is not the same as passing.
 
+**A pal drives itself; do not tick it by hand as well.** `_physics_process`
+runs the state machine and calls `move_and_slide()` every physics frame, so a
+test that also calls `_tick_follow` and `move_and_slide` steps the pal twice
+and every measured speed reads double. `test/species_speed_test.gd` parks a
+pal in `State.IDLE` when it wants to drive it (idle zeroes the velocity and
+slides nowhere) and otherwise lets the pal drive itself.
+
 **Area3D needs its mask to match the target's layer.** Pals sit on layer 4, so
 the pal cube needs `collision_mask = 4`; the default mask of 1 silently
 detects nothing. No error, the cube just sails through.
@@ -526,6 +533,26 @@ follower can never land the kill and cost you the catch. It drops back to
 FOLLOW when the target dies, is caught, calms down, or the player passes
 `FOLLOWER_LEASH` away. `test/pal_combat_test.gd` covers all of it.
 
+Each species has its own pace. `Pal.speed_factor` multiplies every shared
+speed constant through `Pal.speed()`, the way `model_scale` multiplies size,
+so wander, flee, chase, gather and follow all scale together and the
+relationship between them still lives in `tuning.gd`. Clamped to
+`PAL_SPEED_FACTOR_MIN`..`MAX`.
+
+The player is the reference: `PLAYER_SPEED` 5.0 and `PLAYER_RUN_SPEED` 9.0.
+Cactoro 0.6 and Mudwader 0.7 are caught by a walking player; Glimmerfin 1.15,
+Boss 1.3, Wolf 1.35 and Demon 1.55 are not, and none of them outruns a sprint,
+deliberately: a fight with no exit is not a fight. Two interactions matter
+here, and both have tests. A chasing pal below the player's WALK lands
+no hit for `PAL_NO_HIT_GIVE_UP_TIME` and quits, which is why the boss is 1.3
+and not lower. And a follower must never lose ground to a sprint, so the
+catch-up end of the follow ramp keeps `FOLLOW_CATCHUP_FLOOR` whatever the
+factor does to it; without that a Cactoro drifts past `FOLLOWER_LEASH`.
+Riding never goes through `speed()`: `player.gd` drives the mount at
+`RIDE_SPEED` directly, so a slow Mudwader is still a fast boat.
+`test/species_speed_test.gd` asserts ground actually covered, not the
+constants.
+
 Pals unstick themselves. `_move_towards` in `pal.gd` compares ground covered
 against the speed the state asked for; below `PAL_STUCK_SPEED_FRACTION` of it
 for `PAL_STUCK_TIME` the pal turns sharply off the blocked heading and runs
@@ -540,16 +567,26 @@ fine progress. `test/pal_stuck_test.gd` covers both directions.
 
 Wild pals show a floating health bar above the name label within
 `PAL_HEALTH_BAR_DISTANCE`, sampled every `PAL_HEALTH_BAR_CHECK_INTERVAL`
-rather than per frame. Two `MeshInstance3D` quads built once in `_ready` and
-rescaled, never rebuilt. Both are billboarded, and a billboard is vertex work
-in the material that does not touch the node basis: a child node offset stays
-in world space and swings out of the bar as the camera moves. So the fill is a
-sibling at the same origin, shifted inside its own mesh with
-`QuadMesh.center_offset`. `billboard_keep_scale` is also required, or every
-bar renders as the default 1 m square whatever it was scaled to; both of those
-looked correct until the screenshot. Caught and dying pals hide theirs, as the
-name label already does. `test/pal_health_bar_test.gd` covers it, shots 29 and
-30.
+rather than per frame. Five `MeshInstance3D` quads built once in `_ready` and
+rescaled, never rebuilt: a translucent drop shadow, a dark backing that also
+serves as the border, a lighter track for the empty part, the coloured fill,
+and a lighter sheen strip pinned to the fill's top edge. `render_priority`
+1 to 5 is what orders them, since they share an origin and use
+`no_depth_test`. The fill colour is `Pal.bar_colour`, a three-stop ramp
+lerped through `PAL_HEALTH_BAR_MID_COLOUR`: the old single step at 0.35 went
+green to red between two hits.
+
+All five are billboarded, and a billboard is vertex work in the material that
+does not touch the node basis: a child node offset stays in world space and
+swings out of the bar as the camera moves. So every quad is a sibling at the
+same origin, shifted inside its own mesh with `QuadMesh.center_offset` (the
+fill's left edge, the sheen's top edge, the shadow's drop).
+`billboard_keep_scale` is also required, or every bar renders as the default
+1 m square whatever it was scaled to; both of those looked correct until the
+screenshot. Caught and dying pals hide theirs, as the name label already does.
+`test/pal_health_bar_test.gd` covers it; `test/health_bar_shots.gd` renders it
+against grass and ash at full, half and nearly-dead health, which is the only
+way to judge it.
 
 Every bug this project has hit was invisible on inspection and only showed up
 in a headless test: a cube flying over the target's head, a mount jammed at

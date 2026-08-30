@@ -11,6 +11,11 @@ height = 3.2
 collision_layer = 4
 script = ExtResource("1")
 display_name = "Mushroom King"
+; Huge, and inevitable rather than twitchy: it ambles at 2.2 * 1.3 = 2.86 but
+; chases at 4.0 * 1.3 = 5.2, just past the player's walk of 5.0, so backing
+; away never quite shakes it. Any slower than that walk and it lands nothing
+; for PAL_NO_HIT_GIVE_UP_TIME and quits the fight it was summoned for.
+speed_factor = 1.3
 ; Level 10 growth already multiplies the scene's own bulk by 1.63, which put
 ; the king near five times the player's height. Trimmed so he still towers
 ; without filling the screen.

@@ -14,6 +14,12 @@ enum State { WANDER, IDLE, FLEE, FOLLOW, RIDDEN, ATTACK, DEFEND, GATHER }
 ## Art scale for this species, multiplied by level growth. The kit models are
 ## not authored to one size: the fish stands twice as tall as the dog.
 @export var model_scale := 1.0
+## Pace for this species, multiplying every shared speed constant rather than
+## replacing any of them, so a wolf and a Mushroom King no longer move
+## identically and the walk/flee/chase/follow relationship still lives in
+## tuning.gd. Read through `speed()`, which clamps it. Riding is deliberately
+## unscaled: a mount's pace is RIDE_SPEED, the player's own knob.
+@export var speed_factor := 1.0
 ## Carries a rider past the shore wall. The wall's collision drops while a
 ## swimmer is ridden, so this flag is what opens the shallows.
 @export var swimmer := false
@@ -86,8 +92,11 @@ var _player: Node3D:
 
 var _player_cache: Node3D
 var _label: Label3D
+var _bar_shadow: MeshInstance3D
 var _bar_back: MeshInstance3D
+var _bar_track: MeshInstance3D
 var _bar_fill: MeshInstance3D
+var _bar_sheen: MeshInstance3D
 var _bar_check := 0.0
 
 @onready var _model_root: Node3D = $Model
@@ -135,34 +144,73 @@ func _update_label() -> void:
 
 ## --- Health bar ------------------------------------------------------------
 
-## A backing quad and a fill quad, both billboarded like the name label above
-## which they sit. Built once and rescaled, never rebuilt: there can be thirty
-## pals in the world and a bar per frame per pal would be thirty allocations.
-## The dark backing is what makes it read against pale grass and scorched ash
-## alike; a bare green bar disappeared into one or the other.
+## Five billboarded quads stacked at one origin: a translucent drop shadow, a
+## dark backing that doubles as the border, a flat track for the empty part,
+## the coloured fill, and a lighter sheen strip along the top of the fill. Built once in _ready and rescaled
+## thereafter, never rebuilt: there can be thirty pals in the world and a
+## rebuild per frame per pal would be thirty allocations a frame.
+##
+## The layering is what makes the bar read against both the pale grass and
+## the scorched ash. The shadow gives a dark bar an edge over dark ground,
+## the backing gives a bright fill one over bright ground, and the sheen
+## stops the fill looking like a flat sticker.
 func _make_health_bar(grow: float) -> void:
 	var top := Tuning.PAL_LABEL_HEIGHT * grow + Tuning.PAL_HEALTH_BAR_RISE * grow
-	_bar_back = _bar_quad(Tuning.PAL_HEALTH_BAR_BACK_COLOUR)
+	var w := Tuning.PAL_HEALTH_BAR_WIDTH
+	var h := Tuning.PAL_HEALTH_BAR_HEIGHT
+
+	# Priority orders the four against each other; they sit at one origin and
+	# no_depth_test means nothing else can separate them.
+	_bar_shadow = _bar_quad(Tuning.PAL_HEALTH_BAR_SHADOW_COLOUR, 1)
+	_bar_shadow.name = "BarShadow"
+	_bar_shadow.position = Vector3.UP * top
+	var grown := h * Tuning.PAL_HEALTH_BAR_SHADOW_GROW
+	_bar_shadow.scale = Vector3(w + grown, h + grown, 1.0)
+	# Offset inside the mesh, not by the node: a billboard ignores the node
+	# basis, so a node-space nudge would swing round the bar with the camera.
+	var shadow_quad: QuadMesh = _bar_shadow.mesh
+	var drop := Tuning.PAL_HEALTH_BAR_SHADOW_DROP * h / (h + grown)
+	shadow_quad.center_offset = Vector3(drop, -drop, 0.0)
+	add_child(_bar_shadow)
+
+	_bar_back = _bar_quad(Tuning.PAL_HEALTH_BAR_BACK_COLOUR, 2)
+	_bar_back.name = "BarBacking"
 	_bar_back.position = Vector3.UP * top
-	_bar_back.scale = Vector3(
-		Tuning.PAL_HEALTH_BAR_WIDTH, Tuning.PAL_HEALTH_BAR_HEIGHT, 1.0
-	)
+	_bar_back.scale = Vector3(w, h, 1.0)
 	add_child(_bar_back)
 
-	# Sibling, not child. A billboard is vertex work in the material and does
-	# not touch the node basis, so a child offset stays in world space and
-	# swings out of the bar as the camera moves round. Both quads sit at the
-	# same origin instead, and the fill is shifted inside its own mesh.
-	_bar_fill = _bar_quad(Tuning.PAL_HEALTH_BAR_FILL_COLOUR)
+	# Siblings, not children. A billboard is vertex work in the material and
+	# does not touch the node basis, so a child offset stays in world space
+	# and swings out of the bar as the camera moves round. Every quad sits at
+	# the same origin instead, and is shifted inside its own mesh.
+	# The empty part of the bar, full width and inside the border, so missing
+	# health reads as an unfilled track rather than as a hole in the backing.
+	# Fixed size, so it is never touched again after this.
+	_bar_track = _bar_quad(Tuning.PAL_HEALTH_BAR_TRACK_COLOUR, 3)
+	_bar_track.name = "BarTrack"
+	_bar_track.position = _bar_back.position
+	_bar_track.scale = Vector3(
+		w * (1.0 - Tuning.PAL_HEALTH_BAR_BORDER),
+		h * (1.0 - Tuning.PAL_HEALTH_BAR_BORDER * 2.0),
+		1.0,
+	)
+	add_child(_bar_track)
+
+	_bar_fill = _bar_quad(Tuning.PAL_HEALTH_BAR_FILL_COLOUR, 4)
+	_bar_fill.name = "BarFill"
 	_bar_fill.position = _bar_back.position
-	var fill_mat: StandardMaterial3D = _bar_fill.material_override
-	fill_mat.render_priority = 2
 	add_child(_bar_fill)
+
+	_bar_sheen = _bar_quad(Tuning.PAL_HEALTH_BAR_FILL_COLOUR, 5)
+	_bar_sheen.name = "BarSheen"
+	_bar_sheen.position = _bar_back.position
+	add_child(_bar_sheen)
+
 	_refresh_bar()
 	_set_bar_visible(false)
 
 
-func _bar_quad(colour: Color) -> MeshInstance3D:
+func _bar_quad(colour: Color, priority: int) -> MeshInstance3D:
 	var quad := MeshInstance3D.new()
 	quad.mesh = QuadMesh.new()
 	var mat := StandardMaterial3D.new()
@@ -173,9 +221,13 @@ func _bar_quad(colour: Color) -> MeshInstance3D:
 	# the node's scale away with it, so without this every bar renders as the
 	# QuadMesh's default 1m square regardless of what it was scaled to.
 	mat.billboard_keep_scale = true
+	# The shadow is the only translucent layer, and an opaque quad drawn with
+	# alpha still costs a sort, so only it asks for blending.
+	if colour.a < 1.0:
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	# Drawn on top of the pal, so a bar behind a shoulder is still readable.
 	mat.no_depth_test = true
-	mat.render_priority = 1
+	mat.render_priority = priority
 	quad.material_override = mat
 	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return quad
@@ -200,31 +252,63 @@ func _tick_health_bar() -> void:
 
 
 func _set_bar_visible(on: bool) -> void:
-	if _bar_back:
-		_bar_back.visible = on
-	if _bar_fill:
-		_bar_fill.visible = on
+	for quad in [_bar_shadow, _bar_back, _bar_track, _bar_fill, _bar_sheen]:
+		if quad:
+			quad.visible = on
+
+
+## The fill colour at a given health fraction: green down to the mid stop,
+## then a slide through amber to red. The old single step at 0.35 snapped
+## between two hits and gave no warning the next one mattered.
+func bar_colour(frac: float) -> Color:
+	var mid := Tuning.PAL_HEALTH_BAR_MID_FRACTION
+	var low := Tuning.PAL_HEALTH_BAR_LOW_FRACTION
+	if frac >= mid:
+		return Tuning.PAL_HEALTH_BAR_FILL_COLOUR.lerp(
+			Tuning.PAL_HEALTH_BAR_MID_COLOUR,
+			inverse_lerp(1.0, mid, minf(frac, 1.0)),
+		)
+	return Tuning.PAL_HEALTH_BAR_MID_COLOUR.lerp(
+		Tuning.PAL_HEALTH_BAR_LOW_COLOUR,
+		clampf(inverse_lerp(mid, low, frac), 0.0, 1.0),
+	)
 
 
 ## Fill width is the hp fraction, inset by a border on all sides so the dark
-## backing shows as an outline.
+## backing shows as an outline. The sheen tracks the fill exactly, sitting on
+## its top edge and shrinking with it.
 func _refresh_bar() -> void:
 	var frac := clampf(float(hp) / float(maxi(max_hp, 1)), 0.0, 1.0)
 	var border := Tuning.PAL_HEALTH_BAR_BORDER
 	var inner := 1.0 - border
 	var w := Tuning.PAL_HEALTH_BAR_WIDTH
 	var h := Tuning.PAL_HEALTH_BAR_HEIGHT
-	_bar_fill.scale = Vector3(w * inner * frac, h * (1.0 - border * 2.0), 1.0)
+	var fill_w := w * inner * frac
+	var fill_h := h * (1.0 - border * 2.0)
+	_bar_fill.scale = Vector3(fill_w, fill_h, 1.0)
 	# Shifted in the mesh rather than by the node, which the billboard would
 	# ignore. center_offset is in the quad's own units, so it is divided by
 	# the scale the node then applies.
 	var quad: QuadMesh = _bar_fill.mesh
-	quad.center_offset.x = -0.5 * (1.0 - frac) / maxf(frac, 0.001)
-	var mat: StandardMaterial3D = _bar_fill.material_override
-	mat.albedo_color = (
-		Tuning.PAL_HEALTH_BAR_LOW_COLOUR
-		if frac <= Tuning.PAL_HEALTH_BAR_LOW_FRACTION
-		else Tuning.PAL_HEALTH_BAR_FILL_COLOUR
+	var left_shift := -0.5 * (1.0 - frac) / maxf(frac, 0.001)
+	quad.center_offset.x = left_shift
+
+	var colour := bar_colour(frac)
+	var fill_mat: StandardMaterial3D = _bar_fill.material_override
+	fill_mat.albedo_color = colour
+
+	# Same left edge and same width as the fill, a fraction of its height,
+	# pinned to its top. Both offsets are in the sheen's own units, so each is
+	# divided by the sheen scale that follows.
+	var sheen_h := fill_h * Tuning.PAL_HEALTH_BAR_SHEEN_HEIGHT
+	_bar_sheen.scale = Vector3(fill_w, sheen_h, 1.0)
+	var sheen_quad: QuadMesh = _bar_sheen.mesh
+	sheen_quad.center_offset = Vector3(
+		left_shift, (fill_h - sheen_h) * 0.5 / maxf(sheen_h, 0.001), 0.0
+	)
+	var sheen_mat: StandardMaterial3D = _bar_sheen.material_override
+	sheen_mat.albedo_color = colour.lerp(
+		Color.WHITE, Tuning.PAL_HEALTH_BAR_SHEEN_LIGHTEN
 	)
 
 
@@ -312,7 +396,7 @@ func _tick_wander(delta: float) -> void:
 	if _threat_near():
 		_enter_flee()
 		return
-	_move_towards(_target, Tuning.PAL_WALK_SPEED, delta)
+	_move_towards(_target, speed(Tuning.PAL_WALK_SPEED), delta)
 	_play("Walk")
 	if _flat_distance(_target) < 1.0:
 		_enter_idle()
@@ -324,7 +408,7 @@ func _tick_flee(delta: float) -> void:
 		return
 	var away := global_position - _player.global_position
 	away.y = 0.0
-	_move_towards(global_position + away.normalized() * 4.0, Tuning.PAL_FLEE_SPEED, delta)
+	_move_towards(global_position + away.normalized() * 4.0, speed(Tuning.PAL_FLEE_SPEED), delta)
 	_play("Walk")
 
 
@@ -365,14 +449,22 @@ func _tick_follow(delta: float) -> void:
 	if gap > 0.15:
 		# Faster the further behind it is, so it closes without ever sprinting
 		# from a standstill.
-		var speed: float = lerpf(
-			Tuning.PAL_FOLLOW_SPEED,
-			Tuning.FOLLOW_CATCHUP_SPEED,
+		# The catch-up end keeps FOLLOW_CATCHUP_FLOOR whatever the species
+		# factor does to it. A slow pal ambles at its own pace while the
+		# player walks, and still hauls itself back into place when they
+		# sprint, instead of trailing out to FOLLOWER_LEASH and unspawning
+		# the party from view.
+		var catchup := maxf(
+			speed(Tuning.FOLLOW_CATCHUP_SPEED), Tuning.FOLLOW_CATCHUP_FLOOR
+		)
+		var pace: float = lerpf(
+			speed(Tuning.PAL_FOLLOW_SPEED),
+			catchup,
 			clampf(gap / Tuning.FOLLOW_CATCHUP_RADIUS, 0.0, 1.0),
 		)
 		if gap < Tuning.FOLLOW_SLOW_RADIUS:
-			speed *= maxf(gap / Tuning.FOLLOW_SLOW_RADIUS, 0.35)
-		wanted = to_target.normalized() * speed
+			pace *= maxf(gap / Tuning.FOLLOW_SLOW_RADIUS, 0.35)
+		wanted = to_target.normalized() * pace
 
 	# Following steers itself rather than calling _move_towards, so it opts
 	# into the unstick by hand. Only while genuinely trying to close a gap:
@@ -448,7 +540,7 @@ func _tick_gather(delta: float) -> void:
 
 	var dist := _flat_distance(_gather_target.global_position)
 	if dist > Tuning.PAL_GATHER_RANGE:
-		_move_towards(_gather_target.global_position, Tuning.PAL_GATHER_SPEED, delta)
+		_move_towards(_gather_target.global_position, speed(Tuning.PAL_GATHER_SPEED), delta)
 		_play("Walk")
 		return
 
@@ -570,7 +662,7 @@ func _tick_rival(delta: float) -> void:
 
 	var dist := _flat_distance(_rival.global_position)
 	if dist > Tuning.RIVAL_ATTACK_RANGE:
-		_move_towards(_rival.global_position, Tuning.PAL_CHASE_SPEED, delta)
+		_move_towards(_rival.global_position, speed(Tuning.PAL_CHASE_SPEED), delta)
 		_play("Run" if _anim and _anim.has_animation("Run") else "Walk")
 		return
 
@@ -687,7 +779,7 @@ func _tick_defend(delta: float) -> void:
 
 	var dist := _flat_distance(_defend_target.global_position)
 	if dist > Tuning.FOLLOWER_ATTACK_RANGE:
-		_move_towards(_defend_target.global_position, Tuning.FOLLOWER_CHASE_SPEED, delta)
+		_move_towards(_defend_target.global_position, speed(Tuning.FOLLOWER_CHASE_SPEED), delta)
 		_play("Run" if _anim and _anim.has_animation("Run") else "Walk")
 		return
 
@@ -728,6 +820,16 @@ func take_follower_hit() -> void:
 		_anim.play("HitRecieve")
 	elif _anim and _anim.has_animation("HitReact"):
 		_anim.play("HitReact")
+
+
+## Every shared speed constant is read through here, so one export gives a
+## species its pace and nothing has to remember to multiply. Clamped, because
+## a scene is free to type any number and the two ends both break the game: a
+## chaser at 0 never arrives, and one at the player's sprint is inescapable.
+func speed(base: float) -> float:
+	return base * clampf(
+		speed_factor, Tuning.PAL_SPEED_FACTOR_MIN, Tuning.PAL_SPEED_FACTOR_MAX
+	)
 
 
 ## Every moving state steers through here, so the unstick lives here too and
@@ -904,7 +1006,7 @@ func _tick_attack(delta: float) -> void:
 		_give_up_attack()
 		return
 	if dist > Tuning.PAL_ATTACK_RANGE:
-		_move_towards(_player.global_position, Tuning.PAL_CHASE_SPEED, delta)
+		_move_towards(_player.global_position, speed(Tuning.PAL_CHASE_SPEED), delta)
 		# The Big rigs have a Run cycle; the Blobs only Walk.
 		_play("Run" if _anim and _anim.has_animation("Run") else "Walk")
 		return
@@ -1072,10 +1174,11 @@ func gain_level() -> void:
 		_label.text = "Lv%d %s" % [level, display_name]
 		_label.position = Vector3.UP * Tuning.PAL_LABEL_HEIGHT * grow
 	if _bar_back:
-		_bar_back.position = Vector3.UP * (
+		var top := Vector3.UP * (
 			Tuning.PAL_LABEL_HEIGHT * grow + Tuning.PAL_HEALTH_BAR_RISE * grow
 		)
-		_bar_fill.position = _bar_back.position
+		for quad in [_bar_shadow, _bar_back, _bar_track, _bar_fill, _bar_sheen]:
+			quad.position = top
 		_refresh_bar()
 
 

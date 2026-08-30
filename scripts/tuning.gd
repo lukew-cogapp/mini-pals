@@ -73,12 +73,62 @@ const PAL_HEALTH_BAR_RISE := 0.45
 ## Near-black backing behind the fill, which is what makes the bar read
 ## against pale grass and scorched ground alike.
 const PAL_HEALTH_BAR_BACK_COLOUR := Color(0.05, 0.04, 0.06)
-const PAL_HEALTH_BAR_FILL_COLOUR := Color(0.25, 0.85, 0.3)
-const PAL_HEALTH_BAR_LOW_COLOUR := Color(0.9, 0.2, 0.15)
-## Below this fraction the fill turns red.
-const PAL_HEALTH_BAR_LOW_FRACTION := 0.35
 ## Border thickness, as a fraction of the bar height.
 const PAL_HEALTH_BAR_BORDER := 0.22
+## The empty part of the bar, drawn inside the border at full width behind
+## the fill. Without it the missing health is a black void the same colour as
+## the border, and a nearly-dead bar reads as a black slab with a red chip on
+## it rather than as a bar that is nearly empty.
+const PAL_HEALTH_BAR_TRACK_COLOUR := Color(0.19, 0.17, 0.2)
+
+## A drop shadow behind the backing: the same quad, grown and pushed down and
+## right, in translucent black. Without it a dark bar over dark ash has no
+## edge at all and reads as a smudge on the ground behind it.
+const PAL_HEALTH_BAR_SHADOW_COLOUR := Color(0.0, 0.0, 0.0, 0.22)
+## How far the shadow is offset, in bar heights. Small: at 0.35 it read as a
+## second grey rectangle beside the bar rather than as a shadow under it.
+const PAL_HEALTH_BAR_SHADOW_DROP := 0.12
+## How much wider and taller the shadow is than the backing, again in bar
+## heights, so it shows on every side as a dark halo rather than only below.
+const PAL_HEALTH_BAR_SHADOW_GROW := 0.3
+
+## Colour ramp, high to low. The old bar had one step at 0.35, which snapped
+## from green to red between two hits and gave no warning that the next one
+## mattered. Three stops with the fill lerped between them reads as a slide.
+const PAL_HEALTH_BAR_FILL_COLOUR := Color(0.36, 0.86, 0.36)
+const PAL_HEALTH_BAR_MID_COLOUR := Color(0.96, 0.78, 0.22)
+const PAL_HEALTH_BAR_LOW_COLOUR := Color(0.92, 0.24, 0.2)
+## Fraction the ramp passes through mid on its way to low. Below
+## PAL_HEALTH_BAR_LOW_FRACTION the fill is fully the low colour.
+const PAL_HEALTH_BAR_MID_FRACTION := 0.6
+const PAL_HEALTH_BAR_LOW_FRACTION := 0.25
+
+## A lighter strip along the top of the fill, so the bar has a direction of
+## light instead of reading as one flat rectangle. Height is a fraction of
+## the fill's height, and the colour is the fill lightened by this much
+## towards white.
+const PAL_HEALTH_BAR_SHEEN_HEIGHT := 0.45
+const PAL_HEALTH_BAR_SHEEN_LIGHTEN := 0.5
+
+# --- Per-species speed ---
+## Every pal shares the speed constants above; `Pal.speed_factor` scales them
+## per species, the way `model_scale` scales size. A factor rather than a
+## replacement, so the relationship between walking, fleeing, chasing and
+## following survives a retune of the constants themselves.
+##
+## The player is the reference: PLAYER_SPEED 5.0, PLAYER_RUN_SPEED 9.0.
+## Chasing is PAL_CHASE_SPEED 4.0, so a factor of 1.25 is exactly the
+## player's walk and 2.25 is their run. Nothing here reaches 2.25: a pal that
+## can run a fleeing player down at full sprint leaves no way out of a fight.
+## Fleeing is PAL_FLEE_SPEED 5.5, so anything above 0.91 outwalks the player
+## and only a factor over 1.64 outruns them.
+const PAL_SPEED_FACTOR_MIN := 0.4
+const PAL_SPEED_FACTOR_MAX := 2.0
+## A follower must never fall behind a sprinting player, whatever its species,
+## or it trails to FOLLOWER_LEASH and the party reads as broken. So the
+## catch-up end of the follow ramp keeps this floor after scaling: above
+## PLAYER_RUN_SPEED, with headroom to actually close a gap.
+const FOLLOW_CATCHUP_FLOOR := 10.0
 
 # --- Pal unsticking ---
 ## A pal wanting to move but covering less than STUCK_SPEED_FRACTION of the

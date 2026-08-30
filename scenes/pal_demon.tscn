@@ -12,6 +12,10 @@ collision_layer = 4
 script = ExtResource("1")
 display_name = "Demon"
 rideable = false
+; A hunter. Chases at 4.0 * 1.55 = 6.2, past the player's walk of 5.0, so
+; strolling away from one no longer works and the ash reads as dangerous.
+; Under the sprint of 9.0, so running is always the answer.
+speed_factor = 1.55
 temperament = 2
 level_min = 4
 level_max = 5

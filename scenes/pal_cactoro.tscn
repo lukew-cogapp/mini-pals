@@ -12,6 +12,9 @@ collision_layer = 4
 script = ExtResource("1")
 display_name = "Cactoro"
 rideable = false
+; A cactus. Trundles: fleeing at 5.5 * 0.6 = 3.3 it loses to a walk, which is
+; deliberate. It is the tree-chopper and the beginner's catch.
+speed_factor = 0.6
 level_min = 2
 level_max = 4
 drop_item = "cactus_fruit"
