@@ -35,6 +35,8 @@ func _refresh() -> void:
 		Inventory.count("wood"), Inventory.count("stone"), Inventory.count("cube")
 	]
 	out += "     Catch %d%%" % roundi(Tuning.CUBE_CATCH_CHANCE * 100.0)
+	if Inventory.count("cube") == 0:
+		out += "     (no cubes: F to gather, B at the bench)"
 	if not Party.members.is_empty():
 		var name := Party.active.display_name if Party.active else "none"
 		out += "     Pal: %s (%d)" % [name, Party.members.size()]

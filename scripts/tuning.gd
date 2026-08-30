@@ -47,7 +47,7 @@ const PAL_COUNT := 6
 const CUBE_THROW_SPEED := 14.0
 const CUBE_THROW_LIFT := 1.5
 const CUBE_GRAVITY := 14.0
-const CUBE_HALF_SIZE := 0.2
+const CUBE_HALF_SIZE := 0.275
 const CUBE_CATCH_CHANCE := 0.55
 const CUBE_LIFETIME := 6.0
 
@@ -73,8 +73,8 @@ const RIDE_SEAT_HEIGHT := 1.1
 const CAMERA_FOV := 60.0
 
 # --- Catch sequence ---
-const CATCH_SUCK_TIME := 0.35
+const CATCH_SUCK_TIME := 0.25
 const CATCH_SHAKE_COUNT := 3
-const CATCH_SHAKE_TIME := 0.45
-const CATCH_SETTLE_TIME := 0.25
-const CATCH_BURST_TIME := 0.4
+const CATCH_SHAKE_TIME := 0.28
+const CATCH_SETTLE_TIME := 0.22
+const CATCH_BURST_TIME := 0.35
