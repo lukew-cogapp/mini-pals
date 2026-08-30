@@ -186,6 +186,14 @@ geometry and inside `SHORE_WALL_RADIUS`, and refuses with a message if none
 is safe. Death dismounts with `force`, which accepts an unsafe spot rather
 than trapping the player on a corpse.
 
+Feedback the player's own body gives: every swing of `punch` plays
+`Bite_Front` for `BITE_ANIM_TIME` (the cat rig has no `Punch` clip) and a
+swing that reaches nothing still plays a `whiff` tone, so the most pressed
+button in the game always moves something. `_animate` yields while
+`_bite_left` is running or Walk would stomp the swing on the next frame.
+A cube that lands on nothing bursts and plays `cube_miss` before freeing,
+rather than blinking out: it cost wood and stone.
+
 Player health: `player.gd` has `hp` and `damage(amount, from_position)`,
 regen after a no-hit delay, and death -> respawn at the origin spawn with
 inventory and party kept and all pal aggro cleared. HUD shows a bar top-left.

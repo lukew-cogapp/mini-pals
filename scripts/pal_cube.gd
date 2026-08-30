@@ -43,11 +43,11 @@ func _physics_process(delta: float) -> void:
 
 	# Landing on the ground without hitting anything is a miss.
 	if global_position.y <= Tuning.CUBE_HALF_SIZE:
-		_finish(null, false)
+		_miss()
 		return
 	_life -= delta
 	if _life <= 0.0:
-		_finish(null, false)
+		_miss()
 
 
 func _on_body_entered(body: Node3D) -> void:
@@ -134,6 +134,20 @@ func _fail(pal: Pal) -> void:
 	out.tween_property(_mesh, "scale", Vector3.ZERO, Tuning.CATCH_BURST_TIME * 0.5)
 	await out.finished
 	_finish(pal, false)
+
+
+## A cube costs wood and stone, so a miss gets its own beat rather than
+## blinking out of existence.
+func _miss() -> void:
+	if _spent:
+		return
+	_spent = true
+	Audio.play("cube_miss", global_position)
+	_burst.emitting = true
+	_mesh.visible = false
+	await get_tree().create_timer(Tuning.CUBE_MISS_TIME).timeout
+	resolved.emit(null, false)
+	queue_free()
 
 
 func _finish(pal: Node, success: bool) -> void:

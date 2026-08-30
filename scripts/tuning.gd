@@ -131,6 +131,8 @@ const PAL_BUFF_CAPS := {&"speed": 0.5, &"gather": 3.0}
 const CUBE_LOB_SPEED := 8.0
 const CUBE_AIM_ASSIST_RADIUS := 0.8
 const CUBE_AIM_ASSIST_GROWTH := 0.18
+## A miss holds long enough for the burst to read before the cube frees.
+const CUBE_MISS_TIME := 0.35
 const CUBE_LOB_TIME_MIN := 0.35  # Point-blank throws still get a visible arc.
 const CUBE_LOB_TIME_MAX := 1.4  # Long throws stay a lob, not a mortar shot.
 const CUBE_GRAVITY := 10.0
@@ -153,6 +155,9 @@ const GATHER_HITS := 3
 const GATHER_RESPAWN_DELAY := 30.0
 const GATHER_PUNCH_SCALE := 0.85
 const GATHER_PUNCH_TIME := 0.08
+## The cat rig has no Punch clip, so the swing is Bite_Front. Held long
+## enough that Walk or Idle does not stomp it on the next frame.
+const BITE_ANIM_TIME := 0.32
 
 # --- Crafting ---
 const WORKBENCH_RANGE := 3.0

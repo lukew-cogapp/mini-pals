@@ -22,8 +22,13 @@ func _ready() -> void:
 	_bank["caught"] = _chime([523.0, 659.0, 784.0, 1047.0], 0.45)
 	_bank["escape"] = _tone(200.0, 520.0, 0.28, "saw", 0.4)
 	_bank["gather"] = _tone(420.0, 300.0, 0.09, "square", 0.3)
+	_bank["bite"] = _tone(520.0, 240.0, 0.08, "saw", 0.3)
+	# Duller and lower than "bite": a swing that connected with nothing.
+	_bank["whiff"] = _tone(180.0, 95.0, 0.07, "sine", 0.22)
 	_bank["craft"] = _chime([659.0, 880.0], 0.25)
 	_bank["throw"] = _tone(680.0, 900.0, 0.09, "sine", 0.25)
+	# A cube costs wood and stone, so a miss has to be audible.
+	_bank["cube_miss"] = _tone(150.0, 60.0, 0.14, "sine", 0.3)
 	_bank["hit"] = _tone(220.0, 90.0, 0.09, "square", 0.35)
 	_bank["defeat"] = _tone(480.0, 120.0, 0.4, "saw", 0.38)
 	_bank["player_hurt"] = _tone(300.0, 130.0, 0.16, "square", 0.4)

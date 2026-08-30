@@ -16,6 +16,7 @@ var _spawn := Vector3.ZERO
 var _since_hit := 1000.0  ## Long ago, so regen is armed from the start.
 var _invuln := 0.0
 var _dead := false
+var _bite_left := 0.0  ## Seconds the bite clip still owns the rig.
 var _aiming_throw := false
 var _throw_target := Vector3.ZERO
 var _throw_aim := Vector3.FORWARD
@@ -88,6 +89,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	_tick_health(delta)
+	_bite_left = maxf(_bite_left - delta, 0.0)
 	if _aiming_throw:
 		_update_throw_aim()
 	if mount:
@@ -390,10 +392,24 @@ func _punch() -> void:
 		if dist < best_dist and to_pal.normalized().dot(forward) > Tuning.GATHER_FACING_DOT:
 			best = pal
 			best_dist = dist
+	_bite()
 	if best is Pal:
 		(best as Pal).take_hit(global_position)
 	elif best:
 		best.punch()
+	else:
+		Audio.play("whiff", global_position)
+
+
+## The swing itself, played whether or not it lands. Without this the most
+## pressed button in the game moves nothing on screen.
+func _bite() -> void:
+	if _anim == null or not _anim.has_animation("Bite_Front"):
+		return
+	# Restart rather than play, so back-to-back bites all animate.
+	_anim.stop()
+	_anim.play("Bite_Front")
+	_bite_left = Tuning.BITE_ANIM_TIME
 
 
 ## --- Riding ---------------------------------------------------------------
@@ -492,7 +508,7 @@ func _find_anim(n: Node) -> AnimationPlayer:
 
 
 func _animate(direction: Vector3) -> void:
-	if _anim == null:
+	if _anim == null or _bite_left > 0.0:
 		return
 	var want := "Walk" if direction else "Idle"
 	if not is_on_floor() and _anim.has_animation("Jump"):
