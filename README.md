@@ -1,4 +1,4 @@
-# Godot World
+# Mini Pals
 
 A creature-collecting game in Godot 4.7, in the shape of Palworld: walk a
 field, gather materials, craft cubes, and catch the pals wandering around.
@@ -58,7 +58,12 @@ Press `/` in game for the same list.
 | Wolf | Yes | Flees when you get close |
 | Cactoro | No | Flees when you get close |
 | Demon | No | Attacks on sight, lives on the scorched ground |
+| Mudwader | Yes | On the sand. The only way into the shallows |
+| Glimmerfin | No | Lives in the shallows and never leaves the water |
 | Mushroom King | No | Summoned boss and win condition |
+
+Catching a Mudwader is the gate to the water: the Glimmerfin swim too far out
+to reach a cube thrown from the beach, so you have to ride out to them.
 
 ## Layout
 
