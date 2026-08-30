@@ -71,3 +71,10 @@ const RIDE_SEAT_HEIGHT := 1.1
 
 # --- Camera feel ---
 const CAMERA_FOV := 60.0
+
+# --- Catch sequence ---
+const CATCH_SUCK_TIME := 0.35
+const CATCH_SHAKE_COUNT := 3
+const CATCH_SHAKE_TIME := 0.45
+const CATCH_SETTLE_TIME := 0.25
+const CATCH_BURST_TIME := 0.4

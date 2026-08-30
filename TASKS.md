@@ -9,16 +9,19 @@ Nothing in flight.
 
 ## Next
 
-- [ ] Gather and throw feedback in the world, not just HUD numbers moving
+- [ ] Gather feedback in the world: sound plays, but no hit effect
 - [ ] Adopt **GUT** for tests (researched, recommended over GdUnit4)
       `godot --headless -d -s addons/gut/gut_cmdln.gd -gdir=res://test -ginclude_subdirs -gexit`
       First tests: facing maths, step-up over rock vs tree, inventory/crafting
-- [ ] Seed `pal_cube.gd`'s `randf()` via an injected RNG so catches are testable
 - [ ] Wings for the cat dragon: primitives read as blades through the body,
       needs a real wing mesh
 
 ## Done
 
+- [x] Catch sequence: pal shrinks into the cube, three shakes, particle burst,
+      escape bursts the pal back out at full size
+- [x] Procedural sound bank, synthesised at startup, no asset files
+- [x] Catch chance shown in the HUD
 - [x] Overlay styling: shared styles in `ui/`, amber on dark, matching HUD,
       build menu and help
 - [x] Party system: caught pals are stored, Tab cycles, one out at a time

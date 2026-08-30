@@ -21,6 +21,7 @@ Tuning="*res://scripts/tuning.gd"
 Inventory="*res://scripts/inventory.gd"
 Party="*res://scripts/party.gd"
 Hud="*res://scenes/hud.tscn"
+Audio="*res://scripts/audio.gd"
 
 [display]
 

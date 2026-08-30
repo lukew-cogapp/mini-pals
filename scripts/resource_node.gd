@@ -22,6 +22,7 @@ func punch() -> void:
 		return
 	_hits += 1
 	Inventory.add(item, 1)
+	Audio.play("gather", global_position)
 	print("Gathered 1 %s (%d total)" % [item, Inventory.count(item)])
 	if is_available():
 		_shake()

@@ -112,6 +112,7 @@ func _throw_cube() -> void:
 	if not Inventory.remove("cube", 1):
 		Hud.flash("No pal cubes. Punch trees and rocks, then craft at the workbench.")
 		return
+	Audio.play("throw", global_position)
 	var cube := CUBE_SCENE.instantiate()
 	get_parent().add_child(cube)
 	var aim := -pivot.global_transform.basis.z

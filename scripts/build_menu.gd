@@ -68,6 +68,7 @@ func _craft() -> void:
 	for item in Tuning.CUBE_RECIPE:
 		Inventory.remove(item, Tuning.CUBE_RECIPE[item])
 	Inventory.add("cube", 1)
+	Audio.play("craft")
 	print("Crafted Pal Cube (%d held)" % Inventory.count("cube"))
 
 
