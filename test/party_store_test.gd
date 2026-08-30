@@ -1,52 +1,50 @@
-extends SceneTree
-## Headless party assertions. Run:
-##   godot --headless --path . -s test/party_store_test.gd
+extends GutTest
+## Party assertions, ported from test/party_store_test.gd.
 ##
 ## A caught pal that is freed elsewhere does not remove itself from
 ## Party.members, so store() read display_name off a freed object and threw.
 ## It surfaced as an intermittent failure in unrelated suites.
 
-var _fails := 0
+var _world: Node
 
-func _init() -> void:
-	await process_frame
-	var world = load("res://scenes/world.tscn").instantiate()
-	get_root().add_child(world)
-	await process_frame
-	var party = get_root().get_node("Party")
-	for i in 10:
-		await physics_frame
 
+## Freed in after_all, not by add_child_autofree, which frees at the end of
+## the test that called it rather than at the end of the script. free, not
+## queue_free: GUT counts children still parented when the script ends.
+func before_all() -> void:
+	_world = load("res://scenes/world.tscn").instantiate()
+	add_child(_world)
+	await wait_process_frames(1)
+	await wait_physics_frames(10)
+
+
+func after_all() -> void:
+	_world.free()
+
+
+func test_storing_a_pal_survives_a_freed_member() -> void:
 	var doomed = load("res://scenes/pal_wolf.tscn").instantiate()
-	world.add_child(doomed)
-	await physics_frame
+	_world.add_child(doomed)
+	await wait_physics_frames(1)
 	doomed.caught = true
-	party.members.append(doomed)
+	Party.members.append(doomed)
 
 	# Free it behind the party's back, as a death elsewhere would.
 	doomed.free()
-	await physics_frame
+	await wait_physics_frames(1)
 
 	var fresh = load("res://scenes/pal_cactoro.tscn").instantiate()
-	world.add_child(fresh)
-	await physics_frame
+	_world.add_child(fresh)
+	await wait_physics_frames(1)
 	fresh.caught = true
-	party.store(fresh)
-	await physics_frame
+	Party.store(fresh)
+	await wait_physics_frames(1)
 
-	_check("storing a pal survives a freed member", fresh in party.members,
-		"members=%d" % party.members.size())
-	_check("the freed member is gone from the party",
-		party.members.all(func(p): return is_instance_valid(p)),
-		"members=%d" % party.members.size())
-
-	print("FAILURES=", _fails)
-	quit(1 if _fails > 0 else 0)
-
-
-func _check(name: String, ok: bool, detail := "") -> void:
-	if ok:
-		print("PASS ", name, "  ", detail)
-	else:
-		_fails += 1
-		print("FAIL ", name, "  ", detail)
+	assert_true(
+		fresh in Party.members,
+		"storing a pal survives a freed member members=%d" % Party.members.size(),
+	)
+	assert_true(
+		Party.members.all(func(p): return is_instance_valid(p)),
+		"the freed member is gone from the party members=%d" % Party.members.size(),
+	)

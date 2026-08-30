@@ -1,48 +1,30 @@
-extends SceneTree
-## The shallows: the shore wall gates them, a swimmer opens it, and fish
-## stay out of a walker's reach. Run:
-##   godot --headless --path . -s test/water_test.gd
+extends GutTest
+## The shallows, ported from test/water_test.gd.
 ##
-## Everything stays untyped and nothing may touch an autoload before the
-## first yield: naming a class_name type here compiles it before the
-## autoloads register, which produces a false FAILURES=0 with no assertions.
+## The shore wall gates them, a swimmer opens it, and fish stay out of a
+## walker's reach.
+##
+## One world, shared across the whole script, and the tests run in order: the
+## later ones mount and dismount and depend on the wall state the earlier ones
+## left. Keep the order.
 
-var _fails := 0
 var _world
 var _player
 
 
-func _init() -> void:
-	call_deferred("run")
-
-
-func run() -> void:
-	await process_frame
+## Freed in after_all, not by add_child_autofree, which frees at the end of
+## the test that called it rather than at the end of the script. free, not
+## queue_free: GUT counts children still parented when the script ends.
+func before_all() -> void:
 	_world = load("res://scenes/world.tscn").instantiate()
-	root.add_child(_world)
-	await process_frame
+	add_child(_world)
+	await wait_process_frames(1)
 	_player = _world.get_node("Player")
-	for i in 20:
-		await physics_frame
-
-	_test_fish_spawn_beyond_throw_range()
-	await _test_walker_stopped_at_shore_wall()
-	await _test_rider_passes_shore_wall()
-	await _test_rider_stopped_at_shallow_wall()
-	await _test_fish_never_leaves_the_shallows()
-	await _test_dismount_in_shallows_lands_on_land()
-	await _test_shore_wall_restored_after_dismount()
-
-	print("FAILURES=%d" % _fails)
-	quit(1 if _fails else 0)
+	await wait_physics_frames(20)
 
 
-func _check(name, ok, detail := "") -> void:
-	if ok:
-		print("PASS ", name)
-	else:
-		_fails += 1
-		print("FAIL ", name, "  ", detail)
+func after_all() -> void:
+	_world.free()
 
 
 func _radius(node) -> float:
@@ -52,36 +34,44 @@ func _radius(node) -> float:
 ## The gate is arithmetic, not a rule: a cube aimed from the shore wall
 ## reaches SHORE_WALL_RADIUS + CUBE_AIM_DISTANCE, and every fish starts
 ## beyond that. Retuning any of the three would otherwise reopen it.
-func _test_fish_spawn_beyond_throw_range() -> void:
+func test_fish_spawn_beyond_throw_range() -> void:
 	var reach = Tuning.SHORE_WALL_RADIUS + Tuning.CUBE_AIM_DISTANCE
-	_check(
-		"closest possible fish spawn is beyond throw range of the sand",
+	assert_true(
 		Tuning.FISH_RING_MIN - Tuning.SHORE_WALL_RADIUS > Tuning.CUBE_AIM_DISTANCE,
-		"fish_ring_min=%.1f shore_wall=%.1f aim=%.1f reach=%.1f" % [
-			Tuning.FISH_RING_MIN, Tuning.SHORE_WALL_RADIUS, Tuning.CUBE_AIM_DISTANCE, reach
-		],
+		(
+			"closest possible fish spawn is beyond throw range of the sand  fish_ring_min=%.1f shore_wall=%.1f aim=%.1f reach=%.1f"
+			% [
+				Tuning.FISH_RING_MIN,
+				Tuning.SHORE_WALL_RADIUS,
+				Tuning.CUBE_AIM_DISTANCE,
+				reach,
+			]
+		),
 	)
 	# The band must also be wide enough that fish are not pinned to the far
 	# wall, which is what reads as "they hug the edge" in play.
-	_check(
-		"fish band is wide enough to swim in",
+	assert_true(
 		Tuning.FISH_RING_MAX - Tuning.FISH_RING_MIN >= 20.0,
-		"band=%.1f..%.1f width=%.1f" % [
-			Tuning.FISH_RING_MIN, Tuning.FISH_RING_MAX,
-			Tuning.FISH_RING_MAX - Tuning.FISH_RING_MIN,
-		],
+		(
+			"fish band is wide enough to swim in  band=%.1f..%.1f width=%.1f"
+			% [
+				Tuning.FISH_RING_MIN,
+				Tuning.FISH_RING_MAX,
+				Tuning.FISH_RING_MAX - Tuning.FISH_RING_MIN,
+			]
+		),
 	)
-	_check(
-		"the fish band fits inside the shallow wall",
+	assert_true(
 		Tuning.FISH_RING_MAX < Tuning.SHALLOW_WALL_RADIUS,
-		"fish_max=%.1f shallow_wall=%.1f" % [
-			Tuning.FISH_RING_MAX, Tuning.SHALLOW_WALL_RADIUS
-		],
+		(
+			"the fish band fits inside the shallow wall  fish_max=%.1f shallow_wall=%.1f"
+			% [Tuning.FISH_RING_MAX, Tuning.SHALLOW_WALL_RADIUS]
+		),
 	)
 
 
 ## Walk outward off the beach. On foot the shore wall must hold.
-func _test_walker_stopped_at_shore_wall() -> void:
+func test_walker_stopped_at_shore_wall() -> void:
 	var angle := TAU / 48.0
 	var radial := Vector3(cos(angle), 0.0, sin(angle))
 	_player.global_position = radial * (Tuning.SHORE_WALL_RADIUS - 3.0) + Vector3.UP
@@ -90,15 +80,16 @@ func _test_walker_stopped_at_shore_wall() -> void:
 	pivot.rotation = Vector3(0.0, atan2(radial.x, radial.z), 0.0)
 
 	Input.action_press("move_back")
-	for i in 200:
-		await physics_frame
+	await wait_physics_frames(200)
 	Input.action_release("move_back")
 
 	var r := _radius(_player)
-	_check(
-		"a walker on foot is stopped at the shore wall",
+	assert_true(
 		r < Tuning.SHORE_WALL_RADIUS + 1.0,
-		"radius=%.2f shore_wall=%.2f" % [r, Tuning.SHORE_WALL_RADIUS],
+		(
+			"a walker on foot is stopped at the shore wall  radius=%.2f shore_wall=%.2f"
+			% [r, Tuning.SHORE_WALL_RADIUS]
+		),
 	)
 
 
@@ -106,7 +97,7 @@ func _mount_swimmer(at_radius: float, angle: float):
 	var radial := Vector3(cos(angle), 0.0, sin(angle))
 	var pal = load("res://scenes/pal_mudwader.tscn").instantiate()
 	_world.add_child(pal)
-	await process_frame
+	await wait_process_frames(1)
 	pal.global_position = radial * at_radius + Vector3.UP
 	pal.velocity = Vector3.ZERO
 	pal.caught = true
@@ -119,7 +110,7 @@ func _mount_swimmer(at_radius: float, angle: float):
 	var pivot = _player.get_node("CameraPivot")
 	pivot.rotation = Vector3(0.0, atan2(radial.x, radial.z), 0.0)
 	# The wall's shapes are disabled deferred, so give physics a frame.
-	await physics_frame
+	await wait_physics_frames(1)
 	return pal
 
 
@@ -130,56 +121,60 @@ func _release_mount(pal) -> void:
 	_player._set_shore_wall_enabled(true)
 	if is_instance_valid(pal):
 		pal.queue_free()
-	await physics_frame
+	await wait_physics_frames(1)
 
 
-func _test_rider_passes_shore_wall() -> void:
+func test_rider_passes_shore_wall() -> void:
 	var pal = await _mount_swimmer(Tuning.SHORE_WALL_RADIUS - 3.0, 0.3)
-	_check(
-		"the mudwader is a swimmer and rideable",
+	assert_true(
 		pal.swimmer and pal.rideable,
-		"swimmer=%s rideable=%s" % [pal.swimmer, pal.rideable],
+		(
+			"the mudwader is a swimmer and rideable  swimmer=%s rideable=%s"
+			% [pal.swimmer, pal.rideable]
+		),
 	)
 
 	Input.action_press("move_back")
-	for i in 200:
-		await physics_frame
+	await wait_physics_frames(200)
 	Input.action_release("move_back")
 
 	var r := _radius(pal)
-	_check(
-		"a player riding a swimmer passes the shore wall",
+	assert_true(
 		r > Tuning.SHORE_WALL_RADIUS + 3.0,
-		"radius=%.2f shore_wall=%.2f" % [r, Tuning.SHORE_WALL_RADIUS],
+		(
+			"a player riding a swimmer passes the shore wall  radius=%.2f shore_wall=%.2f"
+			% [r, Tuning.SHORE_WALL_RADIUS]
+		),
 	)
 	await _release_mount(pal)
 
 
-func _test_rider_stopped_at_shallow_wall() -> void:
+func test_rider_stopped_at_shallow_wall() -> void:
 	var pal = await _mount_swimmer(Tuning.SHALLOW_WALL_RADIUS - 6.0, 1.1)
 
 	Input.action_press("move_back")
-	for i in 300:
-		await physics_frame
+	await wait_physics_frames(300)
 	Input.action_release("move_back")
 
 	var r := _radius(pal)
-	_check(
-		"a player riding a swimmer is stopped at the shallow wall",
+	assert_true(
 		r < Tuning.SHALLOW_WALL_RADIUS + 1.0,
-		"radius=%.2f shallow_wall=%.2f" % [r, Tuning.SHALLOW_WALL_RADIUS],
+		(
+			"a player riding a swimmer is stopped at the shallow wall  radius=%.2f shallow_wall=%.2f"
+			% [r, Tuning.SHALLOW_WALL_RADIUS]
+		),
 	)
 	await _release_mount(pal)
 
 
 ## Many wander cycles, with the idle timer forced short so the fish keeps
 ## picking new targets rather than standing about for the whole run.
-func _test_fish_never_leaves_the_shallows() -> void:
+func test_fish_never_leaves_the_shallows() -> void:
 	var fish = []
-	for node in get_nodes_in_group("pal"):
+	for node in get_tree().get_nodes_in_group("pal"):
 		if node.water_only:
 			fish.append(node)
-	_check("fish were spawned into the world", fish.size() > 0, "found=%d" % fish.size())
+	assert_true(fish.size() > 0, "fish were spawned into the world  found=%d" % fish.size())
 	if fish.is_empty():
 		return
 
@@ -192,10 +187,11 @@ func _test_fish_never_leaves_the_shallows() -> void:
 		var r = Vector2(f.global_position.x, f.global_position.z).length()
 		if r < Tuning.FISH_RING_MIN - 0.5 or r > Tuning.FISH_RING_MAX + 0.5:
 			spawn_ok = false
-			spawn_detail = "radius=%.2f band=%.1f..%.1f" % [
-				r, Tuning.FISH_RING_MIN, Tuning.FISH_RING_MAX
-			]
-	_check("every fish spawns inside its band", spawn_ok, spawn_detail)
+			spawn_detail = (
+				"radius=%.2f band=%.1f..%.1f"
+				% [r, Tuning.FISH_RING_MIN, Tuning.FISH_RING_MAX]
+			)
+	assert_true(spawn_ok, "every fish spawns inside its band  %s" % spawn_detail)
 
 	var worst_in := 1e9
 	var worst_out := 0.0
@@ -203,8 +199,7 @@ func _test_fish_never_leaves_the_shallows() -> void:
 	for cycle in 40:
 		for f in fish:
 			f._enter_wander()
-		for i in 30:
-			await physics_frame
+		await wait_physics_frames(30)
 		for f in fish:
 			var r = Vector2(f.global_position.x, f.global_position.z).length()
 			worst_in = minf(worst_in, r)
@@ -212,21 +207,23 @@ func _test_fish_never_leaves_the_shallows() -> void:
 			if not zone_script.is_inside(space, f.global_position, zone_script.Kind.SHALLOW):
 				left_shallow += 1
 
-	_check(
-		"a fish never leaves the shallow zone across many wander cycles",
+	assert_true(
 		left_shallow == 0,
-		"escapes=%d closest=%.2f furthest=%.2f" % [left_shallow, worst_in, worst_out],
+		(
+			"a fish never leaves the shallow zone across many wander cycles  escapes=%d closest=%.2f furthest=%.2f"
+			% [left_shallow, worst_in, worst_out]
+		),
 	)
-	_check(
-		"a wandering fish never comes within throw range of the shore",
+	assert_true(
 		worst_in > Tuning.SHORE_WALL_RADIUS + Tuning.CUBE_AIM_DISTANCE,
-		"closest=%.2f reach=%.2f" % [
-			worst_in, Tuning.SHORE_WALL_RADIUS + Tuning.CUBE_AIM_DISTANCE
-		],
+		(
+			"a wandering fish never comes within throw range of the shore  closest=%.2f reach=%.2f"
+			% [worst_in, Tuning.SHORE_WALL_RADIUS + Tuning.CUBE_AIM_DISTANCE]
+		),
 	)
 
 
-func _test_dismount_in_shallows_lands_on_land() -> void:
+func test_dismount_in_shallows_lands_on_land() -> void:
 	var angle := 2.0
 	var pal = await _mount_swimmer(Tuning.SHORE_WALL_RADIUS + 25.0, angle)
 	var zone_script = load("res://scripts/zone.gd")
@@ -235,29 +232,26 @@ func _test_dismount_in_shallows_lands_on_land() -> void:
 	var before := _radius(pal)
 	var dismounted = _player._dismount()
 	var r := _radius(_player)
-	var on_land = zone_script.is_inside(
-		space, _player.global_position, zone_script.Kind.LAND
-	)
-	_check(
-		"dismounting in the shallows puts the player on land",
+	var on_land = zone_script.is_inside(space, _player.global_position, zone_script.Kind.LAND)
+	assert_true(
 		dismounted and on_land and r < Tuning.SHORE_WALL_RADIUS,
-		"dismounted=%s on_land=%s radius=%.2f mount_radius=%.2f" % [
-			dismounted, on_land, r, before
-		],
+		(
+			"dismounting in the shallows puts the player on land  dismounted=%s on_land=%s radius=%.2f mount_radius=%.2f"
+			% [dismounted, on_land, r, before]
+		),
 	)
-	_check(
-		"the dismount landing is not in water",
+	assert_true(
 		not zone_script.is_inside(space, _player.global_position, zone_script.Kind.SHALLOW),
-		"radius=%.2f" % r,
+		"the dismount landing is not in water  radius=%.2f" % r,
 	)
 	await _release_mount(pal)
 
 
 ## The wall must come back, or one ride would open the shallows for good.
-func _test_shore_wall_restored_after_dismount() -> void:
+func test_shore_wall_restored_after_dismount() -> void:
 	var pal = await _mount_swimmer(Tuning.SHORE_WALL_RADIUS - 4.0, 3.0)
 	var wall = _world.find_child("ShoreWall", true, false)
-	_check("the island built a ShoreWall", wall != null)
+	assert_not_null(wall, "the island built a ShoreWall")
 	if wall == null:
 		await _release_mount(pal)
 		return
@@ -266,19 +260,21 @@ func _test_shore_wall_restored_after_dismount() -> void:
 	for child in wall.get_children():
 		if child is CollisionShape3D and not child.disabled:
 			disabled_while_riding = false
-	_check(
-		"the shore wall is down while riding a swimmer",
+	assert_true(
 		disabled_while_riding,
-		"segments=%d" % wall.get_child_count(),
+		(
+			"the shore wall is down while riding a swimmer  segments=%d"
+			% wall.get_child_count()
+		),
 	)
 
 	_player._dismount(true)
-	await physics_frame
+	await wait_physics_frames(1)
 	var restored := true
 	for child in wall.get_children():
 		if child is CollisionShape3D and child.disabled:
 			restored = false
-	_check("the shore wall collision is restored after dismount", restored)
+	assert_true(restored, "the shore wall collision is restored after dismount")
 
 	# And it actually stops a walker again, not just on paper.
 	var radial := Vector3(cos(3.0), 0.0, sin(3.0))
@@ -287,13 +283,11 @@ func _test_shore_wall_restored_after_dismount() -> void:
 	var pivot = _player.get_node("CameraPivot")
 	pivot.rotation = Vector3(0.0, atan2(radial.x, radial.z), 0.0)
 	Input.action_press("move_back")
-	for i in 200:
-		await physics_frame
+	await wait_physics_frames(200)
 	Input.action_release("move_back")
 	var r := _radius(_player)
-	_check(
-		"after dismount the restored wall still stops a walker",
+	assert_true(
 		r < Tuning.SHORE_WALL_RADIUS + 1.0,
-		"radius=%.2f" % r,
+		"after dismount the restored wall still stops a walker  radius=%.2f" % r,
 	)
 	await _release_mount(pal)

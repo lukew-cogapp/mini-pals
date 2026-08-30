@@ -1,39 +1,13 @@
-extends SceneTree
-## Headless assertions for the two active-pal jobs that change the player's
-## own actions. Run:
-##   godot --headless --path . -s test/pal_skills_test.gd
+extends GutTest
+## Assertions for the two active-pal jobs that change the player's own
+## actions, ported from test/pal_skills_test.gd.
 ##
 ## Both are read live off Party.active, so the thing worth pinning is that
 ## swapping the pal out really does put the player back where they started.
 
-var _fails := 0
-
-
-func _init() -> void:
-	await process_frame
-
-	await _test_demon_raises_punch_damage()
-	await _test_demon_buff_is_capped()
-	await _test_no_demon_means_normal_damage()
-	await _test_king_throws_are_free()
-	await _test_throws_without_the_king_cost_a_cube()
-	await _test_hud_shows_infinity_with_the_king()
-
-	print("FAILURES=", _fails)
-	quit(1 if _fails > 0 else 0)
-
-
-func _check(name: String, ok: bool, detail := "") -> void:
-	if ok:
-		print("PASS ", name, "  ", detail)
-	else:
-		_fails += 1
-		print("FAIL ", name, "  ", detail)
-
-
 ## --- Demon: the player hits harder ----------------------------------------
 
-func _test_demon_raises_punch_damage() -> void:
+func test_demon_raises_punch_damage() -> void:
 	var target = await _spawn("res://scenes/pal_wolf.tscn")
 	target.level = 5
 	target.max_hp = 40
@@ -47,45 +21,38 @@ func _test_demon_raises_punch_damage() -> void:
 	var buffed: int = _punch_drop(target)
 	_recall()
 
-	_check(
-		"a demon out makes the player's punch take more hp",
+	assert_true(
 		buffed > plain,
-		"plain=%d buffed=%d" % [plain, buffed],
+		"a demon out makes the player's punch take more hp  plain=%d buffed=%d" % [plain, buffed],
 	)
-	target.queue_free()
-	demon.queue_free()
 
 
-func _test_demon_buff_is_capped() -> void:
+func test_demon_buff_is_capped() -> void:
 	var demon = await _spawn("res://scenes/pal_demon.tscn")
 	# Well past PAL_LEVEL_MAX, so an uncapped buff would run away.
 	demon.level = 50
 	_activate(demon)
-	var buff: float = _party().buff(&"damage")
+	var buff: float = Party.buff(&"damage")
 	_recall()
-	_check(
-		"the demon damage buff is capped",
+	assert_true(
 		is_equal_approx(buff, Tuning.DEMON_DAMAGE_BUFF_CAP),
-		"buff=%.2f cap=%.2f" % [buff, Tuning.DEMON_DAMAGE_BUFF_CAP],
+		"the demon damage buff is capped  buff=%.2f cap=%.2f" % [buff, Tuning.DEMON_DAMAGE_BUFF_CAP],
 	)
-	demon.queue_free()
 
 
-func _test_no_demon_means_normal_damage() -> void:
+func test_no_demon_means_normal_damage() -> void:
 	var target = await _spawn("res://scenes/pal_wolf.tscn")
 	target.max_hp = 40
 	target.hp = 40
 	var drop: int = _punch_drop(target)
 	var expected: int = (
 		Tuning.PUNCH_DAMAGE
-		+ int((_party().player_level - 1) * Tuning.PUNCH_DAMAGE_PER_PLAYER_LEVEL)
+		+ int((Party.player_level - 1) * Tuning.PUNCH_DAMAGE_PER_PLAYER_LEVEL)
 	)
-	_check(
-		"with no demon out the punch is the plain one",
-		drop == expected and _party().buff(&"damage") == 0.0,
-		"drop=%d expected=%d" % [drop, expected],
+	assert_true(
+		drop == expected and Party.buff(&"damage") == 0.0,
+		"with no demon out the punch is the plain one  drop=%d expected=%d" % [drop, expected],
 	)
-	target.queue_free()
 
 
 func _punch_drop(target) -> int:
@@ -96,82 +63,82 @@ func _punch_drop(target) -> int:
 
 ## --- Mushroom King: throws stop costing cubes ------------------------------
 
-func _test_king_throws_are_free() -> void:
+func test_king_throws_are_free() -> void:
 	var king = await _spawn("res://scenes/pal_boss.tscn")
 	_activate(king)
-	var inv = get_root().get_node("Inventory")
-	inv.add("cube", 5)
-	var before: int = inv.count("cube")
+	Inventory.add("cube", 5)
+	var before: int = Inventory.count("cube")
 	var player = await _spawn_player()
 	player._throw_cube(Vector3(0.0, 0.0, -6.0), Vector3(0.0, 0.0, -1.0))
-	var after: int = inv.count("cube")
-	_check(
-		"with the King out a throw costs no cube",
-		after == before and _party().infinite_cubes(),
-		"cubes %d -> %d" % [before, after],
+	var after: int = Inventory.count("cube")
+	assert_true(
+		after == before and Party.infinite_cubes(),
+		"with the King out a throw costs no cube  cubes %d -> %d" % [before, after],
 	)
 	_recall()
-	player.queue_free()
-	king.queue_free()
 
 
-func _test_throws_without_the_king_cost_a_cube() -> void:
-	var inv = get_root().get_node("Inventory")
-	inv.add("cube", 5)
-	var before: int = inv.count("cube")
+func test_throws_without_the_king_cost_a_cube() -> void:
+	Inventory.add("cube", 5)
+	var before: int = Inventory.count("cube")
 	var player = await _spawn_player()
 	player._throw_cube(Vector3(0.0, 0.0, -6.0), Vector3(0.0, 0.0, -1.0))
-	var after: int = inv.count("cube")
-	_check(
-		"with no King out a throw spends a cube",
-		after == before - 1 and not _party().infinite_cubes(),
-		"cubes %d -> %d" % [before, after],
+	var after: int = Inventory.count("cube")
+	assert_true(
+		after == before - 1 and not Party.infinite_cubes(),
+		"with no King out a throw spends a cube  cubes %d -> %d" % [before, after],
 	)
-	player.queue_free()
 
 
-func _test_hud_shows_infinity_with_the_king() -> void:
-	var inv = get_root().get_node("Inventory")
-	var hud = get_root().get_node("Hud")
-	var plain_stock: int = inv.count("cube")
-	hud._refresh()
-	var plain: String = hud._cube_count.text
+func test_hud_shows_infinity_with_the_king() -> void:
+	var plain_stock: int = Inventory.count("cube")
+	Hud._refresh()
+	var plain: String = Hud._cube_count.text
 
 	var king = await _spawn("res://scenes/pal_boss.tscn")
 	_activate(king)
-	hud._refresh()
-	var infinite: String = hud._cube_count.text
+	Hud._refresh()
+	var infinite: String = Hud._cube_count.text
 	_recall()
 
-	_check(
-		"the HUD cube readout is not a bare zero while the King is out",
+	assert_true(
 		infinite == Tuning.INFINITE_CUBE_TEXT and plain == str(plain_stock),
-		"plain=%s king=%s" % [plain, infinite],
+		"the HUD cube readout is not a bare zero while the King is out  plain=%s king=%s"
+		% [plain, infinite],
 	)
-	king.queue_free()
 
 
 ## --- Fixtures --------------------------------------------------------------
 
-func _party():
-	return get_root().get_node("Party")
-
-
 ## Put a pal out without going through a catch, which would also grant XP and
 ## drops and move the assertions around under us.
+## add_child_autofree frees with queue_free, which has not run when GUT counts
+## children still parented at the end of the script. One frame drains it.
+func after_each() -> void:
+	await wait_process_frames(1)
+
+
+## GUT still reports three unfreed children here, the last test's king and
+## player. Extra drain frames do not clear them, so something outlives the
+## autofree queue rather than merely sitting in it. Cosmetic: all six
+## assertions pass and the run exits 0.
+func after_all() -> void:
+	await wait_process_frames(1)
+
+
 func _activate(pal) -> void:
 	pal.caught = true
-	_party().active = pal
+	Party.active = pal
 
 
 func _recall() -> void:
-	_party().active = null
+	Party.active = null
 
 
 func _spawn(path: String):
 	var pal = load(path).instantiate()
-	get_root().add_child(pal)
-	await process_frame
+	add_child_autofree(pal)
+	await wait_process_frames(1)
 	pal.global_position = Vector3.ZERO
 	pal.set_physics_process(false)
 	return pal
@@ -180,8 +147,8 @@ func _spawn(path: String):
 ## A real player, so the cube spend goes through the shipped throw path.
 func _spawn_player():
 	var player = load("res://scenes/player.tscn").instantiate()
-	get_root().add_child(player)
-	await process_frame
+	add_child_autofree(player)
+	await wait_process_frames(1)
 	player.set_physics_process(false)
 	player.set_process(false)
 	return player

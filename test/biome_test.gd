@@ -1,41 +1,34 @@
-extends SceneTree
+extends GutTest
+## Demon biome assertions, ported from test/biome_test.gd.
+##
 ## Asserts the demon biome is a distinct place: dead trees only on the
 ## scorched blob, living scenery only off it, and everything solid.
 
-var failures := 0
+var _world: Node
+var _scenery: Node
+var _island: Node3D
+var _space
+var _zone_script
+var _ash
+
+var _dead: Array[Node3D] = []
+var _living: Array[Node3D] = []
+var _rocks: Array[Node3D] = []
+var _palms: Array[Node3D] = []
 
 
-func check(ok: bool, label: String) -> void:
-	if not ok:
-		failures += 1
-		print("FAIL: %s" % label)
-	else:
-		print("ok: %s" % label)
+func before_all() -> void:
+	_world = load("res://scenes/world.tscn").instantiate()
+	add_child(_world)
+	await wait_process_frames(1)
 
+	_scenery = _world.get_node("Scenery")
+	_island = _world.get_node("Island")
+	_space = _island.get_world_3d()
+	_zone_script = load("res://scripts/zone.gd")
+	_ash = _zone_script.Kind.ASH
 
-func _init() -> void:
-	call_deferred("run")
-
-
-func run() -> void:
-	# Autoloads register after _init starts, so nothing may touch Tuning
-	# before this yields.
-	await process_frame
-	var world: Node = load("res://scenes/world.tscn").instantiate()
-	root.add_child(world)
-	await process_frame
-
-	var scenery: Node = world.get_node("Scenery")
-	var island: Node3D = world.get_node("Island")
-	var space := island.get_world_3d()
-	var zone_script = load("res://scripts/zone.gd")
-	var ASH = zone_script.Kind.ASH
-
-	var dead: Array[Node3D] = []
-	var living: Array[Node3D] = []
-	var rocks: Array[Node3D] = []
-	var palms: Array[Node3D] = []
-	for child in scenery.get_children():
+	for child in _scenery.get_children():
 		if not child is Node3D:
 			continue
 		var n: Node3D = child
@@ -43,54 +36,67 @@ func run() -> void:
 			# Palms share the tree group (they are bitten for wood too) but
 			# are shore dressing, scattered by their own band and count.
 			if n.scene_file_path.contains("palm"):
-				palms.append(n)
+				_palms.append(n)
 			elif n.scene_file_path.contains("deadtree"):
-				dead.append(n)
+				_dead.append(n)
 			else:
-				living.append(n)
+				_living.append(n)
 		elif n.is_in_group("rock"):
-			rocks.append(n)
+			_rocks.append(n)
 
 	print("counts: dead=%d living_trees=%d rocks=%d palms=%d" % [
-		dead.size(), living.size(), rocks.size(), palms.size()])
-	check(dead.size() == Tuning.DEAD_TREE_COUNT, "dead tree count == DEAD_TREE_COUNT")
-	check(living.size() == Tuning.TREE_COUNT, "living tree count == TREE_COUNT")
-	check(palms.size() == Tuning.PALM_COUNT, "palm count == PALM_COUNT")
-	check(rocks.size() == Tuning.ROCK_COUNT, "rock count == ROCK_COUNT")
+		_dead.size(), _living.size(), _rocks.size(), _palms.size()])
 
-	# Membership is the zone's answer, not a radius: the blob's edge is a
-	# noise curve, and the zone is the one thing that defines it.
+
+func after_all() -> void:
+	_world.free()
+
+
+func test_scatter_counts_match_tuning() -> void:
+	assert_eq(_dead.size(), Tuning.DEAD_TREE_COUNT, "dead tree count == DEAD_TREE_COUNT")
+	assert_eq(_living.size(), Tuning.TREE_COUNT, "living tree count == TREE_COUNT")
+	assert_eq(_palms.size(), Tuning.PALM_COUNT, "palm count == PALM_COUNT")
+	assert_eq(_rocks.size(), Tuning.ROCK_COUNT, "rock count == ROCK_COUNT")
+
+
+## Membership is the zone's answer, not a radius: the blob's edge is a
+## noise curve, and the zone is the one thing that defines it.
+func test_dead_trees_stay_on_the_blob_and_living_scenery_off_it() -> void:
 	var bad_dead := 0
 	var far_dead := 0.0
-	for n in dead:
-		if not zone_script.is_inside(space, n.position, ASH):
+	for n in _dead:
+		if not _zone_script.is_inside(_space, n.position, _ash):
 			bad_dead += 1
 		far_dead = max(far_dead, n.position.distance_to(Tuning.ALTAR_POS))
 	print("dead trees: %d, furthest %.2f m from the altar (nominal r=%.1f)" % [
-		dead.size(), far_dead, Tuning.ASH_RADIUS])
-	check(bad_dead == 0, "all dead trees on the scorched blob (off by %d)" % bad_dead)
+		_dead.size(), far_dead, Tuning.ASH_RADIUS])
+	assert_true(bad_dead == 0, "all dead trees on the scorched blob (off by %d)" % bad_dead)
 
 	var bad_living := 0
-	for n in living + rocks:
-		if zone_script.is_inside(space, n.position, ASH):
+	for n in _living + _rocks:
+		if _zone_script.is_inside(_space, n.position, _ash):
 			bad_living += 1
 	print("living scenery on the blob: %d" % bad_living)
-	check(bad_living == 0, "no living trees or rocks on the scorched blob")
+	assert_true(bad_living == 0, "no living trees or rocks on the scorched blob")
 
+
+func test_every_scattered_node_has_collision() -> void:
 	var no_shape := 0
-	for n in dead + living + rocks:
+	for n in _dead + _living + _rocks:
 		var found := false
 		for c in n.get_children():
 			if c is CollisionShape3D and c.shape != null:
 				found = true
 		if not found:
 			no_shape += 1
-	check(no_shape == 0, "every scattered node has a non-null collision shape")
+	assert_true(no_shape == 0, "every scattered node has a non-null collision shape")
 
-	var ash: Node = world.get_node("Island/Ash")
-	check(ash != null, "Island has an Ash blob")
-	# Read the real vertices. The mesh is the thing the player sees, so its
-	# own numbers decide, not the constants it was built from.
+
+## Read the real vertices. The mesh is the thing the player sees, so its
+## own numbers decide, not the constants it was built from.
+func test_ash_blob_shape_and_placement() -> void:
+	var ash: Node = _world.get_node("Island/Ash")
+	assert_not_null(ash, "Island has an Ash blob")
 	var verts: PackedVector3Array = (ash as MeshInstance3D).mesh.get_faces()
 	var centre := Vector3(Tuning.ALTAR_POS.x, 0.0, Tuning.ALTAR_POS.z)
 	var from_altar_max := 0.0
@@ -107,21 +113,23 @@ func run() -> void:
 	print("blob edge %.2f..%.2f from the altar; furthest point %.2f from origin (island %.1f)" % [
 		from_altar_min, from_altar_max, from_origin_max, Tuning.ISLAND_RADIUS])
 
-	check(from_altar_max < Tuning.ASH_MAX_RADIUS + 0.01, "blob stays inside its bounding circle")
-	check(
+	assert_true(
+		from_altar_max < Tuning.ASH_MAX_RADIUS + 0.01, "blob stays inside its bounding circle"
+	)
+	assert_true(
 		from_origin_max < Tuning.ISLAND_RADIUS - Tuning.BEACH_WIDTH,
 		"blob stays on the grass and never reaches the beach",
 	)
 
 	# The edge must not be a circle. That was the complaint.
-	check(
+	assert_true(
 		from_altar_max - from_altar_min > Tuning.ASH_RADIUS * 0.1,
 		"blob edge is irregular, not a circle (spread %.2f m)" % (from_altar_max - from_altar_min),
 	)
 
 	# The spawn is on the far side of the island, so it must stay green.
-	check(
-		not zone_script.is_inside(space, Vector3.ZERO, ASH),
+	assert_true(
+		not _zone_script.is_inside(_space, Vector3.ZERO, _ash),
 		"island spawn is not on scorched ground",
 	)
 
@@ -136,18 +144,14 @@ func run() -> void:
 	var island_area := PI * Tuning.ISLAND_RADIUS * Tuning.ISLAND_RADIUS
 	var pct := area / island_area * 100.0
 	print("blob area %.1f m2 = %.1f%% of the island" % [area, pct])
-	check(pct > 5.0 and pct < 20.0, "blob covers a corner of the island, not most of it")
+	assert_true(pct > 5.0 and pct < 20.0, "blob covers a corner of the island, not most of it")
 
-	check(
+	assert_true(
 		Tuning.ALTAR_POS.length() < Tuning.ISLAND_RADIUS - Tuning.BEACH_WIDTH,
 		"altar is inside the grass",
 	)
 
-	check(
+	assert_true(
 		Tuning.ISLAND_RADIUS * Tuning.PALM_BAND.x > from_origin_max,
 		"palms start beyond the ash, so none stands on scorched ground",
 	)
-
-	print("FAILURES=%d" % failures)
-	quit(1 if failures else 0)
-

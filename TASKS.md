@@ -23,15 +23,6 @@ Kept current as work lands.
 - [ ] More islands, now that regions are Zones rather than radii
 - [ ] Remaining juice: level-up moment, the win moment, FOV stretch with speed
 - [ ] Gather feedback in the world: sound plays, but no hit effect
-- [ ] **Finish the GUT migration.** GUT 9.7.1 is vendored in `addons/gut`,
-      `test/run_gut.sh` runs it, and three suites are ported into `test/gut`
-      as proof: `catch_chance_test.gd` (arithmetic), `party_cycle_test.gd`
-      (loads `world.tscn` and drives physics) and `hud_message_test.gd`
-      (names the `Hud` and `Inventory` autoloads, which a `-s` script cannot).
-      The originals are untouched and `test/run.sh` still runs all 16.
-      Remaining: port the other 13, then retire `test/run.sh` and the
-      per-file `_check` helper and move `test/gut/*` back up to `test/`.
-      Leave `screenshot.gd` as it is; it is a renderer, not a test
 - [ ] Export smoke test in CI: `--export-release` and fail on any stderr
       error. A broken export is the one failure no gameplay test can catch
 - [ ] Pal skills, one job each:
@@ -42,6 +33,10 @@ Kept current as work lands.
 
 ## Done
 
+- [x] GUT is the only test harness. All 26 suites run under `test/run.sh`,
+      the `extends SceneTree` originals and their `_check` helpers are gone,
+      and `screenshot.gd`, `start_shot.gd`, `prompt_shot.gd` and
+      `compile_check.gd` stay as they were, being renderers and tools
 - [x] Shallow water, a rideable Mudwader, and Glimmerfin that never leave it.
       Fish spawn past throw range of the sand, so the mount is the gate
 - [x] Start screen, the main scene, with keyboard and gamepad navigation

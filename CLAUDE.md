@@ -62,8 +62,8 @@ backwards. The player's SpringArm needs `add_excluded_object(get_rid())`
 pulls the camera into the head.
 
 Do not trust reasoning about any of this; it has been wrong here four times.
-`godot --headless --path . -s test/orientation_test.gd` asserts camera
-placement, turn maths for all four inputs, throw direction, and punch facing.
+`test/run.sh orientation_test.gd` asserts camera placement, turn maths for
+all four inputs, throw direction, and punch facing.
 The screenshot harness renders facing shots for all four walk directions
 (14 to 17), the rig camera view (18), a thrown cube in flight (19), and a
 walking wolf (20). Run both after touching anything orientation-adjacent,
@@ -143,28 +143,34 @@ Resolve them at runtime instead, with `get_root().get_node("Inventory")`.
 `Tuning.SOME_CONST` looks like an exception but is not: that resolves as a
 script-class constant, and bare `Tuning` fails like the rest. Scripts loaded
 at runtime (a scene's own `.gd`) reference autoloads by name quite happily;
-the limit is only on the `-s` script itself. A GUT test is one of those
-runtime scripts, so it names `Inventory`, `Party` and `Hud` directly.
+the limit is only on the `-s` script itself.
 
-**GUT is the second harness, and the one to write new tests in.** 9.7.1 is
-vendored at `addons/gut` and needs no editor plugin enabled to run headless.
-`test/run_gut.sh` runs everything under `test/gut`, and takes one filename to
-narrow it (`test/run_gut.sh catch_chance_test.gd`). It earns its place by
-failing on an engine error: a `SCRIPT ERROR` inside a test aborts that
-function, and a hand-rolled `_check` harness then prints `FAILURES=0` and
-exits 0. `run.sh` only catches that because it greps the log for
-`SCRIPT ERROR`; GUT counts it as a failed test.
+This no longer constrains the tests, which are all GUT now and load at
+runtime, so they name `Inventory`, `Party`, `Hud` and `Tuning` directly. It
+still constrains `screenshot.gd` and the other `-s` tools.
 
-Two flags in `run_gut.sh` that are not optional. **Never add `-d`**: it
-attaches the debugger, and an error drops the run into an interactive
-`debug>` prompt that waits forever. And `-gprefix= -gsuffix=_test.gd`,
-because GUT looks for `test_*.gd` while this project names suites
-`*_test.gd`; without them it finds nothing, says "Nothing was run" and exits
-0. `add_child_autofree` frees at the end of the *test* that called it, so a
-`before_all` fixture needs an explicit `after_all` calling `free`.
+**GUT is the harness.** 9.7.1 is vendored at `addons/gut` and needs no editor
+plugin enabled to run headless. `test/run.sh` runs every `*_test.gd` under
+`test/`, and takes one filename to narrow it
+(`test/run.sh catch_chance_test.gd`). It earns its place by failing on an
+engine error: a `SCRIPT ERROR` inside a test aborts that function, and the
+hand-rolled `_check` harness this replaced then printed `FAILURES=0` and
+exited 0. Only a grep for `SCRIPT ERROR` caught that; GUT counts it as a
+failed test.
 
-`test/run.sh` and the 16 `extends SceneTree` suites in `test/` still run and
-still have to pass. See TASKS.md for what a full migration leaves.
+Two flags in `run.sh` that are not optional. **Never add `-d`**: it attaches
+the debugger, and an error drops the run into an interactive `debug>` prompt
+that waits forever. And `-gprefix= -gsuffix=_test.gd`, because GUT looks for
+`test_*.gd` while this project names suites `*_test.gd`; without them it finds
+nothing, says "Nothing was run" and exits 0.
+
+`add_child_autofree` frees at the end of the *test* that called it, not the
+script, so a `before_all` fixture needs an explicit `after_all` calling
+`free`. Not `queue_free`, which has not run when GUT counts unfreed children.
+
+`screenshot.gd`, `start_shot.gd`, `prompt_shot.gd` and `compile_check.gd` are
+still `extends SceneTree`. They are renderers and tools, not tests, and the
+`_test.gd` suffix filter leaves them alone.
 
 **Wrap every test run in a wall-clock timeout.** A test awaiting something
 that never fires hangs forever, and no GDScript harness bounds it. This
@@ -173,10 +179,11 @@ is no `timeout` binary here, so use Perl, and redirect rather than piping,
 since a pipe hides the failing line:
 
     perl -e 'alarm 120; exec @ARGV' \
-      godot --headless --path . -s test/foo.gd < /dev/null > out.txt
+      godot --headless --path . -s test/screenshot.gd < /dev/null > out.txt
 
-Check `FAILURES=` is PRESENT, not just zero: an absent line means the run
-died, and that is not the same as passing.
+`test/run.sh` does this already. Check its summary line is PRESENT, not just
+that the count is zero: an absent line means the run died or matched no
+script, and neither is the same as passing.
 
 **A pal drives itself; do not tick it by hand as well.** `_physics_process`
 runs the state machine and calls `move_and_slide()` every physics frame, so a

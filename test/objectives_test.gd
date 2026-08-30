@@ -1,107 +1,143 @@
-extends SceneTree
-## Headless assertions for the top-right objectives panel. Run:
-##   godot --headless --path . -s test/objectives_test.gd
+extends GutTest
+## Headless assertions for the top-right objectives panel, ported from
+## test/objectives_test.gd.
 ##
 ## The panel is derived from live state, not stored progress, so every check
 ## here drives real Inventory / Party calls and reads the rows back.
+##
+## One test function, not several: each stage builds on the party and
+## inventory state the previous stage left behind.
 
-var _fails := 0
+var _world: Node
 var _hud
 var _inv
 var _party
+var _fake_pals: Array = []
 
 
-func _init() -> void:
-	await process_frame
-	var world = load("res://scenes/world.tscn").instantiate()
-	get_root().add_child(world)
-	await process_frame
-	for i in 5:
-		await physics_frame
-	_hud = get_root().get_node("Hud")
-	_inv = get_root().get_node("Inventory")
-	_party = get_root().get_node("Party")
+func before_all() -> void:
+	_world = load("res://scenes/world.tscn").instantiate()
+	add_child(_world)
+	await wait_process_frames(1)
+	await wait_physics_frames(5)
+	_hud = Hud
+	_inv = Inventory
+	_party = Party
+	# The autoloads outlive a single suite now that every test shares one
+	# process, so anything an earlier script gathered would be read here as
+	# progress this test never made. The panel reports real counts, so a
+	# stray pelt shows up as 1/3 rather than 0/3.
+	_inv._counts.clear()
+	_inv._counts["cube"] = Tuning.STARTING_CUBES
 
+
+func after_all() -> void:
+	for pal in _fake_pals:
+		pal.free()
+	_world.free()
+
+
+func test_objective_chain_advances_stage_by_stage() -> void:
 	# The world spawns pals, so start from a party the test controls.
 	_party.members.clear()
 	_party.active = null
 	_party.player_level = 1
 	_inv.changed.emit()
-	await process_frame
+	await wait_process_frames(1)
 
-	_check("a fresh game asks for catches first",
-		_current() == "Catch pals 0/%d" % Tuning.OBJECTIVE_CATCH_TARGET,
-		"current=%s" % _current())
-	_check("the first row is the live one, not a tick",
-		_rows()[0].begins_with(_hud.MARK_NOW), "row0=%s" % _rows()[0])
+	assert_eq(
+		_current(),
+		"Catch pals 0/%d" % Tuning.OBJECTIVE_CATCH_TARGET,
+		"a fresh game asks for catches first",
+	)
+	assert_true(
+		_rows()[0].begins_with(_hud.MARK_NOW),
+		"the first row is the live one, not a tick: row0=%s" % _rows()[0],
+	)
 
 	# Catching enough pals advances past the first link in the chain.
 	for i in Tuning.OBJECTIVE_CATCH_TARGET:
 		_party.members.append(_fake_pal("Filler %d" % i))
 	_party.changed.emit()
-	await process_frame
-	_check("catching the target advances to the level objective",
-		_current() == "Reach level %d (Lv1)" % Tuning.KEY_UNLOCK_LEVEL,
-		"current=%s" % _current())
-	_check("the cleared catch objective is ticked above it",
-		_rows()[0].begins_with(_hud.MARK_DONE), "row0=%s" % _rows()[0])
+	await wait_process_frames(1)
+	assert_eq(
+		_current(),
+		"Reach level %d (Lv1)" % Tuning.KEY_UNLOCK_LEVEL,
+		"catching the target advances to the level objective",
+	)
+	assert_true(
+		_rows()[0].begins_with(_hud.MARK_DONE),
+		"the cleared catch objective is ticked above it: row0=%s" % _rows()[0],
+	)
 
 	# Reaching KEY_UNLOCK_LEVEL changes what is shown to the key materials.
 	_party.player_level = Tuning.KEY_UNLOCK_LEVEL
 	_party.changed.emit()
-	await process_frame
+	await wait_process_frames(1)
 	var first_item: String = Tuning.KEY_RECIPE.keys()[0]
 	var need: int = Tuning.KEY_RECIPE[first_item]
-	_check("reaching the unlock level moves on to the key materials",
-		_current() == "%s 0/%d" % [_hud._item_name(first_item), need],
-		"current=%s" % _current())
+	assert_eq(
+		_current(),
+		"%s 0/%d" % [_hud._item_name(first_item), need],
+		"reaching the unlock level moves on to the key materials",
+	)
 
 	# Gathering advances within a material and then past it. The exact string
 	# matters: this is the panel's only report of real counts.
 	_inv.add(first_item, 1)
-	await process_frame
-	_check("a partial gather shows the real count",
-		_current() == "%s 1/%d" % [_hud._item_name(first_item), need],
-		"current=%s" % _current())
+	await wait_process_frames(1)
+	assert_eq(
+		_current(),
+		"%s 1/%d" % [_hud._item_name(first_item), need],
+		"a partial gather shows the real count",
+	)
 	_inv.add(first_item, need - 1)
-	await process_frame
-	_check("a finished material advances the chain",
-		_current() != "%s %d/%d" % [_hud._item_name(first_item), need, need],
-		"current=%s" % _current())
+	await wait_process_frames(1)
+	assert_ne(
+		_current(),
+		"%s %d/%d" % [_hud._item_name(first_item), need, need],
+		"a finished material advances the chain",
+	)
 
 	# Every key material, so the next objective is the craft.
 	for item in Tuning.KEY_RECIPE:
 		var short: int = Tuning.KEY_RECIPE[item] - _inv.count(item)
 		if short > 0:
 			_inv.add(item, short)
-	await process_frame
-	_check("all materials held asks for the craft",
-		_current() == "Craft the Altar Key at the bench", "current=%s" % _current())
+	await wait_process_frames(1)
+	assert_eq(
+		_current(), "Craft the Altar Key at the bench", "all materials held asks for the craft"
+	)
 
 	# Crafting: the key in hand, materials spent, exactly as the bench does it.
 	for item in Tuning.KEY_RECIPE:
 		_inv.remove(item, Tuning.KEY_RECIPE[item])
 	_inv.add("altar_key", 1)
-	await process_frame
-	_check("holding a key advances to the altar",
-		_current() == "Use the key at the altar (R)", "current=%s" % _current())
-	_check("the craft stays ticked once the materials are spent",
-		_rows()[-2].begins_with(_hud.MARK_DONE), "rows=%s" % str(_rows()))
+	await wait_process_frames(1)
+	assert_eq(
+		_current(), "Use the key at the altar (R)", "holding a key advances to the altar"
+	)
+	assert_true(
+		_rows()[-2].begins_with(_hud.MARK_DONE),
+		"the craft stays ticked once the materials are spent: rows=%s" % str(_rows()),
+	)
 
 	# Catching the boss is the win, and the last objective.
 	_party.members.append(_fake_pal(_hud.BOSS_NAME))
 	_party.changed.emit()
-	await process_frame
-	_check("catching the King finishes the chain",
+	await wait_process_frames(1)
+	assert_true(
 		_current() == "Catch the Mushroom King" and _rows()[-1].begins_with(_hud.MARK_DONE),
-		"rows=%s" % str(_rows()))
+		"catching the King finishes the chain: rows=%s" % str(_rows()),
+	)
 
-	_check("the panel never exceeds its row cap",
+	assert_true(
 		_rows().size() <= Tuning.OBJECTIVE_ROWS_MAX,
-		"visible=%d cap=%d" % [_rows().size(), Tuning.OBJECTIVE_ROWS_MAX])
-
-	print("FAILURES=", _fails)
-	quit(1 if _fails > 0 else 0)
+		(
+			"the panel never exceeds its row cap: visible=%d cap=%d"
+			% [_rows().size(), Tuning.OBJECTIVE_ROWS_MAX]
+		),
+	)
 
 
 ## The visible row texts, top to bottom.
@@ -128,13 +164,6 @@ func _current() -> String:
 func _fake_pal(pal_name: String):
 	var pal = load("res://scenes/pal_wolf.tscn").instantiate()
 	pal.display_name = pal_name
-	get_root().add_child(pal)
+	add_child(pal)
+	_fake_pals.append(pal)
 	return pal
-
-
-func _check(check_name: String, ok: bool, detail := "") -> void:
-	if ok:
-		print("PASS ", check_name, "  ", detail)
-	else:
-		_fails += 1
-		print("FAIL ", check_name, "  ", detail)

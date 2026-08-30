@@ -1,58 +1,65 @@
-extends SceneTree
-## Headless HUD message assertions. Run:
-##   godot --headless --path . -s test/hud_message_test.gd
+extends GutTest
+## HUD message assertions, ported from test/hud_message_test.gd.
 ##
 ## Ten callers share one message label. A catch flashes the catch, the XP and
 ## sometimes a level in the same frame, and the catch used to be overwritten
 ## before it could be read.
+##
+## Note the bare `Hud` and `Inventory` below: a GUT test script loads at
+## runtime, after autoloads register, so it can name them. The `-s` script
+## this was ported from could not, and had to go through get_node.
 
-var _fails := 0
+var _world: Node
 
-func _init() -> void:
-	await process_frame
-	var world = load("res://scenes/world.tscn").instantiate()
-	get_root().add_child(world)
-	await process_frame
-	for i in 5:
-		await physics_frame
-	var hud = get_root().get_node("Hud")
 
-	hud.flash("Caught Wolf!")
-	hud.flash("You reached level 2!")
-	hud.flash("Wolf defeated! +1 Pelt")
-	await process_frame
+## Freed in after_all, not by add_child_autofree, which frees at the end of
+## the test that called it rather than at the end of the script. free, not
+## queue_free: GUT counts children still parented when the script ends.
+func before_all() -> void:
+	_world = load("res://scenes/world.tscn").instantiate()
+	add_child(_world)
+	await wait_process_frames(1)
+	await wait_physics_frames(5)
 
-	_check("the catch message is the one on screen",
-		hud._message.text == "Caught Wolf!", "showing=%s" % hud._message.text)
-	_check("the others are queued, not lost",
-		hud._messages.size() == 2, "queued=%s" % str(hud._messages))
+
+func after_all() -> void:
+	_world.free()
+
+
+func test_the_queue_shows_one_and_holds_the_rest() -> void:
+	Hud.flash("Caught Wolf!")
+	Hud.flash("You reached level 2!")
+	Hud.flash("Wolf defeated! +1 Pelt")
+	await wait_process_frames(1)
+
+	assert_eq(Hud._message.text, "Caught Wolf!", "the catch message is the one on screen")
+	assert_eq(Hud._messages.size(), 2, "the others are queued, not lost")
 
 	# Let the first turn expire.
-	hud._next_message()
-	await process_frame
-	_check("the next message takes its turn",
-		hud._message.text == "You reached level 2!", "showing=%s" % hud._message.text)
+	Hud._next_message()
+	await wait_process_frames(1)
+	assert_eq(Hud._message.text, "You reached level 2!", "the next message takes its turn")
 
-	hud._next_message()
-	hud._next_message()
-	await process_frame
-	_check("the queue empties and clears the label",
-		hud._message.text == "" and hud._messages.is_empty(),
-		"showing=%s queued=%d" % [hud._message.text, hud._messages.size()])
-
-	# A repeat of what is already showing must not stack up.
-	hud.flash("Wood 1")
-	hud.flash("Wood 1")
-	_check("a repeated message does not queue twice",
-		hud._messages.is_empty(), "queued=%s" % str(hud._messages))
-
-	print("FAILURES=", _fails)
-	quit(1 if _fails > 0 else 0)
+	Hud._next_message()
+	Hud._next_message()
+	await wait_process_frames(1)
+	assert_eq(Hud._message.text, "", "the queue empties and clears the label")
+	assert_true(Hud._messages.is_empty(), "queued=%d" % Hud._messages.size())
 
 
-func _check(name: String, ok: bool, detail := "") -> void:
-	if ok:
-		print("PASS ", name, "  ", detail)
-	else:
-		_fails += 1
-		print("FAIL ", name, "  ", detail)
+## A repeat of what is already showing must not stack up.
+func test_a_repeated_message_does_not_queue_twice() -> void:
+	# Drain whatever an earlier test left, so this does not read the tail of it.
+	while not Hud._messages.is_empty() or Hud._message.text != "":
+		Hud._next_message()
+	await wait_process_frames(1)
+
+	Hud.flash("Wood 1")
+	Hud.flash("Wood 1")
+	assert_true(Hud._messages.is_empty(), "queued=%s" % str(Hud._messages))
+
+
+## Not in the original suite. It is here to show a GUT test naming a second
+## autoload directly, which is the whole reason this file was ported.
+func test_the_inventory_autoload_answers_by_name() -> void:
+	assert_true(Inventory.count("wood") >= 0, "Inventory resolves without get_node")

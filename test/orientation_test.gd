@@ -1,66 +1,60 @@
-extends SceneTree
-## Headless orientation assertions. Run:
-##   godot --headless --path . -s test/orientation_test.gd
-## Exits 1 on any failure. Covers: camera behind the player, turn maths for
-## all four inputs, thrown cubes hitting a pal ahead, punch facing check.
+extends GutTest
+## Orientation assertions, ported from test/orientation_test.gd.
+##
+## Covers: camera behind the player, turn maths for all four inputs, thrown
+## cubes hitting a pal ahead, punch facing check.
+##
+## Reasoning about facing has been wrong here four times, so these run the
+## real bodies and read the real numbers rather than inspecting anything.
+##
+## One world for the whole script, in the original order: before_all parks
+## every wild pal far away so only what each test places matters, and
+## test_cube_hits reads the first of those parked pals.
 
-var _fails := 0
 var _world: Node3D
 var _player: CharacterBody3D
+var _pals: Array
 
 
-func _init() -> void:
-	await process_frame
+## Freed in after_all, not by add_child_autofree, which frees at the end of
+## the test that called it rather than at the end of the script. free, not
+## queue_free: GUT counts children still parented when the script ends.
+func before_all() -> void:
 	_world = load("res://scenes/world.tscn").instantiate()
-	get_root().add_child(_world)
-	await process_frame
+	add_child(_world)
+	await wait_process_frames(1)
 	_player = _world.get_node("Player")
 
 	# Park every wild pal far away so only what each test places matters.
-	var pals := get_nodes_in_group("pal")
-	for pal in pals:
+	_pals = get_tree().get_nodes_in_group("pal")
+	for pal in _pals:
 		pal.set_physics_process(false)
 		pal.global_position = Vector3(200, 1, 200)
-	for i in 20:
-		await physics_frame  # Let the player settle onto the ground.
-
-	await _test_camera_behind()
-	await _test_turn_maths()
-	await _test_cube_hits(pals[0])
-	await _test_punch_facing()
-
-	print("FAILURES=", _fails)
-	quit(1 if _fails > 0 else 0)
+	await wait_physics_frames(20)  # Let the player settle onto the ground.
 
 
-func _check(name: String, ok: bool, detail := "") -> void:
-	if ok:
-		print("PASS ", name)
-	else:
-		_fails += 1
-		print("FAIL ", name, "  ", detail)
+func after_all() -> void:
+	_world.free()
 
 
 ## The spring arm must extend to +Z of the pivot (behind a -Z-facing body),
 ## not collapse against the player's own capsule.
-func _test_camera_behind() -> void:
+func test_camera_behind() -> void:
 	var pivot: Node3D = _player.get_node("CameraPivot")
 	var cam: Camera3D = _player.get_node("CameraPivot/SpringArm3D/Camera3D")
 	var offset := cam.global_position - pivot.global_position
-	_check(
-		"camera sits behind (+Z of pivot) at arm length",
+	assert_true(
 		offset.dot(pivot.global_transform.basis.z) > 4.0,
-		"offset=%s" % offset,
+		"camera sits behind (+Z of pivot) at arm length  offset=%s" % offset,
 	)
 	var look := -cam.global_transform.basis.z
-	_check(
-		"camera looks the way the body faces",
+	assert_true(
 		look.dot(_player.facing()) > 0.9,
-		"look=%s facing=%s" % [look, _player.facing()],
+		"camera looks the way the body faces  look=%s facing=%s" % [look, _player.facing()],
 	)
 
 
-func _test_turn_maths() -> void:
+func test_turn_maths() -> void:
 	var cases := [
 		["move_forward", Vector3(0, 0, -1)],
 		["move_back", Vector3(0, 0, 1)],
@@ -71,34 +65,30 @@ func _test_turn_maths() -> void:
 		_player.global_position = Vector3(0, 1, 0)
 		_player.velocity = Vector3.ZERO
 		Input.action_press(case[0])
-		for i in 40:
-			await physics_frame
+		await wait_physics_frames(40)
 		var vel: Vector3 = _player.velocity
 		Input.action_release(case[0])
 		vel.y = 0.0
 		vel = vel.normalized()
 		var facing: Vector3 = _player.facing()
-		_check(
-			"%s: travel matches camera intent" % case[0],
+		assert_true(
 			vel.dot(case[1]) > 0.95,
-			"vel=%s want=%s" % [vel, case[1]],
+			"%s: travel matches camera intent  vel=%s want=%s" % [case[0], vel, case[1]],
 		)
-		_check(
-			"%s: face leads travel" % case[0],
+		assert_true(
 			facing.dot(vel) > 0.95,
-			"facing=%s vel=%s" % [facing, vel],
+			"%s: face leads travel  facing=%s vel=%s" % [case[0], facing, vel],
 		)
-		for i in 10:
-			await physics_frame
+		await wait_physics_frames(10)
 
 
 ## A cube lobbed with the crosshair on a pal must hit it at each distance.
-func _test_cube_hits(_target: Node3D) -> void:
+func test_cube_hits() -> void:
+	var _target: Node3D = _pals[0]
 	_player.global_position = Vector3(0, 1, 0)
 	_player.velocity = Vector3.ZERO
 	var pivot: Node3D = _player.get_node("CameraPivot")
-	for i in 30:
-		await physics_frame  # Settle onto the ground; throws sample position.
+	await wait_physics_frames(30)  # Settle onto the ground; throws sample position.
 	var cases := [
 		["3m ahead", Vector3(0.0, 0.02, -3.0)],
 		["5m ahead", Vector3(0.0, 0.02, -5.0)],
@@ -108,43 +98,51 @@ func _test_cube_hits(_target: Node3D) -> void:
 		["6m ahead right", Vector3(1.6, 0.02, -6.0)],
 		["6m ahead left", Vector3(-1.6, 0.02, -6.0)],
 	]
-	var party := get_root().get_node("Party")
 	for case in cases:
-		party.members.clear()
-		party.active = null
+		Party.members.clear()
+		Party.active = null
 		var target: Node3D = load("res://scenes/pal_wolf.tscn").instantiate()
 		_world.add_child(target)
-		await process_frame
+		await wait_process_frames(1)
 		target.set_physics_process(false)
 		# A settled pal rests with its capsule bottom on the ground (root y=0),
 		# so its centre is the collider's local offset above that.
 		target.global_position = case[1]
-		await physics_frame
+		await wait_physics_frames(1)
 		var centre: Vector3 = target.get_node("Collision").global_position
 		pivot.look_at(centre, Vector3.UP)  # Crosshair on the pal.
-		await physics_frame
+		await wait_physics_frames(1)
 		var info: Dictionary = _player._current_throw_aim()
 		var reticule_origin: Vector3 = info.origin
 		var reticule_aim: Vector3 = info.aim
 		var to_reticule: Vector3 = centre - reticule_origin
 		var along_reticule: float = to_reticule.dot(reticule_aim)
 		var off_reticule: float = (to_reticule - reticule_aim * along_reticule).length()
-		var lock_radius: float = Tuning.CUBE_AIM_ASSIST_RADIUS \
-			+ along_reticule * Tuning.CUBE_AIM_ASSIST_GROWTH
-		_check("reticule locks %s" % case[0], info.pal == target,
-			"pal=%s off=%.2f lock=%.2f along=%.2f target=%s" % [
-				info.pal,
-				off_reticule,
-				lock_radius,
-				along_reticule,
-				info.target,
-			])
+		var lock_radius: float = (
+			Tuning.CUBE_AIM_ASSIST_RADIUS + along_reticule * Tuning.CUBE_AIM_ASSIST_GROWTH
+		)
+		assert_true(
+			info.pal == target,
+			(
+				"reticule locks %s  pal=%s off=%.2f lock=%.2f along=%.2f target=%s"
+				% [
+					case[0],
+					info.pal,
+					off_reticule,
+					lock_radius,
+					along_reticule,
+					info.target,
+				]
+			),
+		)
 		var cube: Area3D = load("res://scenes/pal_cube.tscn").instantiate()
 		_world.add_child(cube)
 		var hit := [false]
-		cube.resolved.connect(func(pal: Node, _success: bool) -> void:
-			if pal == target:
-				hit[0] = true)
+		cube.resolved.connect(
+			func(pal: Node, _success: bool) -> void:
+				if pal == target:
+					hit[0] = true
+		)
 		# The same maths _throw_cube uses, minus inventory and cinematics.
 		var aim: Vector3 = info.aim
 		var from: Vector3 = (
@@ -157,22 +155,21 @@ func _test_cube_hits(_target: Node3D) -> void:
 		cube.throw(from, _player._lob_velocity(from, goal))
 		var closest := INF
 		for i in 240:
-			await physics_frame
+			await wait_physics_frames(1)
 			if hit[0]:
 				break
 			if is_instance_valid(cube):
 				closest = minf(closest, cube.global_position.distance_to(centre))
-		_check("cube hits pal %s" % case[0], hit[0],
-			"closest approach %.2fm" % closest)
+		assert_true(hit[0], "cube hits pal %s  closest approach %.2fm" % [case[0], closest])
 		if is_instance_valid(cube):
 			cube.queue_free()
 		if is_instance_valid(target):
 			target.queue_free()
-		await physics_frame
+		await wait_physics_frames(1)
 	pivot.rotation = Vector3.ZERO
 
 
-func _test_punch_facing() -> void:
+func test_punch_facing() -> void:
 	_player.global_position = Vector3(0, 1, 0)
 	_player.velocity = Vector3.ZERO
 	var pivot: Node3D = _player.get_node("CameraPivot")
@@ -184,19 +181,19 @@ func _test_punch_facing() -> void:
 	_world.add_child(behind)
 	ahead.global_position = Vector3(0, 0, -2)
 	behind.global_position = Vector3(0, 0, 2)
-	await physics_frame
+	await wait_physics_frames(1)
 
 	_player._punch()
-	await physics_frame
-	_check("punch hits the tree ahead", ahead._hits == 1,
-		"ahead._hits=%d" % ahead._hits)
-	_check("punch spares the tree behind", behind._hits == 0,
-		"behind._hits=%d" % behind._hits)
+	await wait_physics_frames(1)
+	assert_true(ahead._hits == 1, "punch hits the tree ahead  ahead._hits=%d" % ahead._hits)
+	assert_true(behind._hits == 0, "punch spares the tree behind  behind._hits=%d" % behind._hits)
 
 	ahead.queue_free()
-	await physics_frame
+	await wait_physics_frames(1)
 	_player._punch()
-	await physics_frame
-	_check("punch finds nothing with only a tree behind", behind._hits == 0,
-		"behind._hits=%d" % behind._hits)
+	await wait_physics_frames(1)
+	assert_true(
+		behind._hits == 0,
+		"punch finds nothing with only a tree behind  behind._hits=%d" % behind._hits,
+	)
 	behind.queue_free()

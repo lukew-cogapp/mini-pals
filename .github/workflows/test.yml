@@ -35,12 +35,8 @@ jobs:
           echo "$HOME/godot" >> "$GITHUB_PATH"
           "$HOME/godot/godot" --headless --path . --import 2>&1 | tail -5
 
-      # Not just "did the tests pass": a script error mid-test still prints
-      # FAILURES=0, so run.sh treats errors and parser warnings as failures too.
+      # GUT fails on an engine error structurally, rather than by grepping for
+      # one: a SCRIPT ERROR inside a test is a failed test, not a line of
+      # output someone has to notice.
       - name: Run the suites
         run: ./test/run.sh
-
-      # GUT runs three of the same suites ported to its idiom. It fails on an
-      # engine error structurally, rather than by grepping for one.
-      - name: Run the GUT suites
-        run: ./test/run_gut.sh
