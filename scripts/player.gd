@@ -471,8 +471,11 @@ func _safe_dismount_position(from_mount: Pal) -> Variant:
 
 
 func _dismount_spot_is_safe(landing: Vector3, from_mount: Pal) -> bool:
-	var radius := Vector2(landing.x, landing.z).length()
-	if radius > Tuning.SHORE_WALL_RADIUS - Tuning.RIDE_DISMOUNT_CLEARANCE:
+	# Step in from the landing spot before asking: the zone edge is the shore
+	# wall itself, and dismounting flush against it leaves no room to stand.
+	var outward := Vector3(landing.x, 0.0, landing.z).normalized()
+	var inset := outward * Tuning.RIDE_DISMOUNT_CLEARANCE
+	if not Zone.is_inside(get_world_3d(), landing + inset, Zone.Kind.LAND):
 		return false
 
 	var shape_node: CollisionShape3D = $CollisionShape3D

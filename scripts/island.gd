@@ -17,6 +17,37 @@ func _ready() -> void:
 	_disc("Water", Tuning.WATER_RADIUS, Tuning.WATER_LEVEL, water, 48)
 	_ground_body()
 	_shore_wall()
+	_zones()
+
+
+## Zones for the discs just built, in the same pass and from the same
+## numbers, so the island and the regions describing it cannot drift apart.
+func _zones() -> void:
+	# Walkable ground stops at the shore wall, not at the painted sand.
+	_zone("LandZone", Zone.Kind.LAND, Tuning.SHORE_WALL_RADIUS, 0.0)
+	_zone(
+		"AshZone",
+		Zone.Kind.ASH,
+		Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MAX,
+		Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MIN,
+	)
+	# Everything from the shore wall out to the far edge of the water disc.
+	_zone("DeepZone", Zone.Kind.DEEP, Tuning.WATER_RADIUS, Tuning.SHORE_WALL_RADIUS)
+
+
+func _zone(name: String, kind: Zone.Kind, radius: float, hole: float) -> void:
+	var zone := Zone.new()
+	zone.name = name
+	zone.kind = kind
+	zone.hole_radius = hole
+	var cyl := CylinderShape3D.new()
+	cyl.radius = radius
+	# Tall enough that a point query at any sane height still lands inside.
+	cyl.height = Tuning.ZONE_HEIGHT
+	var shape := CollisionShape3D.new()
+	shape.shape = cyl
+	zone.add_child(shape)
+	add_child(zone)
 
 
 func _disc(name: String, radius: float, y: float, mat: Material, segments: int) -> void:

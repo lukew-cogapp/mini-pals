@@ -232,6 +232,9 @@ const WATER_LEVEL := -0.9
 ## Kept just inside the beach so you cannot paddle out to the wall.
 const SHORE_WALL_RADIUS := 114.0
 const SHORE_WALL_HEIGHT := 14.0
+## Zones are queried flat, at y = 0, so their height only has to clear the
+## terrain either side of it.
+const ZONE_HEIGHT := 200.0
 const PALM_COUNT := 48
 const SHELL_COUNT := 72
 ## Shore dressing bands, as fractions of ISLAND_RADIUS. Palms start beyond

@@ -153,6 +153,22 @@ and riding.
 Scatter is seeded (`Tuning.SCATTER_SEED`), so the world is identical each run.
 Change the seed for a new layout.
 
+Regions are `Zone` nodes (`scripts/zone.gd`, `class_name Zone extends Area3D`,
+group `zone`), not radii from the origin. `island.gd` builds LAND, ASH and DEEP
+in the same pass as the discs they describe, so the two cannot drift apart, and
+callers ask `Zone.is_inside(world, point, kind)` or `Zone.zone_at(world, point)`.
+Membership is a physics point query on the zone's own shape, so a second island
+just adds its own zones and no maths changes. Zones sit alone on layer 7
+(`Zone.LAYER`); a query with any other mask finds nothing.
+
+Physics shapes cannot express a ring, and a fan of boxes approximating one is
+wrong by ~1cm at the seams, which is enough to move a scattered tree across the
+demon-ring boundary and reshuffle the whole seeded layout. So ASH is a cylinder
+with an exact `hole_radius` instead. Keep it that way.
+
+`_scatter`'s `SCATTER_CLEAR_RADIUS` and `ALTAR_CLEAR_RADIUS` checks stay radius
+maths on purpose: they are clearings around a point, not regions of the map.
+
 Endgame: player level 4 unlocks the Altar Key recipe at the workbench
 (3 pelt + 3 cactus fruit + 3 demon horn). One stone altar stands at
 `Tuning.ALTAR_POS`, out in the demon ring; R (action `interact`, gamepad

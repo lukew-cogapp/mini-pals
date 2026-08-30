@@ -102,11 +102,7 @@ func _place_altar() -> void:
 ## scorched ground reads as its own place rather than the same island
 ## recoloured.
 func _in_demon_ring(pos: Vector3) -> bool:
-	var d := pos.length()
-	return (
-		d >= Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MIN
-		and d <= Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MAX
-	)
+	return Zone.is_inside(get_world_3d(), pos, Zone.Kind.ASH)
 
 
 ## Dead trees, in the demon annulus only. Unlike _scatter this needs no
