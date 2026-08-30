@@ -42,6 +42,12 @@ Two conventions the owner asked for, worth keeping:
   `models/player_model.tscn` rather than embedding meshes, so swapping in a
   real `.glb` touches one file.
 
+The player-facing wiki is the sibling repo `../godot-world-wiki`, an Astro
+Starlight site. Its numbers are copied out of `tuning.gd`, so retuning a
+species, a recipe or a binding here leaves it lying until someone edits both.
+Species pages live in `src/content/docs/pals/` and a new one has to be added
+to the sidebar in `astro.config.mjs` as well, or nothing links to it.
+
 ## Godot facts worth not relearning
 
 **Orientation: one convention, one compensation.** Gameplay code is pure Godot

@@ -4,17 +4,10 @@ Kept current as work lands.
 
 ## Next
 
-- [ ] **Ship to itch.io.** All assets are CC0, so nothing blocks it. Free web
-      build, one link, no install. In order: install export templates for
-      4.7.2; switch the renderer to Compatibility (Godot 4 web is WebGL2 only,
-      and this project has no custom shaders so it should cost nothing, but
-      screenshot it and look); make a Web preset with threads off and
-      rename-to-index on; export and read the real size, which is unmeasured
-      and estimated at 25 to 60 MB; zip with `index.html` at the root; create
-      the project as Kind = HTML on a parent's account
-- [ ] Credit line for the itch page and the help overlay: "Made with Godot
-      Engine (MIT). Models by Quaternius (quaternius.com), CC0 1.0." The
-      Quaternius half is courtesy, the Godot half is required
+- [ ] Open the live build in a browser and confirm it runs. It deploys to
+      https://lukew-cogapp.github.io/mini-pals/ on a `v*` tag, and CI checks
+      only that `index.html` exists. A Godot web build that renders a black
+      screen prints no error at all, so nobody has yet proved it works
 - [ ] `assets/monsters/LICENSE-Quaternius.txt` names the wrong pack (it is the
       platformer licence text). The CC0 grant holds, but re-download the right
       file so the paper trail is clean
@@ -122,4 +115,4 @@ Works as is. Research says these are the idiomatic upgrades:
 - [ ] Tree colour variation, they are all identical
 - [ ] More pal species, several have `_Evolved` variants
 - [ ] More sound polish
-- [ ] Export to itch.io so Aubrey can share a link
+- [x] Publish a web build Aubrey can share a link to (GitHub Pages)

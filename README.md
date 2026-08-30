@@ -14,6 +14,13 @@ No download, no install. Works in Chrome, Edge and Firefox; Safari is
 rougher, since its WebGL 2 support is patchier. A controller needs a button
 pressed before the browser will see it.
 
+## The wiki
+
+Player-facing notes on every pal, the crafting chain and the endgame live in
+the sibling repo, `godot-world-wiki`: an Astro Starlight site built from the
+same numbers this project ships. Changing a species or a recipe here means
+changing it there.
+
 ## Running it from source
 
 ```
@@ -60,8 +67,8 @@ Press `/` in game for the same list.
    blow, so the catch stays yours.
 4. **Catch.** Hold `Q` to aim. The reticule names the pal it has locked and
    shows the odds; let go to throw.
-5. **Keep.** Caught pals join your party, one out at a time. The Wolf can be
-   ridden.
+5. **Keep.** Caught pals join your party, one out at a time. Wolf and
+   Mudwader can be ridden.
 6. **Grow.** Catches and defeats earn XP. Species drops let you craft the
    Altar Key once you reach level 4.
 7. **Win.** Take the key to the altar out in the scorched ground, summon the
@@ -69,17 +76,26 @@ Press `/` in game for the same list.
 
 ## Species
 
-| | Rideable | Behaviour |
-|---|---|---|
-| Wolf | Yes | Flees when you get close |
-| Cactoro | No | Flees when you get close |
-| Demon | No | Attacks on sight, lives on the scorched ground |
-| Mudwader | Yes | On the sand. The only way into the shallows |
-| Glimmerfin | No | Lives in the shallows and never leaves the water |
-| Mushroom King | No | Summoned boss and win condition |
+Every species has one job, so which pal you have out matters.
 
-Catching a Mudwader is the gate to the water: the Glimmerfin swim too far out
-to reach a cube thrown from the beach, so you have to ride out to them.
+| | Rideable | Where | Job while it is out |
+|---|---|---|---|
+| Wolf | Yes | The green | Fetches nearby stone, and you run faster |
+| Cactoro | No | The green | Chops nearby trees for wood |
+| Demon | No | Scorched ground | You hit harder. Attacks on sight |
+| Mudwader | Yes | The sand | The only way into the shallows |
+| Glimmerfin | No | The shallows | More items when you gather |
+| Grottolo | No | The cave | More stone from rocks |
+| Mushroom King | No | Summoned at the altar | Throws cost nothing |
+
+Two of those gate the map. Catching a Mudwader opens the water, because the
+Glimmerfin swim further out than a cube thrown from the beach can reach. The
+Grottolo lives only in the cave, so finding it is the point of going.
+
+Wolf and Cactoro flee when you get close. Mudwader and Glimmerfin are
+neutral: they neither attack nor run, but they fight back. Demons attack on
+sight, and wild pals of different species now fight each other, lethally, so
+the world thins and repopulates on its own.
 
 ## Layout
 
