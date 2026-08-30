@@ -196,7 +196,9 @@ func _test_caught_and_dying_pals_show_nothing() -> void:
 ## half-follows the player around the map.
 func _test_every_layer_shows_and_hides_together() -> void:
 	var player := _player_at(Vector3.ZERO)
-	var pal = await _spawn_pal(Vector3(0.0, 0.0, 2.0), player)
+	# In front of the player: Godot forward is -Z, and the bar is now gated on
+	# the camera's facing cone as well as distance.
+	var pal = await _spawn_pal(Vector3(0.0, 0.0, -2.0), player)
 	var layers := [
 		pal._bar_shadow, pal._bar_back, pal._bar_track, pal._bar_fill, pal._bar_sheen
 	]

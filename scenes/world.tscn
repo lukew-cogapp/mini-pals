@@ -96,12 +96,10 @@ demon_scene = ExtResource("10")
 amphibian_scene = ExtResource("29")
 fish_scene = ExtResource("30")
 altar_scene = ExtResource("11")
+workbench_scene = ExtResource("7")
 
 [node name="Player" parent="." instance=ExtResource("1")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
-
-[node name="Workbench" parent="." instance=ExtResource("7")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8)
 
 [node name="BuildMenu" parent="." instance=ExtResource("8")]
 

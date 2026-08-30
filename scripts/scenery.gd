@@ -16,6 +16,7 @@ extends Node3D
 @export var palm_scene: PackedScene
 @export var shell_scene: PackedScene
 @export var altar_scene: PackedScene
+@export var workbench_scene: PackedScene
 
 var _respawn_rng := RandomNumberGenerator.new()
 var _respawn_wait := 0.0
@@ -40,6 +41,7 @@ func _ready() -> void:
 	_scatter_amphibians(rng)
 	_scatter_fish(rng)
 	_place_altar()
+	_place_workbenches()
 	# Unseeded, deliberately: the initial layout must be identical every run,
 	# but a refill that arrived in the same order every run would be a script.
 	_respawn_rng.randomize()
@@ -149,6 +151,18 @@ func _scatter(
 
 ## One altar, at a fixed spot out among the demons, so reaching it is
 ## itself a small journey. Scatter keeps its clearing free of trees.
+## Benches are authored rather than scattered: a random one could land in the
+## ash, in the water, or inside a tree, and the player needs to be able to
+## learn where they are.
+func _place_workbenches() -> void:
+	if workbench_scene == null:
+		return
+	for at in Tuning.WORKBENCH_POSITIONS:
+		var bench := workbench_scene.instantiate() as Node3D
+		bench.position = at
+		add_child(bench)
+
+
 func _place_altar() -> void:
 	if altar_scene == null:
 		return

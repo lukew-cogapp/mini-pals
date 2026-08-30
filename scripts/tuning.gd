@@ -387,6 +387,17 @@ const RECIPES := [
 ## The scorched blob is centred here, so the altar sits at the heart of the
 ## demon ground. Far enough out that reaching it is a journey, near enough
 ## that the blob's widest edge still lands on grass rather than the beach.
+## Workbenches, hand-placed. One bench on a 110 m island meant walking back
+## across the map to spend what you gathered, so there are a few, spread far
+## enough apart that you are usually near one but never beside two.
+const WORKBENCH_POSITIONS := [
+	Vector3(0.0, 0.0, -8.0),
+	Vector3(-52.0, 0.0, 34.0),
+	Vector3(46.0, 0.0, 44.0),
+	Vector3(16.0, 0.0, -74.0),
+	Vector3(-62.0, 0.0, -30.0),
+]
+
 const ALTAR_POS := Vector3(40.0, 0.0, -40.0)
 const ALTAR_CLEAR_RADIUS := 8.0
 const ALTAR_RANGE := 5.0
