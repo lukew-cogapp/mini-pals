@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1"]
 [ext_resource type="Material" path="res://materials/ground.tres" id="2"]
@@ -9,6 +9,13 @@
 [ext_resource type="PackedScene" path="res://scenes/workbench.tscn" id="7"]
 [ext_resource type="PackedScene" path="res://scenes/build_menu.tscn" id="8"]
 [ext_resource type="PackedScene" path="res://scenes/pal_cactoro.tscn" id="9"]
+[ext_resource type="PackedScene" path="res://scenes/pal_demon.tscn" id="10"]
+[ext_resource type="PackedScene" path="res://scenes/altar.tscn" id="11"]
+[ext_resource type="PackedScene" path="res://scenes/models/palm.tscn" id="12"]
+[ext_resource type="PackedScene" path="res://scenes/models/shell.tscn" id="13"]
+[ext_resource type="Script" path="res://scripts/island.gd" id="14"]
+[ext_resource type="Material" path="res://materials/sand.tres" id="15"]
+[ext_resource type="Material" path="res://materials/water.tres" id="16"]
 
 [sub_resource type="PlaneMesh" id="1"]
 size = Vector2(120, 120)
@@ -50,7 +57,12 @@ light_color = Color(1, 0.79, 0.56, 1)
 light_energy = 1.15
 shadow_enabled = true
 
-[node name="Ground" type="StaticBody3D" parent="."]
+[node name="Island" type="Node3D" parent="."]
+script = ExtResource("14")
+grass = ExtResource("2")
+sand = ExtResource("15")
+water = ExtResource("16")
+
 
 [node name="Mesh" type="MeshInstance3D" parent="Ground"]
 mesh = SubResource("1")
@@ -64,7 +76,11 @@ script = ExtResource("3")
 tree_scene = ExtResource("4")
 rock_scene = ExtResource("5")
 pal_scene = ExtResource("6")
+palm_scene = ExtResource("12")
+shell_scene = ExtResource("13")
 pal_scene_b = ExtResource("9")
+demon_scene = ExtResource("10")
+altar_scene = ExtResource("11")
 
 [node name="Player" parent="." instance=ExtResource("1")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)

@@ -1,0 +1,30 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/pal_boss.gd" id="1"]
+[ext_resource type="PackedScene" path="res://assets/monsters/Big/MushroomKing.gltf" id="2"]
+
+[sub_resource type="CapsuleShape3D" id="1"]
+radius = 1.0
+height = 3.2
+
+[node name="PalBoss" type="CharacterBody3D" groups=["pal"]]
+collision_layer = 4
+script = ExtResource("1")
+display_name = "Mushroom King"
+rideable = false
+aggressive = true
+drop_item = "kings_crown"
+drop_item_name = "King's crown"
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+shape = SubResource("1")
+
+[node name="Model" type="Node3D" parent="."]
+
+; glTF fronts face +Z (glTF 2.0 spec); Godot forward is -Z. This 180-degree
+; turn is the project's ONE orientation compensation. See CLAUDE.md. The 1.5
+; is scene geometry: base bulk, multiplied further by the level-scale in
+; pal.gd, so the king towers over demons.
+[node name="MushroomKing" parent="Model" instance=ExtResource("2")]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0)

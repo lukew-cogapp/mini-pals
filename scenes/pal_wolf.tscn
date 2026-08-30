@@ -12,6 +12,12 @@ collision_layer = 4
 script = ExtResource("1")
 display_name = "Wolf"
 rideable = true
+level_min = 1
+level_max = 3
+drop_item = "pelt"
+drop_item_name = "Pelt"
+buff_kind = &"speed"
+buff_per_level = 0.06
 
 [node name="Collision" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.65, 0)

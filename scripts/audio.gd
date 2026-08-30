@@ -6,10 +6,13 @@ extends Node
 
 const RATE := 22050.0
 const VOICES := 12
+## Below the effect voices, so catch and hit feedback cuts through.
+const MUSIC_VOLUME_DB := -9.0
 
 var _bank: Dictionary = {}
 var _players: Array[AudioStreamPlayer3D] = []
 var _next := 0
+var _music_player: AudioStreamPlayer
 
 
 func _ready() -> void:
@@ -21,12 +24,31 @@ func _ready() -> void:
 	_bank["gather"] = _tone(420.0, 300.0, 0.09, "square", 0.3)
 	_bank["craft"] = _chime([659.0, 880.0], 0.25)
 	_bank["throw"] = _tone(680.0, 900.0, 0.09, "sine", 0.25)
+	_bank["hit"] = _tone(220.0, 90.0, 0.09, "square", 0.35)
+	_bank["defeat"] = _tone(480.0, 120.0, 0.4, "saw", 0.38)
+	_bank["player_hurt"] = _tone(300.0, 130.0, 0.16, "square", 0.4)
+	_bank["player_death"] = _tone(440.0, 60.0, 0.7, "saw", 0.42)
+	_bank["demon_attack"] = _tone(150.0, 330.0, 0.16, "saw", 0.38)
+	_bank["summon"] = _tone(60.0, 420.0, 0.9, "saw", 0.5)
+	_bank["boss_attack"] = _tone(110.0, 45.0, 0.3, "saw", 0.45)
+	# A-minor bass under a sparse melody; loops seamlessly (see _music).
+	_bank["boss_music"] = _music(
+		[55.0, 55.0, 65.41, 55.0, 55.0, 55.0, 98.0, 82.41],
+		[220.0, 0.0, 261.63, 0.0, 329.63, 0.0, 246.94, 220.0],
+		0.42,
+	)
 
 	for i in VOICES:
 		var p := AudioStreamPlayer3D.new()
 		p.unit_size = 14.0
 		add_child(p)
 		_players.append(p)
+
+	# Music gets its own non-positional player: it must not fade with
+	# distance nor be recycled out from under a loop by the voice pool.
+	_music_player = AudioStreamPlayer.new()
+	_music_player.volume_db = MUSIC_VOLUME_DB
+	add_child(_music_player)
 
 
 func play(sound: String, at := Vector3.ZERO) -> void:
@@ -37,6 +59,45 @@ func play(sound: String, at := Vector3.ZERO) -> void:
 	p.stream = _bank[sound]
 	p.global_position = at
 	p.play()
+
+
+func play_music(sound: String) -> void:
+	if not _bank.has(sound):
+		return
+	if _music_player.playing and _music_player.stream == _bank[sound]:
+		return
+	_music_player.stream = _bank[sound]
+	_music_player.play()
+
+
+func stop_music() -> void:
+	_music_player.stop()
+
+
+## One beat per entry; a 0.0 melody entry is a rest. The saw bass keeps
+## running phase across beat boundaries, so the loop point never clicks.
+func _music(bass: Array, melody: Array, beat_secs: float) -> AudioStreamWAV:
+	var frames := int(RATE * beat_secs * bass.size())
+	var data := PackedByteArray()
+	data.resize(frames * 2)
+	var bass_phase := 0.0
+	var mel_phase := 0.0
+	for i in frames:
+		var beat_pos := float(i) / (RATE * beat_secs)
+		var b := int(beat_pos) % bass.size()
+		var local := beat_pos - floorf(beat_pos)
+		bass_phase += TAU * float(bass[b]) / RATE
+		var s := _wave("saw", bass_phase) * 0.4 * pow(1.0 - local, 0.5)
+		var hz := float(melody[b])
+		if hz > 0.0:
+			mel_phase += TAU * hz / RATE
+			s += sin(mel_phase) * 0.3 * minf(local * 8.0, 1.0) * pow(1.0 - local, 1.2)
+		_put(data, i, s * 0.8)
+	var w := _wav(data)
+	w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	w.loop_begin = 0
+	w.loop_end = frames
+	return w
 
 
 func _tone(from_hz: float, to_hz: float, secs: float, wave: String, vol: float) -> AudioStreamWAV:

@@ -12,6 +12,13 @@ var _rng := RandomNumberGenerator.new()
 @onready var _burst: GPUParticles3D = $Burst
 
 
+func _ready() -> void:
+	# Connected here rather than in the scene: a stray node appended after the
+	# [connection] block once silently dropped it, and nothing hit for a while.
+	if not body_entered.is_connected(_on_body_entered):
+		body_entered.connect(_on_body_entered)
+
+
 func throw(from: Vector3, direction: Vector3) -> void:
 	global_position = from
 	_velocity = direction.normalized() * Tuning.CUBE_THROW_SPEED
@@ -41,7 +48,7 @@ func _on_body_entered(body: Node3D) -> void:
 	if _spent or not body is Pal:
 		return
 	var pal := body as Pal
-	if pal.caught:
+	if pal.caught or pal.dying:
 		return
 	_spent = true
 	_capture(pal)
@@ -68,7 +75,7 @@ func _capture(pal: Pal) -> void:
 		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BOUNCE)
 	await drop.finished
 
-	var success := _rng.randf() < Tuning.CUBE_CATCH_CHANCE
+	var success := _rng.randf() < pal.catch_chance()
 	for i in Tuning.CATCH_SHAKE_COUNT:
 		Audio.play("shake", global_position)
 		var shake := create_tween()

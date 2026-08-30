@@ -21,3 +21,7 @@ func remove(item: String, n: int = 1) -> bool:
 
 func count(item: String) -> int:
 	return _counts.get(item, 0)
+
+
+func items() -> Array:
+	return _counts.keys()

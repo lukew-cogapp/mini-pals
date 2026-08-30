@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Material" path="res://materials/shell.tres" id="1"]
+
+[sub_resource type="SphereMesh" id="1"]
+radius = 0.22
+height = 0.26
+radial_segments = 8
+rings = 4
+
+[node name="Shell" type="Node3D"]
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.5, 0, 0, 0, 1, 0, 0.06, 0)
+mesh = SubResource("1")
+surface_material_override/0 = ExtResource("1")

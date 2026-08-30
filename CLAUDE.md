@@ -34,23 +34,35 @@ Two conventions the owner asked for, worth keeping:
 
 ## Godot facts worth not relearning
 
-**-Z is forward.** Facing a body along its travel direction is
-`atan2(-dir.x, -dir.z)`. Using `atan2(x, z)` points it backwards; the tell is
-a model that moons you as you walk. Cost us one bug already.
+**Orientation: one convention, one compensation.** Gameplay code is pure Godot
+convention, where forward is **-Z**: `Vector3.FORWARD == (0, 0, -1)`, cameras
+look along -Z, `look_at()` points -Z at the target, and a camera's or body's
+forward is `-basis.z`. Facing a body along its travel is
+`atan2(-dir.x, -dir.z)`. SpringArm3D extends its children along its local
+**+Z** (verified: a child camera ends at `(0, 0, spring_length)`), which is
+exactly behind a -Z-facing body, so the camera rig has NO rotation on it.
 
-**Quaternius models put the face on +Z**, the opposite of Godot's forward. Turn
-a model to face its travel direction with `atan2(dir.x, dir.z)`, NOT the
-`atan2(-x, -z)` that Godot's own convention implies. Both `player.gd` and
-`pal.gd` depend on this. Do not rotate the model scenes to compensate; that was
-tried, and it makes a model that looks right standing still and walks
-backwards. Never infer orientation from vertex counts or bone positions, both
-gave the wrong answer here. Render it and look.
+glTF 2.0 defines the front of an asset as **+Z** (spec, "Coordinate System
+and Units"; Godot mirrors this as `Vector3.MODEL_FRONT`), and Quaternius
+follows the spec: rendering the raw pack showed the face from +Z, the back
+from -Z. So every `.gltf` under `assets/monsters/` has been rotated 180
+degrees at source (root node quaternion `[0, 1, 0, 0]`) by
+`scripts/tools/face_forward.py`, and the art now faces -Z like everything
+else. No animation targets the root node, so the flip survives animation.
+Nothing in any scene or script compensates for model facing; run the script
+on any newly downloaded pack before instancing it, or it will spawn facing
+backwards. The player's SpringArm needs `add_excluded_object(get_rid())`
+(done in `player.gd _ready`) or its cast hits the player's own capsule and
+pulls the camera into the head.
 
-**SpringArm3D extends along +Z.** With a camera child, the camera therefore
-sits at +Z of its pivot. The Quaternius cat also faces +Z, so an unrotated
-pivot puts the camera in front of the player's face and throws go backwards
-over its shoulder. `player.tscn` rotates CameraPivot 180 degrees to sit the
-camera behind. Symptom if this regresses: you see the cat's face, not its back.
+Do not trust reasoning about any of this; it has been wrong here four times.
+`godot --headless --path . -s test/orientation_test.gd` asserts camera
+placement, turn maths for all four inputs, throw direction, and punch facing.
+The screenshot harness renders facing shots for all four walk directions
+(14 to 17), the rig camera view (18), a thrown cube in flight (19), and a
+walking wolf (20). Run both after touching anything orientation-adjacent,
+and LOOK at the images. Never infer facing from vertex counts or bone
+positions; both gave the wrong answer here. Render it and look.
 
 **`.tscn` sub-resources must be declared before the node that uses them.**
 A `SubResource("2")` referenced above its own `[sub_resource]` block fails with
@@ -117,11 +129,28 @@ built-in stair stepping and the proposal for it is still open.
 Scatter is seeded (`Tuning.SCATTER_SEED`), so the world is identical each run.
 Change the seed for a new layout.
 
+Endgame: player level 4 unlocks the Altar Key recipe at the workbench
+(3 pelt + 3 cactus fruit + 3 demon horn). One stone altar stands at
+`Tuning.ALTAR_POS`, out in the demon ring; R (action `interact`, gamepad
+D-pad up) with a key summons the Mushroom King (`scenes/pal_boss.tscn`),
+one alive at a time. The fight darkens the world, gives every pal a glow
+light, and loops procedural music; `scripts/altar.gd` restores all of it
+when the boss is caught or dies. Catching it is the win condition.
+
 Trees and rocks are gatherable (`scripts/resource_node.gd`, groups
 `tree`/`rock`/`resource_node`): punch (F) yields wood/stone, deplete after
 `Tuning.GATHER_HITS`, respawn in place. The workbench (B nearby) crafts pal
 cubes from `Tuning.CUBE_RECIPE`; throwing consumes one from `Inventory`
 (autoload, `scripts/inventory.gd`).
+
+Player health: `player.gd` has `hp` and `damage(amount, from_position)`,
+regen after a no-hit delay, and death -> respawn at the origin spawn with
+inventory and party kept and all pal aggro cleared. HUD shows a bar top-left.
+
+Pals fight back: punching one puts it in `State.ATTACK` (chase + hit on a
+cooldown) for `PAL_AGGRO_TIME`. Species with `aggressive = true` (the Demon,
+`scenes/pal_demon.tscn`, spawned in an annulus at the map rim) attack on sight
+inside `PAL_AGGRO_RADIUS` and never flee. A caught pal never attacks.
 
 Every bug this project has hit was invisible on inspection and only showed up
 in a headless test: a cube flying over the target's head, a mount jammed at

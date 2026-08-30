@@ -4,7 +4,7 @@ extends SceneTree
 ##
 ##   godot --path . -s test/screenshot.gd --quit-after 400
 
-const OUT := "res://test/shots/"
+const OUT := "/private/tmp/claude-501/-Users-lukew-git/cdef92a8-7d7e-40a6-ad77-1b8685480828/scratchpad/shots2/"
 
 var _world: Node3D
 var _player: CharacterBody3D

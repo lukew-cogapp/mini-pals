@@ -10,12 +10,26 @@ const CUBE_SCENE := preload("res://scenes/pal_cube.tscn")
 
 var mount: Pal = null  ## The pal we are riding, if any.
 
+var hp := 0.0  ## Set from Tuning in _ready; autoloads are not up at parse time.
+var _spawn := Vector3.ZERO
+var _since_hit := 1000.0  ## Long ago, so regen is armed from the start.
+var _invuln := 0.0
+var _dead := false
+
 func _ready() -> void:
 	add_to_group("player")
+	_spawn = global_position
+	hp = Tuning.PLAYER_MAX_HP
+	Hud.set_health(hp, Tuning.PLAYER_MAX_HP)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	# The arm's shape cast would otherwise hit our own capsule and pull the
+	# camera into the player's head.
+	$CameraPivot/SpringArm3D.add_excluded_object(get_rid())
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _dead:
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		pivot.rotate_y(-event.relative.x * Tuning.MOUSE_SENSITIVITY)
 		pivot.rotation.x = clampf(
@@ -40,6 +54,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_tick_health(delta)
 	if mount:
 		_ride(delta)
 		return
@@ -56,12 +71,14 @@ func _physics_process(delta: float) -> void:
 	direction = direction.normalized()
 
 	var speed := Tuning.PLAYER_RUN_SPEED if Input.is_action_pressed("run") else Tuning.PLAYER_SPEED
+	# The active pal's passive; reads 0.0 with no pal out, so base stays base.
+	speed *= 1.0 + Party.buff(&"speed")
 	if direction:
 		velocity.x = direction.x * speed
 		velocity.z = direction.z * speed
-		# Face travel direction rather than snapping instantly.
-		# Quaternius models put the face on +Z, so +Z leads, not Godot's -Z.
-		var target := atan2(direction.x, direction.z)
+		# Face travel direction rather than snapping instantly. Godot forward
+		# is -Z; the model is turned to match inside player_model.tscn.
+		var target := atan2(-direction.x, -direction.z)
 		body.rotation.y = lerp_angle(body.rotation.y, target, Tuning.PLAYER_TURN_SPEED * delta)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, speed)
@@ -108,6 +125,62 @@ func _try_step_up(direction: Vector3) -> void:
 	global_position += up + probe + Vector3.DOWN * result.get_travel().length()
 
 
+## --- Health ----------------------------------------------------------------
+
+func _tick_health(delta: float) -> void:
+	_invuln = maxf(_invuln - delta, 0.0)
+	_since_hit += delta
+	if _dead or hp >= Tuning.PLAYER_MAX_HP or _since_hit < Tuning.PLAYER_REGEN_DELAY:
+		return
+	hp = minf(hp + Tuning.PLAYER_REGEN_RATE * delta, Tuning.PLAYER_MAX_HP)
+	Hud.set_health(hp, Tuning.PLAYER_MAX_HP)
+
+
+## Hostile pals call this; from_position aims the knockback.
+func damage(amount: float, from_position: Vector3) -> void:
+	if _dead or _invuln > 0.0:
+		return
+	hp = maxf(hp - amount, 0.0)
+	_since_hit = 0.0
+	Hud.set_health(hp, Tuning.PLAYER_MAX_HP)
+	Audio.play("player_hurt", global_position)
+	var away := global_position - from_position
+	away.y = 0.0
+	if away.length() > 0.01:
+		velocity += away.normalized() * Tuning.PLAYER_HIT_KNOCKBACK
+	if hp <= 0.0:
+		_die()
+
+
+func _die() -> void:
+	_dead = true
+	if mount:
+		_dismount()
+	velocity = Vector3.ZERO
+	set_physics_process(false)
+	Audio.play("player_death", global_position)
+	Hud.flash("You fainted!")
+	Hud.fade_to(1.0, Tuning.PLAYER_DEATH_TIME)
+	await get_tree().create_timer(Tuning.PLAYER_DEATH_TIME).timeout
+	_respawn()
+
+
+## Back at the origin camp with everything kept; only the fight is forgotten.
+func _respawn() -> void:
+	global_position = _spawn
+	velocity = Vector3.ZERO
+	hp = Tuning.PLAYER_MAX_HP
+	_invuln = Tuning.PLAYER_RESPAWN_INVULN
+	_dead = false
+	set_physics_process(true)
+	for node in get_tree().get_nodes_in_group("pal"):
+		var pal := node as Pal
+		if pal:
+			pal.clear_aggro()
+	Hud.set_health(hp, Tuning.PLAYER_MAX_HP)
+	Hud.fade_to(0.0, Tuning.PLAYER_RESPAWN_FADE)
+
+
 ## --- Catching -------------------------------------------------------------
 
 func _throw_cube() -> void:
@@ -117,14 +190,19 @@ func _throw_cube() -> void:
 	Audio.play("throw", global_position)
 	var cube := CUBE_SCENE.instantiate()
 	get_parent().add_child(cube)
-	# CameraPivot is rotated 180 so the camera sits behind a +Z-facing cat,
-	# which also flips its basis: +Z is now the way we are looking.
-	var aim := pivot.global_transform.basis.z
-	cube.throw(
-		global_position + Vector3.UP * Tuning.CUBE_SPAWN_HEIGHT
-		+ aim * Tuning.CUBE_SPAWN_FORWARD,
-		aim,
+	# Cameras look along -Z, so this is where the crosshair points.
+	var aim := -pivot.global_transform.basis.z
+	# Thrown from the shoulder so the cat's body does not hide it, but aimed
+	# from the eyeline, or the side offset makes it fly a parallel line.
+	var from := (
+		global_position
+		+ Vector3.UP * Tuning.CUBE_SPAWN_HEIGHT
+		+ aim * Tuning.CUBE_SPAWN_FORWARD
+		+ pivot.global_transform.basis.x * Tuning.CUBE_SPAWN_SIDE
 	)
+	var eye := global_position + Vector3.UP * Tuning.CUBE_SPAWN_HEIGHT
+	var target := eye + aim * Tuning.CUBE_AIM_DISTANCE
+	cube.throw(from, (target - from).normalized())
 	cube.resolved.connect(_on_cube_resolved)
 
 
@@ -152,7 +230,19 @@ func _punch() -> void:
 		if dist < best_dist and to_node.normalized().dot(forward) > Tuning.GATHER_FACING_DOT:
 			best = node
 			best_dist = dist
-	if best:
+	for node in get_tree().get_nodes_in_group("pal"):
+		var pal := node as Pal
+		if pal == null or pal.caught or pal.dying or not pal.visible:
+			continue
+		var to_pal: Vector3 = pal.global_position - global_position
+		to_pal.y = 0.0
+		var dist := to_pal.length()
+		if dist < best_dist and to_pal.normalized().dot(forward) > Tuning.GATHER_FACING_DOT:
+			best = pal
+			best_dist = dist
+	if best is Pal:
+		(best as Pal).take_hit(global_position)
+	elif best:
 		best.punch()
 
 
@@ -181,12 +271,23 @@ func _toggle_ride() -> void:
 
 
 func _dismount() -> void:
-	var landing := mount.global_position + mount.global_transform.basis.x * 1.2
+	# +X is the mount's right side under the -Z-forward convention.
+	var landing := (
+		mount.global_position
+		+ mount.global_transform.basis.x * Tuning.RIDE_DISMOUNT_SIDE
+	)
 	mount.state = Pal.State.FOLLOW
 	mount = null
 	_set_collision_enabled(true)
-	global_position = landing + Vector3.UP * 0.5
+	global_position = landing + Vector3.UP * Tuning.RIDE_DISMOUNT_UP
 	velocity = Vector3.ZERO
+
+
+## Horizontal direction the body faces. Godot forward: -Z.
+func facing() -> Vector3:
+	var f := -body.global_transform.basis.z
+	f.y = 0.0
+	return f.normalized()
 
 
 func _find_anim(n: Node) -> AnimationPlayer:
@@ -234,5 +335,5 @@ func _ride(delta: float) -> void:
 		mount._play("Idle")
 	mount.move_and_slide()
 
-	global_position = mount.global_position + Vector3.UP * Tuning.RIDE_SEAT_HEIGHT
+	global_position = mount.seat_position()
 	velocity = Vector3.ZERO
