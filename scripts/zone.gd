@@ -95,9 +95,9 @@ static func zone_at(world: World3D, point: Vector3) -> Zone:
 	return null
 
 
-static func is_inside(world: World3D, point: Vector3, kind: Kind) -> bool:
+static func is_inside(world: World3D, point: Vector3, want: Kind) -> bool:
 	for z in _zones_at(world, point):
-		if z.kind == kind:
+		if z.kind == want:
 			return true
 	return false
 

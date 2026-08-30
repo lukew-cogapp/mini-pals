@@ -130,8 +130,8 @@ func _physics_process(delta: float) -> void:
 
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	# Flatten the camera basis so looking up or down never slows movement.
-	var basis := pivot.global_transform.basis
-	var direction := (basis.x * input.x + basis.z * input.y)
+	var pivot_basis := pivot.global_transform.basis
+	var direction := (pivot_basis.x * input.x + pivot_basis.z * input.y)
 	direction.y = 0.0
 	direction = direction.normalized()
 
@@ -341,10 +341,10 @@ func _current_throw_aim() -> Dictionary:
 	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
 	if hit:
 		pal = hit.collider as Pal
-		var target: Vector3 = hit.position
+		var struck: Vector3 = hit.position
 		if pal and pal.has_node("Collision"):
-			target = pal.get_node("Collision").global_position
-		return {"origin": origin, "aim": aim, "target": target, "pal": pal}
+			struck = pal.get_node("Collision").global_position
+		return {"origin": origin, "aim": aim, "target": struck, "pal": pal}
 	var target := origin + aim * Tuning.CUBE_AIM_DISTANCE
 	target.y = minf(target.y, Tuning.CUBE_HALF_SIZE)
 	return {"origin": origin, "aim": aim, "target": target, "pal": null}
@@ -498,8 +498,10 @@ func _dismount(force := false) -> bool:
 
 
 func _safe_dismount_position(from_mount: Pal) -> Variant:
-	var basis := from_mount.global_transform.basis
-	var candidates: Array[Vector3] = [basis.x, -basis.x, -basis.z, basis.z]
+	var mount_basis := from_mount.global_transform.basis
+	var candidates: Array[Vector3] = [
+		mount_basis.x, -mount_basis.x, -mount_basis.z, mount_basis.z,
+	]
 	# Out in the shallows none of the four sides is land, so try straight back
 	# towards the island first. Without this a swimmer in the water could only
 	# ever refuse, and the rider would be stuck aboard.
@@ -622,8 +624,8 @@ func _set_shore_wall_enabled(on: bool) -> void:
 ## While mounted the pal does the moving and we sit on its seat.
 func _ride(delta: float) -> void:
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	var basis := pivot.global_transform.basis
-	var direction := (basis.x * input.x + basis.z * input.y)
+	var pivot_basis := pivot.global_transform.basis
+	var direction := (pivot_basis.x * input.x + pivot_basis.z * input.y)
 	direction.y = 0.0
 	direction = direction.normalized()
 

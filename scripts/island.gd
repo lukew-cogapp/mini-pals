@@ -158,7 +158,7 @@ func _shallow_wall() -> void:
 	_wall_ring("ShallowWall", Tuning.SHALLOW_WALL_RADIUS, Tuning.SHALLOW_WALL_HEIGHT)
 
 
-func _wall_ring(name: String, radius: float, height: float) -> void:
+func _wall_ring(ring_name: String, radius: float, height: float) -> void:
 	var body := StaticBody3D.new()
 	body.name = name
 	add_child(body)

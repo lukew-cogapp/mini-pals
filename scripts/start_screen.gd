@@ -71,7 +71,12 @@ func _add_row(grid: GridContainer, action: String, key: String, pad: String, hea
 	grid.add_child(_cell(pad, Color(0.98, 0.82, 0.52) if not head else Color(0.7, 0.68, 0.76), 16, 2))
 
 
-func _cell(text: String, colour: Color, size: int, align: int) -> Label:
+func _cell(
+	text: String,
+	colour: Color,
+	size: int,
+	align: HorizontalAlignment,
+) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", size)

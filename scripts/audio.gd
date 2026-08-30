@@ -127,6 +127,8 @@ func _chime(notes: Array, secs: float) -> AudioStreamWAV:
 	data.resize(frames * 2)
 	var per := frames / notes.size()
 	for i in frames:
+		# Deliberate integer division: `per` samples map to one note.
+		@warning_ignore("integer_division")
 		var idx: int = mini(i / per, notes.size() - 1)
 		var local := float(i - idx * per) / per
 		var phase := TAU * float(notes[idx]) * float(i) / RATE
