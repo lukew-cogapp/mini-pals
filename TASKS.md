@@ -4,22 +4,53 @@ Kept current as work lands.
 
 ## Next
 
-- [ ] Water traversal: a rideable amphibian to reach the shallows, and a fish
-      that lives there and cannot leave. Catching the first is the gate to the
-      second. Shallow band needs to be ~70m wide or the fish have nowhere to
-      swim once they are pushed past `CUBE_AIM_DISTANCE` from shore
+- [ ] **Ship to itch.io.** All assets are CC0, so nothing blocks it. Free web
+      build, one link, no install. In order: install export templates for
+      4.7.2; switch the renderer to Compatibility (Godot 4 web is WebGL2 only,
+      and this project has no custom shaders so it should cost nothing, but
+      screenshot it and look); make a Web preset with threads off and
+      rename-to-index on; export and read the real size, which is unmeasured
+      and estimated at 25 to 60 MB; zip with `index.html` at the root; create
+      the project as Kind = HTML on a parent's account
+- [ ] Credit line for the itch page and the help overlay: "Made with Godot
+      Engine (MIT). Models by Quaternius (quaternius.com), CC0 1.0." The
+      Quaternius half is courtesy, the Godot half is required
+- [ ] `assets/monsters/LICENSE-Quaternius.txt` names the wrong pack (it is the
+      platformer licence text). The CC0 grant holds, but re-download the right
+      file so the paper trail is clean
+- [ ] Build menu should grey out locked recipes rather than hiding them, so
+      the level-4 Altar Key unlock is discoverable
 - [ ] More islands, now that regions are Zones rather than radii
-- [ ] Remaining juice: level-up moment, the win moment, FOV stretch with
-      speed, and a second HUD message slot (catch, XP and level-up text
-      currently overwrite each other)
+- [ ] Remaining juice: level-up moment, the win moment, FOV stretch with speed
 - [ ] Gather feedback in the world: sound plays, but no hit effect
-- [ ] Adopt **GUT** for tests (researched, recommended over GdUnit4)
-      `godot --headless -d -s addons/gut/gut_cmdln.gd -gdir=res://test -ginclude_subdirs -gexit`
-      First tests: facing maths, step-up over rock vs tree, inventory/crafting
+- [ ] **Adopt GUT 9.7.1** (researched and trialled against this project).
+      It turns engine errors into failures, which would have caught all three
+      of this session's false greens, lets tests name autoloads directly, and
+      filters to a single test. Roughly half a day for all 12 suites; files
+      shrink, since `_check` and the report footer both go. **Drop the `-d`
+      from the recorded command**: it attaches the debugger and an error drops
+      the run into an interactive prompt that hangs forever. Use:
+      `perl -e 'alarm 300; exec @ARGV' godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://test -ginclude_subdirs -gexit < /dev/null`
+      Leave `screenshot.gd` as it is; it is a renderer, not a test
+- [ ] Export smoke test in CI: `--export-release` and fail on any stderr
+      error. A broken export is the one failure no gameplay test can catch
+- [ ] Pal skills, one job each:
+      Mushroom King out means infinite mushrooms to throw instead of cubes
+      Demon out means the player hits harder
 - [ ] Wings for the cat dragon: primitives read as blades through the body,
       needs a real wing mesh
 
 ## Done
+
+- [x] Shallow water, a rideable Mudwader, and Glimmerfin that never leave it.
+      Fish spawn past throw range of the sand, so the mount is the gate
+- [x] Start screen, the main scene, with keyboard and gamepad navigation
+- [x] Scorched blob at the altar instead of a ring over half the island, and
+      four ground materials that are not flat colour
+- [x] HUD split: level and XP, cubes, active pal, carried items
+- [x] `Hud.flash` queues, so a catch is not overwritten by its own XP
+- [x] Palms have collision and give wood
+- [x] Cycling the party while riding no longer drops you through the world
 
 - [x] Regions are `Zone` Area3Ds, not distances from the world origin
 - [x] Followers fight for you but never land the killing blow

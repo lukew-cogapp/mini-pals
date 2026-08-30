@@ -117,12 +117,39 @@ with `extends SceneTree` runs arbitrary checks: instantiate a scene, count
 children, read a material. The `RID allocations ... leaked at exit` errors from
 such scripts are the script not freeing nodes, not a real fault.
 
+**One Godot at a time per project.** Several `--headless -s` runs against the
+same checkout fight over `.godot/`, and the symptom is a script that hangs
+with no output at all, not even a `print()` on the first line of `_init`. The
+project still boots fine under `--quit-after`, which makes it look like a test
+bug rather than a cache one. `godot --headless --path . --import` rebuilds the
+cache and clears it. Give a parallel agent its own git worktree instead.
+
+**`timeout` is not installed here.** `timeout 90 godot ...` fails with `env:
+timeout: No such file or directory`, and in a pipeline that reads as the
+command producing no output, which is easy to misread as a hang.
+
 **Hot reload:** `.gd` yes, `.tscn` no. F8 stop, F5 play.
 
-**Autoloads register after a `-s` script's `_init` starts.** A verify script
-that touches an autoload (or `load()`s a scene whose scripts reference one)
-from `_init` fails with `Identifier not found`. `await process_frame` once
-before doing anything.
+**A `-s` script cannot name an autoload at all.** Naming `Inventory`, `Party`
+or `Hud` fails at compile time with `Identifier not found`, before any code
+runs, so awaiting a frame first does NOT help: the script never compiles.
+Resolve them at runtime instead, with `get_root().get_node("Inventory")`.
+`Tuning.SOME_CONST` looks like an exception but is not: that resolves as a
+script-class constant, and bare `Tuning` fails like the rest. Scripts loaded
+at runtime (a scene's own `.gd`) reference autoloads by name quite happily;
+the limit is only on the `-s` script itself.
+
+**Wrap every test run in a wall-clock timeout.** A test awaiting something
+that never fires hangs forever, and no GDScript harness bounds it. This
+already burned 15 minutes on a test whose first assertion had failed. There
+is no `timeout` binary here, so use Perl, and redirect rather than piping,
+since a pipe hides the failing line:
+
+    perl -e 'alarm 120; exec @ARGV' \
+      godot --headless --path . -s test/foo.gd < /dev/null > out.txt
+
+Check `FAILURES=` is PRESENT, not just zero: an absent line means the run
+died, and that is not the same as passing.
 
 **Area3D needs its mask to match the target's layer.** Pals sit on layer 4, so
 the pal cube needs `collision_mask = 4`; the default mask of 1 silently
@@ -240,6 +267,31 @@ is safe. Out in the shallows none of those four is land, so a mount off the
 land tries straight back towards the island first (`_beach_dismount_position`)
 and the rider always ends up ashore. Death dismounts with `force`, which
 accepts an unsafe spot rather than trapping the player on a corpse.
+
+## Screens, HUD and species art
+
+`scenes/start_screen.tscn` is the main scene; Play swaps in `world.tscn`. Its
+backdrop is a small 3D set of its own, not the real world, which loads in
+roughly 216 ms against world.tscn's 276 ms. The title reads
+`application/config/name` at runtime, so renaming the game is one edit in
+`project.godot`. The `Hud` autoload exists before any world does and draws
+over the title, so the start screen hides it and restores it in `_exit_tree`.
+
+`Hud.flash` queues rather than overwrites. Ten callers share one label, and
+catching a pal fires the catch, the XP and sometimes a level in the same
+frame, so the catch used to be gone before it could be read. Queued messages
+get `MESSAGE_QUEUED_TIME` rather than the full `MESSAGE_TIME`.
+
+Cubes read in the bottom bar, not the carried-items panel: they are
+ammunition rather than a material. `CORE_ITEMS` in `hud.gd` is the list that
+always shows; anything else appears once you hold one. Icons come from
+`Tuning.ITEM_ICONS`, and a missing entry renders nothing rather than erroring,
+so add the path when you add a drop.
+
+`Pal.model_scale` exists because the kit models are not authored to one size:
+the fish stands twice as tall as the dog. Level growth multiplies it rather
+than replacing it, which is what `pal.gd` used to do, wiping any scale set in
+the scene and leaving a rideable fish the player sat inside.
 
 ## The shallows
 
