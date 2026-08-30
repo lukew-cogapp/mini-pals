@@ -76,7 +76,13 @@ func _scatter_fish(rng: RandomNumberGenerator) -> void:
 ## the same reason the original ones did, with no second copy of the rules.
 ## `at` overrides the species position, for a caller that has already picked
 ## and vetted one.
-func _spawn_pal(scene: PackedScene, rng: RandomNumberGenerator, at := Vector3.INF) -> Pal:
+## `arrive` plays the spawn poof and the grow-in. Off for the initial scatter,
+## which happens before the player can see anything and would otherwise fire
+## fifty emitters on the first frame; on for the respawn trickle, where a pal
+## appearing in a world already being looked at is the whole problem.
+func _spawn_pal(
+	scene: PackedScene, rng: RandomNumberGenerator, at := Vector3.INF, arrive := false
+) -> Pal:
 	if scene == null:
 		return null
 	var pal := scene.instantiate() as Pal
@@ -86,6 +92,9 @@ func _spawn_pal(scene: PackedScene, rng: RandomNumberGenerator, at := Vector3.IN
 	pal.position = _pal_position(scene, rng) if at == Vector3.INF else at
 	pal.rotation.y = rng.randf() * TAU
 	add_child(pal)
+	if arrive:
+		Pal.poof(self, pal.global_position)
+		pal.grow_in()
 	return pal
 
 
@@ -284,7 +293,7 @@ func _respawn_one() -> void:
 	for _attempt in Tuning.RESPAWN_PLACE_TRIES:
 		var pos := _pal_position(scene, _respawn_rng)
 		if _is_clear(pos):
-			_spawn_pal(scene, _respawn_rng, pos)
+			_spawn_pal(scene, _respawn_rng, pos, true)
 			return
 
 

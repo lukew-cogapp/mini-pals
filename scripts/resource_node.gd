@@ -21,9 +21,12 @@ func punch() -> void:
 	if not is_available():
 		return
 	_hits += 1
-	var n := Tuning.GATHER_YIELD + int(Party.buff(&"gather"))
+	var bonus := int(Party.buff(&"gather"))
+	var n := Tuning.GATHER_YIELD + bonus
 	Inventory.add(item, n)
-	Audio.play("gather", global_position)
+	# The extra items otherwise land silently in the corner counter, so a
+	# buffed punch gets a brighter chime than a bare one.
+	Audio.play(Tuning.GATHER_BUFF_SOUND if bonus > 0 else "gather", global_position)
 	if is_available():
 		_shake()
 	else:

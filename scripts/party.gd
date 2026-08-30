@@ -22,6 +22,7 @@ func grant_xp(amount: int) -> void:
 		levelled = true
 	if levelled:
 		# Deferred so it outlives the catch or defeat flash of the same frame.
+		Audio.play("level_up")
 		Hud.flash.call_deferred("You reached level %d!" % player_level)
 		if player_level >= Tuning.KEY_UNLOCK_LEVEL and not _key_hint_shown:
 			_key_hint_shown = true

@@ -566,15 +566,23 @@ since a pal walking cleanly along a trunk collides every frame while making
 fine progress. `test/pal_stuck_test.gd` covers both directions.
 
 Wild pals show a floating health bar above the name label within
-`PAL_HEALTH_BAR_DISTANCE`, sampled every `PAL_HEALTH_BAR_CHECK_INTERVAL`
-rather than per frame. Five `MeshInstance3D` quads built once in `_ready` and
-rescaled, never rebuilt: a translucent drop shadow, a dark backing that also
-serves as the border, a lighter track for the empty part, the coloured fill,
-and a lighter sheen strip pinned to the fill's top edge. `render_priority`
-1 to 5 is what orders them, since they share an origin and use
-`no_depth_test`. The fill colour is `Pal.bar_colour`, a three-stop ramp
-lerped through `PAL_HEALTH_BAR_MID_COLOUR`: the old single step at 0.35 went
-green to red between two hits.
+`PAL_HEALTH_BAR_DISTANCE` **and inside the camera's facing cone**
+(`PAL_HEALTH_BAR_FACING_DOT`, a dot against the CameraPivot's flattened
+-basis.z), sampled every `PAL_HEALTH_BAR_CHECK_INTERVAL` rather than per
+frame. Distance alone put a bar over every pal in an 18 m circle, which with
+twenty of them on screen is a field of floating UI. The pal the aim reticule
+has locked (`player.locked_pal`, published by `_update_throw_aim`) shows its
+bar regardless of the cone, since that is by definition what is being aimed
+at. Name labels are NOT gated on facing and never have been; only the bar is.
+
+Five `MeshInstance3D` quads built once in `_ready` and rescaled, never
+rebuilt: a translucent drop shadow, a dark backing that also serves as the
+border, a lighter track for the empty part, the coloured fill, and a lighter
+sheen strip pinned to the fill's top edge. `render_priority` 1 to 5 is what
+orders them, since they share an origin and use `no_depth_test`. The fill
+colour is `Pal.bar_colour`, a three-stop ramp lerped through
+`PAL_HEALTH_BAR_MID_COLOUR`: the old single step at 0.35 went green to red
+between two hits.
 
 All five are billboarded, and a billboard is vertex work in the material that
 does not touch the node basis: a child node offset stays in world space and
@@ -587,6 +595,23 @@ screenshot. Caught and dying pals hide theirs, as the name label already does.
 `test/pal_health_bar_test.gd` covers it; `test/health_bar_shots.gd` renders it
 against grass and ash at full, half and nearly-dead health, which is the only
 way to judge it.
+
+Feedback added in the second juice pass, all constants in one `tuning.gd`
+block: a death poof and a grow-in on respawn (`Pal.poof`, `Pal.grow_in`;
+the initial scatter opts out, the respawn trickle opts in), an eased sink and
+a splash on the land-to-water edge of a ride (one bool, `_was_wading`, so
+wading on stays silent), a sting and a message on entering the ash (`_tick_ash`,
+polled on `PROMPT_POLL_INTERVAL`, edge-triggered on `_was_in_ash`), knockback
+on `take_rival_hit` at `RIVAL_HIT_IMPULSE_FACTOR` of a player punch, a
+level-up chime, a punch shake scaled by damage dealt, and a brighter gather
+chime while the Glimmerfin buff is up. `Audio.played` is a short ring of cue
+names kept only so headless tests can assert a sound fired.
+`test/juice2_test.gd` covers all of it; `test/bar_shot.gd` renders shots 31 to
+33 for the facing gate.
+
+`take_follower_hit` deliberately still has NO knockback: it keeps a softened
+target inside cube range, and `juice2_test` guards that so the rival change
+cannot creep into it.
 
 Every bug this project has hit was invisible on inspection and only showed up
 in a headless test: a cube flying over the target's head, a mount jammed at

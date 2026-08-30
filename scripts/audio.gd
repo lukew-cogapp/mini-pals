@@ -8,11 +8,18 @@ const RATE := 22050.0
 const VOICES := 12
 ## Below the effect voices, so catch and hit feedback cuts through.
 const MUSIC_VOLUME_DB := -9.0
+## Cap on the `played` log. Long enough to cover a burst of cues in one
+## frame, short enough that a long session never grows it.
+const PLAYED_LOG := 32
 
 var _bank: Dictionary = {}
 var _players: Array[AudioStreamPlayer3D] = []
 var _next := 0
 var _music_player: AudioStreamPlayer
+
+## Names played, newest last, kept only so headless tests can assert that a
+## cue fired. Sound is the one kind of feedback a screenshot cannot show.
+var played: Array[String] = []
 
 
 func _ready() -> void:
@@ -35,6 +42,18 @@ func _ready() -> void:
 	_bank["player_death"] = _tone(440.0, 60.0, 0.7, "saw", 0.42)
 	_bank["demon_attack"] = _tone(150.0, 330.0, 0.16, "saw", 0.38)
 	_bank["summon"] = _tone(60.0, 420.0, 0.9, "saw", 0.5)
+	# Riding into the water. A wide downward sweep, longer than a hit, which
+	# is as close as a swept sine gets to a body meeting a surface.
+	_bank["splash"] = _tone(1200.0, 260.0, 0.34, "sine", 0.4)
+	# Crossing onto the scorched ground: a low sting, no melody. It has to
+	# read as a warning rather than as a reward.
+	_bank["ash_enter"] = _tone(140.0, 70.0, 0.55, "saw", 0.42)
+	# Reaching a player level gates the endgame, so it gets the same shape of
+	# fanfare as a catch, a fourth higher and rising further.
+	_bank["level_up"] = _chime([659.0, 784.0, 988.0, 1319.0], 0.55)
+	# A gather while the Glimmerfin's buff is up: the same shape as "gather",
+	# an octave up, so the extra items are audible without a new UI.
+	_bank["gather_buff"] = _tone(840.0, 600.0, 0.11, "square", 0.32)
 	_bank["boss_attack"] = _tone(110.0, 45.0, 0.3, "saw", 0.45)
 	# A-minor bass under a sparse melody; loops seamlessly (see _music).
 	_bank["boss_music"] = _music(
@@ -59,6 +78,9 @@ func _ready() -> void:
 func play(sound: String, at := Vector3.ZERO) -> void:
 	if not _bank.has(sound):
 		return
+	played.append(sound)
+	if played.size() > PLAYED_LOG:
+		played.pop_front()
 	var p := _players[_next]
 	_next = (_next + 1) % VOICES
 	p.stream = _bank[sound]

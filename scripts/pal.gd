@@ -242,13 +242,46 @@ func _tick_health_bar() -> void:
 	if _bar_check > 0.0:
 		return
 	_bar_check = Tuning.PAL_HEALTH_BAR_CHECK_INTERVAL
-	var near := (
-		_player != null
-		and _flat_distance(_player.global_position) < Tuning.PAL_HEALTH_BAR_DISTANCE
-	)
-	_set_bar_visible(near)
-	if near:
+	var show := _bar_wanted()
+	_set_bar_visible(show)
+	if show:
 		_refresh_bar()
+
+
+## Near enough, and either being looked at or locked by the aim reticule.
+##
+## Distance alone put a bar over every pal in an 18 m circle, which with
+## twenty of them on screen is a field of floating UI rather than a readout.
+## The lock overrides the cone because it is by definition what the player is
+## aiming at, and the throw's own assist can hold it a little off centre.
+func _bar_wanted() -> bool:
+	if _player == null:
+		return false
+	if _flat_distance(_player.global_position) >= Tuning.PAL_HEALTH_BAR_DISTANCE:
+		return false
+	if _player.get("locked_pal") == self:
+		return true
+	return _faced_by_player()
+
+
+## Whether the player's camera is pointed at us.
+##
+## Measured flat, against the CameraPivot's forward, which is -basis.z like
+## everything else in this project. Orientation has been wrong here four
+## times, so test/juice2_test.gd asserts the sign rather than trusting it.
+## A player with no pivot (a bare stand-in in a test) is treated as facing
+## everything, so the distance gate is still what those tests measure.
+func _faced_by_player() -> bool:
+	if not _player.has_node("CameraPivot"):
+		return true
+	var pivot: Node3D = _player.get_node("CameraPivot")
+	var forward := -pivot.global_transform.basis.z
+	forward.y = 0.0
+	var to_us := global_position - _player.global_position
+	to_us.y = 0.0
+	if to_us.length() < 0.01 or forward.length() < 0.01:
+		return true
+	return to_us.normalized().dot(forward.normalized()) >= Tuning.PAL_HEALTH_BAR_FACING_DOT
 
 
 func _set_bar_visible(on: bool) -> void:
@@ -684,6 +717,14 @@ func take_rival_hit(from: Pal) -> void:
 	if caught or dying:
 		return
 	hp -= Tuning.RIVAL_DAMAGE
+	# Shoved and briefly stunned, the way a player punch does it. Without
+	# this a brawl at any distance reads as two pals standing still.
+	var away := global_position - from.global_position
+	away.y = 0.0
+	away = away.normalized() if away.length() > 0.01 else Vector3.FORWARD
+	var f := Tuning.RIVAL_HIT_IMPULSE_FACTOR
+	velocity = away * Tuning.PAL_HIT_KNOCKBACK * f + Vector3.UP * Tuning.PAL_HIT_POP * f
+	_hit_stun = Tuning.PAL_HIT_STUN * f
 	if hp <= 0:
 		_die()
 		return
@@ -1141,6 +1182,9 @@ func _die() -> void:
 		_anim.play("Death")
 		wait = _anim.get_animation("Death").length
 	await get_tree().create_timer(wait).timeout
+	# The poof outlives the corpse, so it is parented to the world rather than
+	# to the pal that is about to free.
+	poof(get_parent(), global_position)
 	queue_free()
 
 
@@ -1218,3 +1262,57 @@ func summon(at: Vector3) -> void:
 	_rival = null
 	_gather_target = null
 	state = State.FOLLOW
+
+
+## --- Spawn and death poof --------------------------------------------------
+
+## A one-shot burst of particles at `at`, parented to `world` and freeing
+## itself once the last particle has died.
+##
+## Static and self-freeing on purpose: a corpse cannot own its own poof, since
+## it frees in the same breath, and a per-pal emitter kept alive for the one
+## moment it is needed would be thirty idle particle systems in a full world.
+static func poof(world: Node, at: Vector3) -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.amount = Tuning.PAL_POOF_COUNT
+	p.lifetime = Tuning.PAL_POOF_TIME
+	p.one_shot = true
+	p.explosiveness = 1.0
+	var mat := ParticleProcessMaterial.new()
+	mat.direction = Vector3.UP
+	mat.spread = 180.0
+	mat.initial_velocity_min = 2.0
+	mat.initial_velocity_max = 4.5
+	mat.gravity = Vector3(0.0, -4.0, 0.0)
+	mat.scale_min = 0.4
+	mat.scale_max = 1.1
+	mat.color = Tuning.PAL_POOF_COLOUR
+	p.process_material = mat
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.07
+	mesh.height = 0.14
+	mesh.radial_segments = 6
+	mesh.rings = 3
+	p.draw_pass_1 = mesh
+	var draw := StandardMaterial3D.new()
+	draw.emission_enabled = true
+	draw.emission = Tuning.PAL_POOF_COLOUR
+	draw.emission_energy_multiplier = 3.0
+	draw.albedo_color = Tuning.PAL_POOF_COLOUR
+	p.material_override = draw
+	world.add_child(p)
+	p.global_position = at
+	p.emitting = true
+	p.finished.connect(p.queue_free)
+	return p
+
+
+## Grow in from nothing, for a pal joining a world the player is already
+## standing in. The scale it lands on is whatever _ready computed, so a level
+## 5 demon still arrives at its own size.
+func grow_in() -> void:
+	var grow: Vector3 = _model_root.scale
+	_model_root.scale = grow * Tuning.RESPAWN_GROW_FROM
+	var t := create_tween()
+	t.tween_property(_model_root, "scale", grow, Tuning.RESPAWN_GROW_TIME) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)

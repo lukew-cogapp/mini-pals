@@ -39,11 +39,21 @@ func _spawn_pal(pos: Vector3, player: Node3D):
 	return pal
 
 
+## The real player scene, not a bare Node3D: the bar gates on the CameraPivot's
+## heading as well as on distance, and a stand-in with no pivot is waved
+## through the cone and so tests a path the game never takes.
 func _player_at(pos: Vector3) -> Node3D:
-	var n := Node3D.new()
+	var n: Node3D = load("res://scenes/player.tscn").instantiate()
 	get_root().add_child(n)
+	n.set_physics_process(false)
 	n.global_position = pos
 	return n
+
+
+## Point the camera at `pos`, so the pal there is inside the facing cone.
+func _look_at_from(player: Node3D, pos: Vector3) -> void:
+	var to := pos - player.global_position
+	player.get_node("CameraPivot").rotation.y = atan2(-to.x, -to.z)
 
 
 ## Force the interval sampler to run this frame rather than waiting on it.
@@ -75,8 +85,17 @@ func _test_bar_hides_far_and_shows_near() -> void:
 	_check("bar hidden beyond the show distance", not pal._bar_back.visible)
 
 	pal.global_position = Vector3(0.0, 0.0, Tuning.PAL_HEALTH_BAR_DISTANCE - 2.0)
+	_look_at_from(player, pal.global_position)
 	_sample(pal)
-	_check("bar shown inside the show distance", pal._bar_back.visible)
+	_check("bar shown inside the show distance when looked at", pal._bar_back.visible)
+
+	# Distance is still the outer gate, so the far case must stay hidden even
+	# with the camera pointed straight at it.
+	pal.global_position = Vector3(0.0, 0.0, far)
+	_look_at_from(player, pal.global_position)
+	_sample(pal)
+	_check("bar still hidden beyond the show distance when looked at",
+		not pal._bar_back.visible)
 
 	pal.queue_free()
 	player.queue_free()
@@ -85,6 +104,7 @@ func _test_bar_hides_far_and_shows_near() -> void:
 func _test_fill_tracks_damage() -> void:
 	var player := _player_at(Vector3.ZERO)
 	var pal = await _spawn_pal(Vector3(0.0, 0.0, 2.0), player)
+	_look_at_from(player, pal.global_position)
 	pal.max_hp = 4
 	pal.hp = 4
 	_sample(pal)
@@ -126,6 +146,7 @@ func _test_fill_tracks_damage() -> void:
 func _test_fill_follows_max_hp_on_level_gain() -> void:
 	var player := _player_at(Vector3.ZERO)
 	var pal = await _spawn_pal(Vector3(0.0, 0.0, 2.0), player)
+	_look_at_from(player, pal.global_position)
 	pal.level = 1
 	pal.max_hp = 3
 	pal.hp = 1
@@ -154,8 +175,9 @@ func _test_fill_follows_max_hp_on_level_gain() -> void:
 func _test_caught_and_dying_pals_show_nothing() -> void:
 	var player := _player_at(Vector3.ZERO)
 	var pal = await _spawn_pal(Vector3(0.0, 0.0, 2.0), player)
+	_look_at_from(player, pal.global_position)
 	_sample(pal)
-	_check("a wild pal near the player shows its bar", pal._bar_back.visible)
+	_check("a wild pal the player is looking at shows its bar", pal._bar_back.visible)
 
 	pal.caught = true
 	pal._update_label()

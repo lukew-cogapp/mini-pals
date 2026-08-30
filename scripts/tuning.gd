@@ -607,3 +607,52 @@ const DEBUG_KING_LEVEL := BOSS_LEVEL
 ## Player level that goes with him. KEY_UNLOCK_LEVEL is the endgame gate, so
 ## starting there means the bench shows the key recipe without a playthrough.
 const DEBUG_START_PLAYER_LEVEL := KEY_UNLOCK_LEVEL
+
+
+## --- Juice pass 2: spawn and death poofs, water entry, biome and buff cues -
+
+## A dying pal bursts a handful of particles where it stood before the corpse
+## frees, and a respawning one grows in from nothing rather than popping.
+## Both are one-shot: a persistent particle node per pal would cost thirty
+## emitters in a world that only ever needs one at a time.
+const PAL_POOF_TIME := 0.7
+const PAL_POOF_COUNT := 18
+const PAL_POOF_COLOUR := Color(0.85, 0.82, 0.9)
+const RESPAWN_GROW_TIME := 0.45
+## Where the grow starts from, as a fraction of the pal's final scale. Not
+## zero: a mesh scaled to nothing for a frame reads as a flicker.
+const RESPAWN_GROW_FROM := 0.05
+
+## Riding into the water. The model sinks over this rather than snapping down
+## SWIM_SINK in one frame, and the land-to-water crossing gets a splash and a
+## camera kick. Wading on is silent: the kick fires on the edge only.
+const SWIM_SINK_TIME := 0.35
+const SHAKE_SPLASH := 0.45
+
+## Walking onto the scorched ground. Polled on PROMPT_POLL_INTERVAL, and the
+## sting and the message fire once per entry, not once per poll.
+const ASH_ENTER_MESSAGE := "The ground is scorched here. Demons hunt this place."
+
+## Punch shake scales with the damage the swing actually dealt, so the demon's
+## buff is felt per swing instead of being invisible. A base punch of
+## PUNCH_DAMAGE keeps SHAKE_PUNCH exactly; the cap holds a buffed one short of
+## a hurt-sized rattle.
+const SHAKE_PUNCH_PER_DAMAGE := 0.18
+const SHAKE_PUNCH_MAX := 0.7
+
+## The Glimmerfin's gather buff is otherwise silent, so a buffed punch plays a
+## brighter chime than a bare one.
+const GATHER_BUFF_SOUND := "gather_buff"
+
+## A rival's hit lands with the same knockback, pop and stun a player punch
+## does, scaled by this. Two brawling pals with none of it looked like two
+## pals standing next to each other; at full strength they scattered across
+## the island instead of fighting.
+const RIVAL_HIT_IMPULSE_FACTOR := 0.6
+
+## How near the middle of the view a pal must be for its health bar to show,
+## as a dot product against the camera's forward. 0.8 is a cone about 37
+## degrees off centre either way: comfortably "looking at it" rather than
+## "somewhere ahead of me", which at the 90 degree cone GATHER_FACING_DOT
+## describes would still light up most of the screen.
+const PAL_HEALTH_BAR_FACING_DOT := 0.8

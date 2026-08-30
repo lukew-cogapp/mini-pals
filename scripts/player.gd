@@ -26,6 +26,20 @@ var _throw_target := Vector3.ZERO
 var _throw_aim := Vector3.FORWARD
 var _shake := 0.0  ## Decaying camera shake strength; 0 means the arm sits at rest.
 
+## The pal the aim reticule is locked onto, or null. Published rather than
+## recomputed: a pal deciding whether to show its health bar needs the answer
+## and the raycast that produces it already runs once a frame while aiming.
+var locked_pal: Pal = null
+
+## One bool each, so the edge fires once and wading or standing on the ash
+## does not re-fire it every frame.
+var _was_wading := false
+var _was_in_ash := false
+var _ash_poll := 0.0
+## Runs the sink to SWIM_SINK and back, killed on each crossing so a quick
+## in-and-out does not leave two tweens fighting over the model.
+var _sink_tween: Tween = null
+
 ## Breadcrumbs of where we have walked, so a following pal has a path to
 ## take rather than homing on us every frame.
 var trail: Array[Vector3] = []
@@ -117,6 +131,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	_tick_health(delta)
+	_tick_ash(delta)
 	_bite_left = maxf(_bite_left - delta, 0.0)
 	if _aiming_throw:
 		_update_throw_aim()
@@ -277,6 +292,7 @@ func _cancel_throw_aim() -> void:
 	if not _aiming_throw:
 		return
 	_aiming_throw = false
+	locked_pal = null
 	Hud.set_reticule(false)
 
 
@@ -285,6 +301,7 @@ func _update_throw_aim() -> void:
 	_throw_target = info.target
 	_throw_aim = info.aim
 	var pal := info.pal as Pal
+	locked_pal = pal
 	var text := ""
 	if pal:
 		text = "%s %d%%" % [pal.display_name, roundi(pal.catch_chance() * 100.0)]
@@ -424,7 +441,12 @@ func _punch() -> void:
 			best_dist = dist
 	_bite()
 	if best is Pal:
-		kick(Tuning.SHAKE_PUNCH)
+		# Scaled by the damage the swing actually deals, so the demon's buff
+		# is felt on every punch rather than only in how fast things die.
+		kick(minf(
+			Pal.player_punch_damage() * Tuning.SHAKE_PUNCH_PER_DAMAGE,
+			Tuning.SHAKE_PUNCH_MAX,
+		))
 		(best as Pal).take_hit(global_position)
 	elif best:
 		best.punch()
@@ -471,6 +493,9 @@ func _toggle_ride() -> void:
 	if best:
 		mount = best
 		mount.state = Pal.State.RIDDEN
+		# Armed from where the mount is standing, so mounting one already in
+		# the water does not fire a splash the player never crossed into.
+		_was_wading = _mount_is_wading()
 		# Riding puts us inside the pal's collider, which would jam its
 		# move_and_slide against ours every frame.
 		_set_collision_enabled(false)
@@ -488,6 +513,13 @@ func _dismount(force := false) -> bool:
 		landing = mount.global_position + Vector3.UP * Tuning.RIDE_DISMOUNT_UP
 	var old_mount := mount
 	old_mount.state = Pal.State.FOLLOW
+	# _ride used to reset the sink every frame; with it tweened, a dismount
+	# has to put the model back or the pal follows you ashore half-buried.
+	if _sink_tween:
+		_sink_tween.kill()
+		_sink_tween = null
+	old_mount.sink_model(Tuning.FISH_SINK if old_mount.water_only else 0.0)
+	_was_wading = false
 	mount = null
 	_set_collision_enabled(true)
 	_set_shore_wall_enabled(true)
@@ -571,6 +603,39 @@ func _dismount_spot_is_safe(landing: Vector3, from_mount: Pal) -> bool:
 	return true
 
 
+## The sink is a tween rather than a set: dropping SWIM_SINK in one frame
+## reads as the model teleporting. Entering the water also splashes and kicks
+## the camera; leaving it just rises, since climbing out is not the payoff.
+func _enter_water(wading: bool) -> void:
+	if _sink_tween:
+		_sink_tween.kill()
+	var to := Tuning.SWIM_SINK if wading else 0.0
+	var from: float = -mount._model_root.position.y
+	_sink_tween = create_tween()
+	_sink_tween.tween_method(
+		mount.sink_model, from, to, Tuning.SWIM_SINK_TIME
+	).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+	if wading:
+		Audio.play("splash", mount.global_position)
+		kick(Tuning.SHAKE_SPLASH)
+
+
+## Crossing onto the scorched ground. Polled on the prompt cadence rather than
+## every frame, and fired on the edge only: standing on the ash is not news.
+func _tick_ash(delta: float) -> void:
+	_ash_poll -= delta
+	if _ash_poll > 0.0:
+		return
+	_ash_poll = Tuning.PROMPT_POLL_INTERVAL
+	var inside := Zone.is_inside(get_world_3d(), global_position, Zone.Kind.ASH)
+	if inside == _was_in_ash:
+		return
+	_was_in_ash = inside
+	if inside:
+		Audio.play("ash_enter", global_position)
+		Hud.flash(Tuning.ASH_ENTER_MESSAGE)
+
+
 ## A swimmer off the land is in the water; anything else never is.
 func _mount_is_wading() -> bool:
 	if mount == null or not mount.swimmer:
@@ -635,8 +700,9 @@ func _ride(delta: float) -> void:
 	var speed: float = (
 		Tuning.RIDE_SPEED * Tuning.SWIM_SPEED_FACTOR if wading else Tuning.RIDE_SPEED
 	)
-	var sink := Tuning.SWIM_SINK if wading else 0.0
-	mount.sink_model(sink)
+	if wading != _was_wading:
+		_was_wading = wading
+		_enter_water(wading)
 
 	if not mount.is_on_floor():
 		mount.velocity += get_gravity() * delta
