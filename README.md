@@ -28,6 +28,7 @@ Press `/` in game for the same list.
 | Build menu, at the workbench | B | B |
 | Throw a pal cube | Q or left click | Right trigger |
 | Ride a caught pal | E | X |
+| Use altar / interact | R | D-pad up |
 | Swap active pal | Tab, 1, 3 | LB |
 | Controls list | / | Start |
 | Free the mouse | Esc | |
@@ -44,6 +45,10 @@ Press `/` in game for the same list.
    decides.
 5. **Keep.** Caught pals join your party, one out at a time. The Wolf can be
    ridden.
+6. **Grow.** Catches and defeats earn XP. Species drops let you craft the
+   Altar Key once you reach level 4.
+7. **Win.** Take the key to the altar in the demon ring, summon the Mushroom
+   King, and catch it.
 
 ## Species
 
@@ -52,6 +57,7 @@ Press `/` in game for the same list.
 | Wolf | Yes | Flees when you get close |
 | Cactoro | No | Flees when you get close |
 | Demon | No | Attacks on sight, lives at the edge of the map |
+| Mushroom King | No | Summoned boss and win condition |
 
 ## Layout
 

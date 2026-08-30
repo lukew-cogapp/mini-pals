@@ -9,8 +9,13 @@ Build order, each step playable on its own:
 2. ~~Creature that wanders (idle -> wander -> flee)~~ done
 3. ~~Throwable pal cube, hit detection, capture roll~~ done
 4. ~~Caught creature follows the player~~ done, and can be ridden
-5. Gathering, inventory, workbench crafting (in progress)
-6. Bigger terrain, several creature types
+5. ~~Gathering, inventory, workbench crafting~~ done
+6. ~~Bigger terrain, several creature types~~ done
+7. ~~Player health, combat, XP, species drops~~ done
+8. ~~Endgame altar, key recipe, boss fight~~ done
+
+Current direction: polish feedback, adopt a real test runner, and make the
+game easier to share.
 
 ## Layout
 
@@ -142,6 +147,12 @@ Trees and rocks are gatherable (`scripts/resource_node.gd`, groups
 `Tuning.GATHER_HITS`, respawn in place. The workbench (B nearby) crafts pal
 cubes from `Tuning.CUBE_RECIPE`; throwing consumes one from `Inventory`
 (autoload, `scripts/inventory.gd`).
+
+Throws are ballistic lobs: `_aim_target` raycasts the crosshair from the
+CameraPivot along `-basis.z` (pals + world, mask `0b101`), and
+`_lob_velocity` solves the launch velocity through that point under
+`CUBE_GRAVITY`, so the shoulder spawn offset cannot cause a miss.
+`CUBE_LOB_SPEED` is the feel knob: lower is floatier and higher-arcing.
 
 Player health: `player.gd` has `hp` and `damage(amount, from_position)`,
 regen after a no-hit delay, and death -> respawn at the origin spawn with

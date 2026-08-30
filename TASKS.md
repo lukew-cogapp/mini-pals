@@ -1,20 +1,6 @@
 # Tasks
 
-No TodoWrite tool in this session, so this file is the task list. Kept current
-as work lands.
-
-## In progress
-
-Three agents running:
-
-- [ ] Orientation audit: one convention for model facing, camera rig, aim and
-      movement, verified by screenshot. Four separate axis bugs so far, each
-      patched locally, so this replaces the patches with a single rule
-- [ ] Pal levels and combat: levels 1-5, more hits to defeat, species drops
-      (wolf pelt, cactus fruit), catch chance falls with level and rises as a
-      pal weakens
-- [ ] Player health, death and respawn, aggressive species: punch a pal and it
-      fights back, demons attack on sight and spawn at the map edge
+Kept current as work lands.
 
 ## Next
 
@@ -29,6 +15,13 @@ Three agents running:
 
 - [x] Catch sequence: pal shrinks into the cube, three shakes, particle burst,
       escape bursts the pal back out at full size
+- [x] Endgame altar key, demon ring, Mushroom King boss fight and win condition
+- [x] Player health, death and respawn; punched pals fight back and demons
+      attack on sight at the map edge
+- [x] Pal levels and combat: levels 1-5, species drops, lower catch chance at
+      higher level and better catch chance when weakened
+- [x] Orientation audit: model, camera, aim and movement use one Godot -Z
+      convention, verified by headless checks and screenshots
 - [x] Procedural sound bank, synthesised at startup, no asset files
 - [x] Catch chance shown in the HUD
 - [x] Overlay styling: shared styles in `ui/`, amber on dark, matching HUD,
@@ -44,9 +37,10 @@ Three agents running:
 - [x] Pal cubes: renamed from spheres, tumbling red box
 - [x] Build menu verified visually, affordable and greyed states
 - [x] Resource HUD along the bottom
-- [x] Facing: models face +Z so `atan2(x, z)`, verified by screenshot
+- [x] Facing: gameplay models face Godot -Z so `atan2(-x, -z)`, verified by
+      screenshot
 - [x] Sunset lighting, warm low sun and light fog
-- [x] Screenshot harness, 12 angles including UI
+- [x] Screenshot harness, 20 shots including UI, rig throw and facing checks
 - [x] Blue cat via recoloured atlas
 - [x] Gathering, inventory, workbench, build menu
 - [x] Wolf pal: wander, flee, catch, follow, ride
@@ -76,5 +70,5 @@ Works as is. Research says these are the idiomatic upgrades:
 
 - [ ] Tree colour variation, they are all identical
 - [ ] More pal species, several have `_Evolved` variants
-- [ ] Sound
+- [ ] More sound polish
 - [ ] Export to itch.io so Aubrey can share a link
