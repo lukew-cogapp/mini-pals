@@ -30,3 +30,32 @@ const ROCK_SCALE_MAX := 1.8
 # --- Stepping over low obstacles ---
 const STEP_HEIGHT := 0.45
 const STEP_FORWARD_PROBE := 0.35
+
+# --- Pals ---
+const PAL_WALK_SPEED := 2.2
+const PAL_FLEE_SPEED := 5.5
+const PAL_WANDER_RADIUS := 12.0
+const PAL_IDLE_MIN := 1.5
+const PAL_IDLE_MAX := 4.0
+const PAL_FLEE_DISTANCE := 6.0
+const PAL_TURN_SPEED := 6.0
+const PAL_FOLLOW_DISTANCE := 3.0
+const PAL_FOLLOW_SPEED := 6.0
+const PAL_COUNT := 6
+
+# --- Catching ---
+const SPHERE_THROW_SPEED := 14.0
+const SPHERE_THROW_LIFT := 1.5
+const SPHERE_GRAVITY := 14.0
+const SPHERE_RADIUS := 0.25
+const SPHERE_CATCH_CHANCE := 0.55
+const SPHERE_LIFETIME := 6.0
+
+# --- Riding ---
+const RIDE_SPEED := 11.0
+const RIDE_TURN_SPEED := 3.0
+const RIDE_MOUNT_DISTANCE := 3.0
+const RIDE_SEAT_HEIGHT := 1.1
+
+# --- Camera feel ---
+const CAMERA_FOV := 60.0

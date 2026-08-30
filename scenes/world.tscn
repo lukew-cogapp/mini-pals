@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://scripts/scenery.gd" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/models/tree.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://scenes/models/rock.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/pal_wolf.tscn" id="6"]
 
 [sub_resource type="PlaneMesh" id="1"]
 size = Vector2(120, 120)
@@ -45,6 +46,7 @@ shape = SubResource("2")
 script = ExtResource("3")
 tree_scene = ExtResource("4")
 rock_scene = ExtResource("5")
+pal_scene = ExtResource("6")
 
 [node name="Player" parent="." instance=ExtResource("1")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
