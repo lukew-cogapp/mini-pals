@@ -14,6 +14,12 @@ const MESSAGE_TIME := 2.5
 @onready var _reticule_label: Label = $Reticule/Label
 
 var _health_width := 0.0
+var _health_tween: Tween
+var _hurt_tween: Tween
+## Kept separate from _hurt_tween: a hit landing during the death fade must
+## not cancel the fade to black.
+var _fade_tween: Tween
+var _fading := false
 
 
 func _ready() -> void:
@@ -35,13 +41,46 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func set_health(hp: float, max_hp: float) -> void:
-	_health_fill.size.x = _health_width * clampf(hp / max_hp, 0.0, 1.0)
+	var width := _health_width * clampf(hp / max_hp, 0.0, 1.0)
+	if _health_tween:
+		_health_tween.kill()
+	_health_tween = create_tween()
+	_health_tween.tween_property(_health_fill, "size:x", width, Tuning.HEALTH_TWEEN_TIME)
 	_health_value.text = "%d / %d" % [floori(hp), roundi(max_hp)]
+
+
+## A hit: the bar blinks white and the screen takes a red wash. The wash
+## borrows the Fade rect, so it is skipped outright while a death fade owns
+## it rather than being killed and restarted alongside it.
+func hurt_flash() -> void:
+	if _hurt_tween:
+		_hurt_tween.kill()
+	_health_fill.color = Tuning.HEALTH_FLASH_COLOR
+	_hurt_tween = create_tween()
+	_hurt_tween.parallel().tween_property(_health_fill, "color",
+		Tuning.HEALTH_FILL_COLOR, Tuning.HURT_FLASH_TIME)
+	if _fading:
+		return
+	_fade.color = Color(Tuning.HURT_FLASH_COLOR, 0.0)
+	_hurt_tween.parallel().tween_property(_fade, "color:a",
+		Tuning.HURT_FLASH_ALPHA, Tuning.HURT_FLASH_TIME * 0.3)
+	_hurt_tween.chain().tween_property(_fade, "color", Color(0.0, 0.0, 0.0, 0.0),
+		Tuning.HURT_FLASH_TIME * 0.7)
 
 
 ## Death fade: 1.0 blacks the screen out, 0.0 brings it back.
 func fade_to(alpha: float, secs: float) -> void:
-	create_tween().tween_property(_fade, "color:a", alpha, secs)
+	# _fading gates hurt_flash, which shares the Fade rect and would otherwise
+	# wash it red and drop it back to transparent part-way through the fade.
+	_fading = alpha > 0.0
+	if _hurt_tween:
+		_hurt_tween.kill()
+	_health_fill.color = Tuning.HEALTH_FILL_COLOR
+	_fade.color = Color(0.0, 0.0, 0.0, _fade.color.a)
+	if _fade_tween:
+		_fade_tween.kill()
+	_fade_tween = create_tween()
+	_fade_tween.tween_property(_fade, "color:a", alpha, secs)
 
 
 func flash(text: String) -> void:

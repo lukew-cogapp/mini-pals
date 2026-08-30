@@ -7,6 +7,10 @@ const CUBE_SCENE := preload("res://scenes/pal_cube.tscn")
 @onready var pivot: Node3D = $CameraPivot
 @onready var body: Node3D = $Body
 @onready var _camera: Camera3D = $CameraPivot/SpringArm3D/Camera3D
+@onready var _arm: SpringArm3D = $CameraPivot/SpringArm3D
+## Rest position of the arm, so shake offsets are always measured from the
+## scene's value rather than from wherever the last frame left it.
+@onready var _arm_rest: Vector3 = _arm.position
 @onready var _anim: AnimationPlayer = _find_anim(body)
 
 var mount: Pal = null  ## The pal we are riding, if any.
@@ -20,6 +24,7 @@ var _bite_left := 0.0  ## Seconds the bite clip still owns the rig.
 var _aiming_throw := false
 var _throw_target := Vector3.ZERO
 var _throw_aim := Vector3.FORWARD
+var _shake := 0.0  ## Decaying camera shake strength; 0 means the arm sits at rest.
 
 ## Breadcrumbs of where we have walked, so a following pal has a path to
 ## take rather than homing on us every frame.
@@ -55,7 +60,29 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	# The arm's shape cast would otherwise hit our own capsule and pull the
 	# camera into the player's head.
-	$CameraPivot/SpringArm3D.add_excluded_object(get_rid())
+	_arm.add_excluded_object(get_rid())
+
+
+## Shake moves the arm, not the pivot, so the arm's own collision cast still
+## starts at the pivot and the player exclusion above keeps working.
+func _process(delta: float) -> void:
+	if _shake <= 0.0:
+		return
+	_shake = maxf(_shake - Tuning.SHAKE_DECAY * delta, 0.0)
+	if _shake <= 0.0:
+		_arm.position = _arm_rest
+		return
+	var amount := _shake * Tuning.SHAKE_MAX
+	_arm.position = _arm_rest + Vector3(
+		randf_range(-amount, amount),
+		randf_range(-amount, amount),
+		0.0,
+	)
+
+
+## Strength is clamped so stacked hits cannot leave the camera flailing.
+func kick(strength: float) -> void:
+	_shake = minf(maxf(_shake, strength), 1.0)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -182,6 +209,8 @@ func damage(amount: float, from_position: Vector3) -> bool:
 	_since_hit = 0.0
 	Hud.set_health(hp, Tuning.PLAYER_MAX_HP)
 	Audio.play("player_hurt", global_position)
+	kick(Tuning.SHAKE_HURT * clampf(amount / Tuning.PLAYER_MAX_HP, 0.0, 1.0))
+	Hud.hurt_flash()
 	var away := global_position - from_position
 	away.y = 0.0
 	if away.length() > 0.01:
@@ -394,6 +423,7 @@ func _punch() -> void:
 			best_dist = dist
 	_bite()
 	if best is Pal:
+		kick(Tuning.SHAKE_PUNCH)
 		(best as Pal).take_hit(global_position)
 	elif best:
 		best.punch()

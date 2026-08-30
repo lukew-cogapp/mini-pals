@@ -267,3 +267,35 @@ const FOLLOW_ACCEL := 8.0
 ## to catch up. It speeds up with distance instead, up to this.
 const FOLLOW_CATCHUP_SPEED := 11.0
 const FOLLOW_CATCHUP_RADIUS := 7.0
+
+## --- Juice: camera shake, catch slow-mo, hurt feedback ---------------------
+
+## Shake is a strength that decays toward zero and is applied as a random
+## offset to the spring arm. Decay is per second, so at 6.0 a kick is gone in
+## well under half a second.
+const SHAKE_DECAY := 6.0
+const SHAKE_MAX := 0.35  ## Metres of offset at full strength, so a big hit stays readable.
+## Hurt shake scales with the fraction of max HP taken, so a scratch barely
+## registers and a boss hit rattles the screen.
+const SHAKE_HURT := 0.9
+const SHAKE_PUNCH := 0.25
+const SHAKE_SUMMON := 1.0
+
+## Catch slow-mo. The burst is the payoff, so the world crawls for a moment
+## once the roll has already been decided.
+const CATCH_SLOWMO_SCALE := 0.25
+const CATCH_SLOWMO_TIME := 0.45
+
+## Health bar feedback. The bar slides to its new width, the fill blinks
+## white, and the whole screen takes a red wash.
+const HEALTH_TWEEN_TIME := 0.25
+const HURT_FLASH_TIME := 0.18
+const HURT_FLASH_ALPHA := 0.32
+const HURT_FLASH_COLOR := Color(0.7, 0.05, 0.05)
+const HEALTH_FLASH_COLOR := Color(1.0, 1.0, 1.0)
+const HEALTH_FILL_COLOR := Color(0.85, 0.25, 0.25)
+
+## Catch shakes lean further each time, so the third reads as more desperate
+## than the first.
+const CATCH_SHAKE_LEAN := 0.5
+const CATCH_SHAKE_LEAN_GROWTH := 0.18

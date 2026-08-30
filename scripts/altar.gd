@@ -53,6 +53,9 @@ func _summon() -> void:
 	_fight = true
 	_burst.restart()
 	Audio.play("summon", global_position)
+	var player := get_tree().get_first_node_in_group("player")
+	if player and player.has_method("kick"):
+		player.kick(Tuning.SHAKE_SUMMON)
 	Audio.play_music("boss_music")
 	Hud.flash("The Mushroom King answers the call!")
 	_darken(true)

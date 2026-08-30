@@ -94,10 +94,15 @@ func _capture(pal: Pal) -> void:
 	await drop.finished
 
 	var success := _rng.randf() < pal.catch_chance()
-	for i in Tuning.CATCH_SHAKE_COUNT:
+	# A fixed three shakes means the third one carries no information: you
+	# already know from the count that nothing has gone wrong. A failure now
+	# breaks out early, so surviving to the last shake is itself the tell.
+	for i in shake_count(success):
 		Audio.play("shake", global_position)
 		var shake := create_tween()
-		var lean := 0.5 if i % 2 == 0 else -0.5
+		var lean := Tuning.CATCH_SHAKE_LEAN + i * Tuning.CATCH_SHAKE_LEAN_GROWTH
+		if i % 2 == 1:
+			lean = -lean
 		shake.tween_property(self, "rotation:z", lean, Tuning.CATCH_SHAKE_TIME * 0.5) \
 			.set_trans(Tween.TRANS_SINE)
 		shake.tween_property(self, "rotation:z", 0.0, Tuning.CATCH_SHAKE_TIME * 0.5) \
@@ -110,9 +115,19 @@ func _capture(pal: Pal) -> void:
 		await _fail(pal)
 
 
+## How many wobbles this outcome gets. The roll has already happened, so this
+## only paces the reveal: a win always runs the full count, a loss can break
+## open at any point.
+func shake_count(success: bool) -> int:
+	if success:
+		return Tuning.CATCH_SHAKE_COUNT
+	return _rng.randi_range(1, Tuning.CATCH_SHAKE_COUNT)
+
+
 func _succeed(pal: Pal) -> void:
 	Audio.play("caught", global_position)
 	_burst.emitting = true
+	await _slowmo()
 	var settle := create_tween()
 	settle.tween_property(_mesh, "scale", _mesh_scale * 1.3, Tuning.CATCH_SETTLE_TIME * 0.4)
 	settle.tween_property(_mesh, "scale", Vector3.ZERO, Tuning.CATCH_SETTLE_TIME * 0.6) \
@@ -120,6 +135,19 @@ func _succeed(pal: Pal) -> void:
 	await settle.finished
 	pal.on_caught()
 	_finish(pal, true)
+
+
+## The catch is the payoff, so the world crawls through the burst.
+##
+## The timer is created with ignore_time_scale, or the restore would wait
+## CATCH_SLOWMO_TIME / CATCH_SLOWMO_SCALE seconds of real time. The restore is
+## hung on the timer's own signal rather than on an await here: freeing this
+## cube mid-await would kill the coroutine and leave the whole game slow.
+func _slowmo() -> void:
+	Engine.time_scale = Tuning.CATCH_SLOWMO_SCALE
+	var timer := get_tree().create_timer(Tuning.CATCH_SLOWMO_TIME, true, false, true)
+	timer.timeout.connect(func() -> void: Engine.time_scale = 1.0)
+	await timer.timeout
 
 
 func _fail(pal: Pal) -> void:
