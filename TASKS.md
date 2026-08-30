@@ -15,34 +15,26 @@ Kept current as work lands.
 
 - [x] Catch sequence: pal shrinks into the cube, three shakes, particle burst,
       escape bursts the pal back out at full size
-- [x] Endgame altar key, demon ring, Mushroom King boss fight and win condition
+- [x] Endgame: altar key at level 4, stone circle, Mushroom King boss with
+      music, world darkening and glowing creatures; catching it wins
 - [x] Player health, death and respawn; punched pals fight back and demons
       attack on sight at the map edge
-- [x] Pal levels and combat: levels 1-5, species drops, lower catch chance at
-      higher level and better catch chance when weakened
-- [x] Orientation audit: model, camera, aim and movement use one Godot -Z
-      convention, verified by headless checks and screenshots
+- [x] Pal levels, HP, drops, live catch labels, duplicate-catch merging,
+      player XP and active-pal buffs
+- [x] Orientation settled: art is flipped at source by
+      `scripts/tools/face_forward.py`, game code uses plain Godot -Z forward,
+      and `test/orientation_test.gd` covers facing, camera, throw and punch
 - [x] Procedural sound bank, synthesised at startup, no asset files
 - [x] Catch chance shown in the HUD
 - [x] Overlay styling: shared styles in `ui/`, amber on dark, matching HUD,
       build menu and help
-- [x] Orientation settled for good: art is flipped at source by
-      scripts/tools/face_forward.py, game code uses plain Godot -Z forward.
-      test/orientation_test.gd covers facing, camera, throw and punch
 - [x] Thrown cubes solve a ballistic arc onto the crosshair, visible leaving
       the shoulder
 - [x] Caught pals follow: the player lookup ran before the player existed
 - [x] Start with five cubes
 - [x] Island: bounded land, beach, water, palms, shells, shore wall
-- [x] Pal levels, HP, drops, live catch labels, duplicate-catch merging,
-      player XP, active-pal buffs
-- [x] Player health, death and respawn, aggro, Demon at the rim
-- [x] Endgame: altar key at level 4, stone circle, MushroomKing boss with
-      music, world darkening and glowing creatures
 - [x] Starlight wiki at ../godot-world-wiki
 - [x] Cactoro as a second species, 8 pals now, alternating
-- [x] Cube throw fixed: was aimed backwards after the camera rotation and
-      arced over anything close. Hits from 3 to 12 units
 - [x] 1 and 3 step through the party, Tab still cycles
 - [x] Party system: caught pals are stored, Tab cycles, one out at a time
 - [x] Q throws a pal cube, and `/` toggles a controls overlay
@@ -51,8 +43,6 @@ Kept current as work lands.
 - [x] Pal cubes: renamed from spheres, tumbling red box
 - [x] Build menu verified visually, affordable and greyed states
 - [x] Resource HUD along the bottom
-- [x] Facing: gameplay models face Godot -Z so `atan2(-x, -z)`, verified by
-      screenshot
 - [x] Sunset lighting, warm low sun and light fog
 - [x] Screenshot harness, 20 shots including UI, rig throw and facing checks
 - [x] Blue cat via recoloured atlas

@@ -137,9 +137,9 @@ func _tick_health(delta: float) -> void:
 
 
 ## Hostile pals call this; from_position aims the knockback.
-func damage(amount: float, from_position: Vector3) -> void:
+func damage(amount: float, from_position: Vector3) -> bool:
 	if _dead or _invuln > 0.0:
-		return
+		return false
 	hp = maxf(hp - amount, 0.0)
 	_since_hit = 0.0
 	Hud.set_health(hp, Tuning.PLAYER_MAX_HP)
@@ -150,6 +150,7 @@ func damage(amount: float, from_position: Vector3) -> void:
 		velocity += away.normalized() * Tuning.PLAYER_HIT_KNOCKBACK
 	if hp <= 0.0:
 		_die()
+	return true
 
 
 func _die() -> void:

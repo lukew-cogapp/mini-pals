@@ -8,13 +8,14 @@ func _level_hp() -> int:
 	return super() + Tuning.BOSS_BONUS_HP
 
 
-func _swing() -> void:
+func _swing() -> bool:
 	if _anim and _anim.has_animation("Punch"):
 		_anim.stop()
 		_anim.play("Punch")
 	Audio.play("boss_attack", global_position)
 	if _player and _player.has_method("damage"):
-		_player.damage(Tuning.BOSS_ATTACK_DAMAGE, global_position)
+		return _player.damage(Tuning.BOSS_ATTACK_DAMAGE, global_position)
+	return false
 
 
 func on_caught() -> void:

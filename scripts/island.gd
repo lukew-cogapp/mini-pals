@@ -59,5 +59,6 @@ func _shore_wall() -> void:
 		shape.shape = box
 		var at := Vector3(cos(angle), 0.0, sin(angle)) * Tuning.SHORE_WALL_RADIUS
 		shape.position = at + Vector3.UP * (Tuning.SHORE_WALL_HEIGHT * 0.5 - 1.0)
-		shape.rotation.y = -angle
+		# Long side tangent to the shore, short side radial.
+		shape.rotation.y = PI * 0.5 - angle
 		body.add_child(shape)

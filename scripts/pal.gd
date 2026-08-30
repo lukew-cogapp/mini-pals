@@ -33,6 +33,8 @@ var _timer := 0.0
 var _hit_stun := 0.0
 var _aggro := 0.0
 var _attack_cooldown := 0.0
+var _attack_without_hit := 0.0
+var _sight_aggro_suppressed := false
 var _rng := RandomNumberGenerator.new()
 var _player: Node3D:
 	get:
@@ -247,6 +249,8 @@ func _enter_flee() -> void:
 func _enter_attack() -> void:
 	if caught:
 		return
+	if state != State.ATTACK:
+		_attack_without_hit = 0.0
 	state = State.ATTACK
 
 
@@ -254,11 +258,20 @@ func _enter_attack() -> void:
 func _wants_attack() -> bool:
 	if caught or _player == null:
 		return false
-	return aggressive and _flat_distance(_player.global_position) < Tuning.PAL_AGGRO_RADIUS
+	if not aggressive:
+		return false
+	var dist := _flat_distance(_player.global_position)
+	if _sight_aggro_suppressed:
+		if dist > Tuning.PAL_AGGRO_RADIUS:
+			_sight_aggro_suppressed = false
+		else:
+			return false
+	return dist < Tuning.PAL_AGGRO_RADIUS
 
 
 func _tick_attack(delta: float) -> void:
 	_attack_cooldown = maxf(_attack_cooldown - delta, 0.0)
+	_attack_without_hit += delta
 	if caught or _player == null:
 		_enter_idle()
 		return
@@ -270,6 +283,9 @@ func _tick_attack(delta: float) -> void:
 	var dist := _flat_distance(_player.global_position)
 	if dist > Tuning.PAL_CHASE_GIVE_UP:
 		_enter_idle()
+		return
+	if _attack_without_hit >= Tuning.PAL_NO_HIT_GIVE_UP_TIME:
+		_give_up_attack()
 		return
 	if dist > Tuning.PAL_ATTACK_RANGE:
 		_move_towards(_player.global_position, Tuning.PAL_CHASE_SPEED, delta)
@@ -284,10 +300,20 @@ func _tick_attack(delta: float) -> void:
 		face(dir.normalized(), delta, Tuning.PAL_TURN_SPEED)
 	if _attack_cooldown <= 0.0:
 		_attack_cooldown = Tuning.PAL_ATTACK_COOLDOWN
-		_swing()
+		if _swing():
+			_attack_without_hit = 0.0
 
 
-func _swing() -> void:
+func _give_up_attack() -> void:
+	_aggro = 0.0
+	_attack_cooldown = 0.0
+	_attack_without_hit = 0.0
+	if aggressive:
+		_sight_aggro_suppressed = true
+	_enter_idle()
+
+
+func _swing() -> bool:
 	# Restart rather than _play, so back-to-back swings all animate.
 	if _anim:
 		for anim_name in ["Punch", "Bite_Front"]:
@@ -299,13 +325,16 @@ func _swing() -> void:
 		Audio.play("demon_attack", global_position)
 	var dmg := Tuning.AGGRESSIVE_ATTACK_DAMAGE if aggressive else Tuning.PAL_ATTACK_DAMAGE
 	if _player.has_method("damage"):
-		_player.damage(dmg, global_position)
+		return _player.damage(dmg, global_position)
+	return false
 
 
 ## The player respawned (or caught us): forget the fight.
 func clear_aggro() -> void:
 	_aggro = 0.0
 	_attack_cooldown = 0.0
+	_attack_without_hit = 0.0
+	_sight_aggro_suppressed = false
 	if state == State.ATTACK:
 		_enter_idle()
 
@@ -339,6 +368,8 @@ func take_hit(from: Vector3) -> void:
 		_anim.play("HitReact")
 	# Fighting back: a punch makes any pal hostile for a while.
 	_aggro = Tuning.PAL_AGGRO_TIME
+	_sight_aggro_suppressed = false
+	_attack_without_hit = 0.0
 	_enter_attack()
 
 
