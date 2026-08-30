@@ -5,7 +5,16 @@ as work lands.
 
 ## In progress
 
-Nothing in flight.
+Three agents running:
+
+- [ ] Orientation audit: one convention for model facing, camera rig, aim and
+      movement, verified by screenshot. Four separate axis bugs so far, each
+      patched locally, so this replaces the patches with a single rule
+- [ ] Pal levels and combat: levels 1-5, more hits to defeat, species drops
+      (wolf pelt, cactus fruit), catch chance falls with level and rises as a
+      pal weakens
+- [ ] Player health, death and respawn, aggressive species: punch a pal and it
+      fights back, demons attack on sight and spawn at the map edge
 
 ## Next
 
@@ -24,6 +33,10 @@ Nothing in flight.
 - [x] Catch chance shown in the HUD
 - [x] Overlay styling: shared styles in `ui/`, amber on dark, matching HUD,
       build menu and help
+- [x] Cactoro as a second species, 8 pals now, alternating
+- [x] Cube throw fixed: was aimed backwards after the camera rotation and
+      arced over anything close. Hits from 3 to 12 units
+- [x] 1 and 3 step through the party, Tab still cycles
 - [x] Party system: caught pals are stored, Tab cycles, one out at a time
 - [x] Q throws a pal cube, and `/` toggles a controls overlay
 - [x] HUD messages on catch, escape, and empty pockets
