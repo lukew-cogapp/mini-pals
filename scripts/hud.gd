@@ -6,6 +6,11 @@ const MESSAGE_QUEUED_TIME := 1.4
 ## Always shown, in this order, so the middle of the bar does not reorder
 ## itself as items come and go.
 const CORE_ITEMS := ["wood", "stone"]
+## Matches pal_boss.tscn's display_name; catching it is the win condition.
+const BOSS_NAME := "Mushroom King"
+## Row prefixes: a tick for done, a small triangle for the live objective.
+const MARK_DONE := "✓"
+const MARK_NOW := "▸"
 
 @onready var _level: Label = $Bar/Margin/Row/LevelBox/Level
 @onready var _xp_bar: Control = $Bar/Margin/Row/LevelBox/Xp
@@ -21,6 +26,8 @@ const CORE_ITEMS := ["wood", "stone"]
 @onready var _cube_count: Label = $Bar/Margin/Row/CubeBox/Count
 @onready var _reticule: Control = $Reticule
 @onready var _reticule_label: Label = $Reticule/Label
+@onready var _objectives: VBoxContainer = $ObjectivePanel/ObjectivePad/Col/Rows
+@onready var _minimap_panel: PanelContainer = $MinimapPanel
 
 var _health_width := 0.0
 var _health_tween: Tween
@@ -52,6 +59,10 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("help"):
 		_help.visible = not _help.visible
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("minimap"):
+		# The map only. The objectives list is the signposting and stays put.
+		_minimap_panel.visible = not _minimap_panel.visible
 		get_viewport().set_input_as_handled()
 
 
@@ -145,6 +156,7 @@ func _refresh() -> void:
 		else str(Inventory.count("cube"))
 	)
 	_refresh_items()
+	_refresh_objectives()
 
 	if Party.members.is_empty():
 		_pal.text = ""
@@ -226,3 +238,118 @@ func _icon_for(item: String) -> Texture2D:
 		tex = load(Tuning.ITEM_ICONS[item]) as Texture2D
 	_icon_cache[item] = tex
 	return tex
+
+
+## --- Objectives ------------------------------------------------------------
+##
+## The chain, in order, each step evaluated against live state rather than a
+## stored flag: catch pals, reach the level that unlocks the key, gather its
+## three drops, craft it, take it to the altar, catch the King.
+## The text lives here rather than in tuning.gd because it is content, not a
+## number to playtest, and it reads next to the condition it describes.
+##
+## Returns [{text, done}] in chain order, earliest first.
+func _objective_chain() -> Array[Dictionary]:
+	var chain: Array[Dictionary] = []
+	var caught := Party.members.size()
+	chain.append({
+		"text": "Catch pals %d/%d" % [mini(caught, Tuning.OBJECTIVE_CATCH_TARGET),
+			Tuning.OBJECTIVE_CATCH_TARGET],
+		"done": caught >= Tuning.OBJECTIVE_CATCH_TARGET,
+	})
+	chain.append({
+		"text": "Reach level %d (Lv%d)" % [Tuning.KEY_UNLOCK_LEVEL, Party.player_level],
+		"done": Party.player_level >= Tuning.KEY_UNLOCK_LEVEL,
+	})
+	# One row per key material, so the player is told which drop to go and find
+	# rather than "gather materials".
+	for item in Tuning.KEY_RECIPE:
+		var need: int = Tuning.KEY_RECIPE[item]
+		var have := Inventory.count(item)
+		chain.append({
+			"text": "%s %d/%d" % [_item_name(item), mini(have, need), need],
+			"short": _item_name(item),
+			"done": have >= need,
+		})
+	# Crafting spends the materials, so holding a key and having already spent
+	# one on a summon both count as crafted.
+	var key_made := Inventory.count("altar_key") > 0 or _boss_summoned()
+	chain.append({"text": "Craft the Altar Key at the bench", "done": key_made})
+	chain.append({"text": "Use the key at the altar (R)", "done": _boss_summoned()})
+	chain.append({"text": "Catch the Mushroom King", "done": _king_caught()})
+	# Crafting spends the key materials, which would un-tick their rows and
+	# walk the panel backwards. Anything before a finished step is finished,
+	# and its count is dropped: "Demon horn 0/3" beside a tick reads as a bug.
+	var seen_done := false
+	for i in range(chain.size() - 1, -1, -1):
+		if seen_done and not chain[i].done:
+			chain[i].done = true
+			chain[i].text = chain[i].get("short", chain[i].text)
+		elif chain[i].done:
+			seen_done = true
+	return chain
+
+
+## The altar removes the key before it spawns the boss, so a boss in the world
+## is the only evidence a summon happened.
+func _boss_summoned() -> bool:
+	for pal in get_tree().get_nodes_in_group("pal"):
+		if is_instance_valid(pal) and pal.display_name == BOSS_NAME:
+			return true
+	return _king_caught()
+
+
+func _king_caught() -> bool:
+	for pal in Party.members:
+		# Party.store frees a duplicate species and emits `changed` in the same
+		# breath, so a freed pal can still be in the array when this runs.
+		if is_instance_valid(pal) and pal.display_name == BOSS_NAME:
+			return true
+	return false
+
+
+func _item_name(item: String) -> String:
+	return String(item).capitalize().replace("_", " ")
+
+
+## The top-right objective list. Rows are built once and reused, like the item
+## list: this runs on every inventory change, which is every swing of a punch.
+##
+## Shows the first unfinished objective with the last OBJECTIVE_DONE_ROWS
+## finished ones above it, so the list is a short moving window over the chain
+## rather than all of it.
+func _refresh_objectives() -> void:
+	var chain := _objective_chain()
+	var current := chain.size() - 1
+	for i in chain.size():
+		if not chain[i].done:
+			current = i
+			break
+	# The window ENDS at the current objective, so it is always the bottom row
+	# and nothing further down the chain is spoiled early.
+	var first: int = maxi(0, current - Tuning.OBJECTIVE_DONE_ROWS)
+	var shown := chain.slice(first, current + 1)
+
+	while _objectives.get_child_count() < Tuning.OBJECTIVE_ROWS_MAX:
+		_objectives.add_child(_make_objective_row())
+
+	for i in _objectives.get_child_count():
+		var label: Label = _objectives.get_child(i)
+		if i >= shown.size():
+			label.visible = false
+			continue
+		var entry: Dictionary = shown[i]
+		label.visible = true
+		label.text = "%s %s" % [MARK_DONE if entry.done else MARK_NOW, entry.text]
+		label.add_theme_color_override("font_color",
+			Tuning.OBJECTIVE_DONE_COLOR if entry.done else Tuning.OBJECTIVE_ACTIVE_COLOR)
+		label.add_theme_font_size_override("font_size",
+			Tuning.OBJECTIVE_FONT_SIZE if entry.done else Tuning.OBJECTIVE_TITLE_FONT_SIZE)
+
+
+func _make_objective_row() -> Label:
+	var label := Label.new()
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	label.add_theme_constant_override("outline_size", 4)
+	return label

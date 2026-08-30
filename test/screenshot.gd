@@ -91,6 +91,8 @@ func _init() -> void:
 
 	await _shoot_ui()
 
+	await _shoot_hud()
+
 	print("SHOTS_WRITTEN=", _shots.size())
 	for s in _shots:
 		print("  ", s.name)
@@ -196,6 +198,34 @@ func _shoot_ui() -> void:
 	_cam.global_position = bench.global_position + Vector3(2.5, 2.0, 3.5)
 	_cam.look_at(bench.global_position + Vector3(0, 0.5, 0), Vector3.UP)
 	await _capture("23_items")
+
+
+## The top-right HUD column, part way along the objective chain: the panel is
+## a moving window, so a shot of a fresh game shows only its first row.
+func _shoot_hud() -> void:
+	var inv = get_root().get_node("Inventory")
+	var party = get_root().get_node("Party")
+	party.player_level = Tuning.KEY_UNLOCK_LEVEL
+	party.changed.emit()
+	inv.add("pelt", 3)
+	inv.add("cactus_fruit", 1)
+	await process_frame
+
+	# Walk a short trail first, so the minimap shows PARTIAL fog. A shot from
+	# the spawn alone reveals one blob and demonstrates nothing.
+	var map = get_root().get_node("Hud").get_node("MinimapPanel/MinimapPad/Map")
+	for step in [Vector3(0, 0, -40), Vector3(25, 0, -55), Vector3(40, 0, -40),
+			Vector3(20, 0, -15), Vector3(0, 0, 0)]:
+		_player.global_position = Vector3(step.x, _player.global_position.y, step.z)
+		await process_frame
+		await process_frame
+	await physics_frame
+
+	# The player is at the bench from _shoot_ui; frame the world behind them so
+	# the panels are read against the game rather than a wall.
+	_cam.global_position = _player.global_position + Vector3(6, 3.5, 8)
+	_cam.look_at(_player.global_position + Vector3(0, 1.0, 0), Vector3.UP)
+	await _capture("30_hud")
 
 
 func _hold(action: String, frames: int) -> void:

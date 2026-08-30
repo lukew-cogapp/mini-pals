@@ -320,6 +320,54 @@ const ITEM_ICONS := {
 const ITEM_ROWS_MAX := 14
 const ITEM_ICON_SIZE := 22
 
+# --- Objectives panel ---
+## How many pals to catch before the panel stops nagging about catching. Low
+## enough to clear on the way to KEY_UNLOCK_LEVEL rather than as a detour.
+const OBJECTIVE_CATCH_TARGET := 3
+## Rows drawn at once: the current objective plus this many done ones above it,
+## so the player sees the chain they are on without a wall of twenty lines.
+const OBJECTIVE_DONE_ROWS := 2
+const OBJECTIVE_ROWS_MAX := OBJECTIVE_DONE_ROWS + 1
+const OBJECTIVE_FONT_SIZE := 15
+const OBJECTIVE_TITLE_FONT_SIZE := 16
+## Warm sunset amber for the live objective, dimmed cream for finished ones.
+const OBJECTIVE_ACTIVE_COLOR := Color(0.98, 0.82, 0.52)
+const OBJECTIVE_DONE_COLOR := Color(0.72, 0.74, 0.72, 0.75)
+
+# --- Minimap ---
+## Side of the square control, in pixels. The disc fills it.
+const MINIMAP_SIZE := 168.0
+## World metres from edge to edge of the map. Framed on the island
+## (ISLAND_RADIUS 110) plus a band of the shallows, rather than on the whole
+## reachable 368 across: at that width the island was a quarter of the disc
+## and the dots on it were indistinguishable.
+const MINIMAP_WORLD_SPAN := 280.0
+const MINIMAP_BG_COLOR := Color(0.07, 0.07, 0.11, 0.72)
+const MINIMAP_LAND_COLOR := Color(0.34, 0.46, 0.26)
+const MINIMAP_SHALLOW_COLOR := Color(0.24, 0.38, 0.48)
+const MINIMAP_ASH_COLOR := Color(0.26, 0.2, 0.22)
+const MINIMAP_ALTAR_COLOR := Color(0.98, 0.82, 0.52)
+const MINIMAP_ALTAR_SIZE := 4.0
+const MINIMAP_PLAYER_COLOR := Color(1.0, 0.96, 0.86)
+## Half-length of the player wedge, in pixels.
+const MINIMAP_PLAYER_SIZE := 7.0
+const MINIMAP_PAL_COLOR := Color(0.72, 0.78, 0.86)
+const MINIMAP_PAL_ACTIVE_COLOR := Color(0.55, 0.85, 1.0)
+const MINIMAP_PAL_HOSTILE_COLOR := Color(0.9, 0.28, 0.24)
+const MINIMAP_PAL_DOT := 1.8
+const MINIMAP_PAL_ACTIVE_DOT := 3.2
+## Ash edge samples. The wobble is low frequency, so 48 already reads smooth.
+const MINIMAP_ASH_SEGMENTS := 48
+
+# --- Minimap fog of war ---
+## Metres revealed around the player. A quarter of ISLAND_RADIUS (110), so
+## crossing the island uncovers a broad band without clearing it in one walk.
+const FOG_REVEAL_RADIUS := 28.0
+## Metres per fog cell. Three metres over the 280 m span is a 94x94 grid: 9k
+## booleans, cheap to mark and to draw, and just under two screen pixels per
+## cell at MINIMAP_SIZE, so the revealed edge does not read as blocky.
+const FOG_CELL_SIZE := 3.0
+
 # --- Island ---
 const ISLAND_RADIUS := 110.0
 const BEACH_WIDTH := 6.0

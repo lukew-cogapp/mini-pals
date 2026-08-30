@@ -1,10 +1,11 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="StyleBox" path="res://ui/panel.tres" id="2"]
 [ext_resource type="StyleBox" path="res://ui/bar.tres" id="3"]
 
 [ext_resource type="Script" path="res://scripts/hud.gd" id="1"]
 [ext_resource type="Texture2D" path="res://ui/icons/cube.svg" id="4"]
+[ext_resource type="Script" path="res://scripts/minimap.gd" id="5"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1")
@@ -196,6 +197,18 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
 text = "Use the altar"
+
+[node name="K12" type="Label" parent="Help/Pad/Col/Grid"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.98, 0.82, 0.52, 1)
+text = "M"
+
+[node name="V12" type="Label" parent="Help/Pad/Col/Grid"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
+text = "Toggle the minimap"
 
 [node name="Bar" type="PanelContainer" parent="."]
 anchors_preset = 12
@@ -405,6 +418,72 @@ theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 8
 
 [node name="Items" type="VBoxContainer" parent="ItemPanel/ItemPad"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+; The map takes the corner and the objectives sit under it, one right-aligned
+; column. Both anchor to the right edge and grow leftwards.
+[node name="MinimapPanel" type="PanelContainer" parent="."]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -204.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 24.0
+grow_horizontal = 0
+theme_override_styles/panel = ExtResource("3")
+
+[node name="MinimapPad" type="MarginContainer" parent="MinimapPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 0
+
+[node name="Map" type="Control" parent="MinimapPanel/MinimapPad"]
+layout_mode = 2
+custom_minimum_size = Vector2(168, 168)
+mouse_filter = 2
+script = ExtResource("5")
+
+[node name="ObjectivePanel" type="PanelContainer" parent="."]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -286.0
+offset_top = 218.0
+offset_right = -16.0
+offset_bottom = 224.0
+grow_horizontal = 0
+theme_override_styles/panel = ExtResource("3")
+
+[node name="ObjectivePad" type="MarginContainer" parent="ObjectivePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 9
+
+[node name="Col" type="VBoxContainer" parent="ObjectivePanel/ObjectivePad"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Title" type="Label" parent="ObjectivePanel/ObjectivePad/Col"]
+layout_mode = 2
+text = "Objectives"
+horizontal_alignment = 2
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.95, 0.68, 0.35, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.8)
+theme_override_constants/outline_size = 4
+
+[node name="Rule" type="ColorRect" parent="ObjectivePanel/ObjectivePad/Col"]
+custom_minimum_size = Vector2(0, 2)
+layout_mode = 2
+color = Color(0.95, 0.68, 0.35, 0.35)
+
+[node name="Rows" type="VBoxContainer" parent="ObjectivePanel/ObjectivePad/Col"]
 layout_mode = 2
 theme_override_constants/separation = 4
 

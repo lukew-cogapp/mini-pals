@@ -21,6 +21,7 @@ const CONTROLS := [
 	["Ride a caught pal", "E", "X"],
 	["Swap active pal", "Tab", "LB"],
 	["Use the altar", "R", "D-pad up"],
+	["Toggle the minimap", "M", "D-pad down"],
 ]
 
 @onready var _turntable: Node3D = $Turntable

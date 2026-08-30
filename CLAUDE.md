@@ -237,9 +237,38 @@ when the boss is caught or dies. Catching it is the win condition.
 HUD layout: level and XP bar bottom-left, active pal bottom-right, carried
 items as an icon list in the top-left under the health bar
 (`scripts/hud.gd` `_refresh_items`, icons in `ui/icons/*.svg` mapped by
-`Tuning.ITEM_ICONS`). Everything used to be one concatenated label on the
+`Tuning.ITEM_ICONS`). The top right is one column: minimap in the corner,
+objectives list below it. Everything used to be one concatenated label on the
 bottom bar, which grew sideways with each new drop. Rows are built once and
 reused because `Inventory.changed` fires on every punch.
+
+Objectives (`_refresh_objectives`) are derived from live state, never stored:
+catch pals, reach `KEY_UNLOCK_LEVEL`, gather each `KEY_RECIPE` drop, craft the
+key, summon at the altar, catch the King. Only the current objective and
+`OBJECTIVE_DONE_ROWS` finished ones above it are drawn, and the window ENDS at
+the current one so nothing further down the chain is spoiled. The chain is
+forced monotonic after evaluation: crafting spends the key materials, which
+would otherwise un-tick those rows and walk the panel backwards. The text is
+content and lives in `hud.gd` beside the condition it describes, not in
+`tuning.gd`.
+
+The minimap (`scripts/minimap.gd`) is plain `_draw` on a Control: no viewport,
+no second camera. It is NORTH-UP so the island keeps one shape, with a wedge
+carrying the heading. Terrain colours come from `Zone.is_inside`, so the ash
+blob's noisy edge is the world's own curve rather than a second copy. Fog of
+war is a boolean grid (`FOG_CELL_SIZE` metres per cell) revealed within
+`FOG_REVEAL_RADIUS` of the player and never re-hidden; terrain, the altar
+marker and pals all gate on the same `is_revealed`, so nothing leaks through
+by being drawn a different way. Fresh fog each run, deliberately: there is no
+save system. M (action `minimap`, gamepad D-pad down) toggles the map only;
+the objectives stay. `test/minimap_test.gd` asserts the heading against
+`facing()` and the sign of a world offset on screen, because a mirrored map
+looks perfectly correct in a screenshot.
+
+Note `Party.members` and the `pal` group can both hold a freed pal when
+`changed` fires: `Party.store` calls `queue_free` on a duplicate species and
+emits in the same breath. Anything walking either list on that signal needs
+`is_instance_valid`.
 
 Trees and rocks are gatherable (`scripts/resource_node.gd`, groups
 `tree`/`rock`/`resource_node`): punch (F) yields wood/stone, deplete after
