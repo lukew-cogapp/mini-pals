@@ -280,7 +280,24 @@ func _objective_chain() -> Array[Dictionary]:
 	var key_made := Inventory.count("altar_key") > 0 or _boss_summoned()
 	chain.append({"text": "Craft the Altar Key at the bench", "done": key_made})
 	chain.append({"text": "Use the key at the altar (R)", "done": _boss_summoned()})
-	chain.append({"text": "Catch the Mushroom King", "done": _king_caught()})
+	# Catching wins; defeating is the consolation prize. Either finishes the
+	# line, so a player who killed him is not left with a permanent red tick
+	# on a fight they cannot fight again until they craft another key.
+	var beaten := Inventory.count(Tuning.OBJECTIVE_CROWN_ITEM) > 0
+	chain.append({
+		"text": "Catch the Mushroom King" if not beaten else "Defeated the Mushroom King",
+		"short": "Mushroom King",
+		"done": _king_caught() or beaten,
+	})
+	# Optional, and last: finding the cave is a side trip, not a step on the
+	# way to the altar, so it never becomes the row the player is told to do
+	# next and never blocks the chain behind it.
+	chain.append({
+		"text": "Find the cave and its Grottolo",
+		"short": "The cave",
+		"optional": true,
+		"done": Inventory.count(Tuning.OBJECTIVE_CAVE_ITEM) > 0 or _has_species("Grottolo"),
+	})
 	# Crafting spends the key materials, which would un-tick their rows and
 	# walk the panel backwards. Anything before a finished step is finished,
 	# and its count is dropped: "Demon horn 0/3" beside a tick reads as a bug.
@@ -301,6 +318,14 @@ func _boss_summoned() -> bool:
 		if is_instance_valid(pal) and pal.display_name == BOSS_NAME:
 			return true
 	return _king_caught()
+
+
+## True once a species is in the party, by name.
+func _has_species(species: String) -> bool:
+	for pal in Party.members:
+		if is_instance_valid(pal) and pal.display_name == species:
+			return true
+	return false
 
 
 func _king_caught() -> bool:
@@ -326,7 +351,9 @@ func _refresh_objectives() -> void:
 	var chain := _objective_chain()
 	var current := chain.size() - 1
 	for i in chain.size():
-		if not chain[i].done:
+		# An optional row is never what the player is told to do next, or a
+		# side trip would hide the rest of the chain behind it.
+		if not chain[i].done and not chain[i].get("optional", false):
 			current = i
 			break
 	# The window ENDS at the current objective, so it is always the bottom row

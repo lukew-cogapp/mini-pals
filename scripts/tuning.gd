@@ -450,6 +450,13 @@ const ITEM_ICON_SIZE := 22
 ## How many pals to catch before the panel stops nagging about catching. Low
 ## enough to clear on the way to KEY_UNLOCK_LEVEL rather than as a detour.
 const OBJECTIVE_CATCH_TARGET := 3
+## The cave is off the main chain: finding it is optional, so it sits as its
+## own line rather than blocking the altar. A glow cap in the pack is proof
+## the player got there, since the Grottolo lives nowhere else.
+const OBJECTIVE_CAVE_ITEM := "glow_cap"
+## Catching the King wins. Defeating him is the consolation, and his crown is
+## the only way to tell after the fact, since the body is gone either way.
+const OBJECTIVE_CROWN_ITEM := "kings_crown"
 ## Rows drawn at once: the current objective plus this many done ones above it,
 ## so the player sees the chain they are on without a wall of twenty lines.
 const OBJECTIVE_DONE_ROWS := 2

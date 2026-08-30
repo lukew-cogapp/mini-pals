@@ -122,13 +122,24 @@ func test_objective_chain_advances_stage_by_stage() -> void:
 		"the craft stays ticked once the materials are spent: rows=%s" % str(_rows()),
 	)
 
-	# Catching the boss is the win, and the last objective.
+	# Catching the boss is the win and the last REQUIRED objective. The cave
+	# is optional and sits after it, so it may still show unfinished; what
+	# matters is that the King himself is ticked and is no longer what the
+	# player is being told to do.
 	_party.members.append(_fake_pal(_hud.BOSS_NAME))
 	_party.changed.emit()
 	await wait_process_frames(1)
+	var king_row := ""
+	for row in _rows():
+		if "Mushroom King" in row:
+			king_row = row
 	assert_true(
-		_current() == "Catch the Mushroom King" and _rows()[-1].begins_with(_hud.MARK_DONE),
-		"catching the King finishes the chain: rows=%s" % str(_rows()),
+		king_row.begins_with(_hud.MARK_DONE),
+		"catching the King ticks its row: rows=%s" % str(_rows()),
+	)
+	assert_ne(
+		_current(), "Catch the Mushroom King",
+		"the King is no longer the current objective once caught",
 	)
 
 	assert_true(
