@@ -208,13 +208,53 @@ theme_override_styles/panel = ExtResource("3")
 
 [node name="Margin" type="MarginContainer" parent="Bar"]
 layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_right = 20
 
-[node name="Counts" type="Label" parent="Bar/Margin"]
+[node name="Row" type="HBoxContainer" parent="Bar/Margin"]
 layout_mode = 2
-text = "Wood 0     Stone 0     Cubes 0"
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 24
-theme_override_colors/font_color = Color(1, 0.96, 0.9, 1)
+theme_override_constants/separation = 24
+
+[node name="LevelBox" type="HBoxContainer" parent="Bar/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 4
+theme_override_constants/separation = 10
+
+[node name="Level" type="Label" parent="Bar/Margin/Row/LevelBox"]
+layout_mode = 2
+size_flags_vertical = 4
+text = "Lv1"
+theme_override_font_sizes/font_size = 20
+theme_override_colors/font_color = Color(0.98, 0.82, 0.52, 1)
+
+[node name="Xp" type="Control" parent="Bar/Margin/Row/LevelBox"]
+custom_minimum_size = Vector2(120, 10)
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="Back" type="ColorRect" parent="Bar/Margin/Row/LevelBox/Xp"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.08, 0.08, 0.1, 0.75)
+
+[node name="Fill" type="ColorRect" parent="Bar/Margin/Row/LevelBox/Xp"]
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 2.0
+offset_bottom = 8.0
+color = Color(0.98, 0.82, 0.52, 1)
+
+[node name="Spacer" type="Control" parent="Bar/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Pal" type="Label" parent="Bar/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 8
+horizontal_alignment = 2
+theme_override_font_sizes/font_size = 20
+theme_override_colors/font_color = Color(0.82, 0.9, 0.98, 1)
 
 [node name="Reticule" type="Control" parent="."]
 visible = false
@@ -324,6 +364,24 @@ theme_override_font_sizes/font_size = 16
 theme_override_colors/font_color = Color(1, 0.96, 0.9, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.8)
 theme_override_constants/outline_size = 4
+
+[node name="ItemPanel" type="PanelContainer" parent="."]
+offset_left = 16.0
+offset_top = 52.0
+offset_right = 210.0
+offset_bottom = 60.0
+theme_override_styles/panel = ExtResource("3")
+
+[node name="ItemPad" type="MarginContainer" parent="ItemPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="Items" type="VBoxContainer" parent="ItemPanel/ItemPad"]
+layout_mode = 2
+theme_override_constants/separation = 4
 
 [node name="Fade" type="ColorRect" parent="."]
 anchor_right = 1.0

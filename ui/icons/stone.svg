@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Faceted boulder; the lighter top face reads as a lit plane. -->
+  <path d="M6 22l3-9 6-4 8 2 3 8-4 4H9z" fill="#9a9aa2"/>
+  <path d="M9 13l6-4 8 2-5 4z" fill="#bfbfc7"/>
+  <path d="M6 22l3-9 9 6-2 7H9z" fill="#87878f"/>
+</svg>

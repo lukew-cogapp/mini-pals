@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- The pal cube: isometric box with a lit band across the middle. -->
+  <path d="M16 4l11 6v12l-11 6-11-6V10z" fill="#3f8fd0"/>
+  <path d="M16 4l11 6-11 6-11-6z" fill="#63b2ea"/>
+  <path d="M16 16v12l-11-6V10z" fill="#2f6ea6"/>
+  <rect x="11.5" y="13.5" width="9" height="5" rx="2.5" fill="#f2f7fb"/>
+</svg>

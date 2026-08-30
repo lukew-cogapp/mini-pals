@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Key with a ringed bow and two wards. -->
+  <circle cx="11" cy="11" r="6.5" fill="none" stroke="#e8c65a" stroke-width="3"/>
+  <circle cx="11" cy="11" r="2.4" fill="#8d6a1f"/>
+  <path d="M15.6 15.6L26 26" stroke="#e8c65a" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M21 21l-3 3M24 24l-2.5 2.5" stroke="#e8c65a" stroke-width="3" stroke-linecap="round"/>
+</svg>
