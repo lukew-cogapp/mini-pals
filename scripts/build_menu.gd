@@ -108,11 +108,13 @@ func _cost_text(costs: Dictionary) -> String:
 
 func _craft(i: int) -> void:
 	var recipe: Dictionary = Tuning.RECIPES[i]
+	# Through the HUD, not print: a failed craft otherwise looks like a dead
+	# button, and on a web build the console is somewhere nobody looks.
 	if not _unlocked(recipe):
-		print("Cannot craft %s: unlocks at player level %d" % [recipe.label, recipe.min_level])
+		Hud.flash("%s unlocks at level %d." % [recipe.label, recipe.min_level])
 		return
 	if not _affordable(recipe):
-		print("Cannot craft %s: need %s" % [recipe.label, _cost_text(recipe.costs)])
+		Hud.flash("%s needs %s." % [recipe.label, _cost_text(recipe.costs)])
 		return
 	for item in recipe.costs:
 		Inventory.remove(item, recipe.costs[item])
@@ -120,7 +122,9 @@ func _craft(i: int) -> void:
 	Audio.play("craft")
 	if recipe.item == "altar_key":
 		Hud.flash("Altar key forged! Seek the stone circle at the world's rim.")
-	print("Crafted %s (%d held)" % [recipe.label, Inventory.count(recipe.item)])
+	else:
+		Hud.flash("%s crafted. You hold %d." % [
+			recipe.label, Inventory.count(recipe.item)])
 
 
 func _refresh() -> void:

@@ -24,7 +24,6 @@ func punch() -> void:
 	var n := Tuning.GATHER_YIELD + int(Party.buff(&"gather"))
 	Inventory.add(item, n)
 	Audio.play("gather", global_position)
-	print("Gathered %d %s (%d total)" % [n, item, Inventory.count(item)])
 	if is_available():
 		_shake()
 	else:
