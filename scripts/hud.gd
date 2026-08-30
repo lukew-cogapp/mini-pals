@@ -28,6 +28,8 @@ const MARK_NOW := "▸"
 @onready var _reticule_label: Label = $Reticule/Label
 @onready var _objectives: VBoxContainer = $ObjectivePanel/ObjectivePad/Col/Rows
 @onready var _minimap_panel: PanelContainer = $MinimapPanel
+@onready var _prompt_panel: PanelContainer = $PromptPanel
+@onready var _prompt_label: Label = $PromptPanel/PromptPad/Prompt
 
 var _health_width := 0.0
 var _health_tween: Tween
@@ -41,6 +43,8 @@ var _icon_cache := {}
 ## frame. One label showing the last of them meant the catch was never read,
 ## so they queue and take their turn instead.
 var _messages: Array[String] = []
+var _prompt_timer := 0.0
+var _prompt_tween: Tween
 
 
 func _ready() -> void:
@@ -353,3 +357,145 @@ func _make_objective_row() -> Label:
 	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	label.add_theme_constant_override("outline_size", 4)
 	return label
+
+
+## --- Contextual key prompts ------------------------------------------------
+##
+## One line naming the key for whatever the player is standing next to, so the
+## controls are learned in place rather than off the / overlay. Exactly one
+## shows at a time: standing between a bench and a tree must not stack two, so
+## the checks below run in priority order and the first hit wins.
+##
+## Priority, highest first: altar, workbench, rideable pal, gatherable node.
+## The altar and the bench are places the player deliberately walked to and
+## there is one of each in the world; a caught pal follows everywhere and would
+## otherwise mask both; trees and rocks are underfoot everywhere, so they lose.
+##
+## The key text is read from InputMap, never written down here. Bindings have
+## already moved once, and a prompt naming a key that does nothing is worse
+## than no prompt.
+func _process(delta: float) -> void:
+	_prompt_timer -= delta
+	if _prompt_timer > 0.0:
+		return
+	_prompt_timer = Tuning.PROMPT_POLL_INTERVAL
+	_set_prompt(_prompt_text())
+
+
+func _set_prompt(text: String) -> void:
+	if text == "":
+		if _prompt_panel.visible:
+			_fade_prompt(0.0, false)
+		return
+	_prompt_label.text = text
+	if not _prompt_panel.visible:
+		_prompt_panel.modulate.a = 0.0
+		_prompt_panel.visible = true
+		_fade_prompt(1.0, true)
+
+
+func _fade_prompt(alpha: float, keep_visible: bool) -> void:
+	if _prompt_tween:
+		_prompt_tween.kill()
+	_prompt_tween = create_tween()
+	_prompt_tween.tween_property(_prompt_panel, "modulate:a", alpha,
+		Tuning.PROMPT_FADE_TIME)
+	if not keep_visible:
+		_prompt_tween.tween_callback(func() -> void: _prompt_panel.visible = false)
+
+
+## The one prompt to show, or "" for none. Ranges are the same constants the
+## actions themselves check, so a prompt can never appear out of reach.
+func _prompt_text() -> String:
+	var player := get_tree().get_first_node_in_group("player") as Node3D
+	if player == null:
+		return ""
+	var here := player.global_position
+
+	for altar in get_tree().get_nodes_in_group("altar"):
+		if here.distance_to(altar.global_position) > Tuning.ALTAR_RANGE:
+			continue
+		return _key_line("interact", "Summon the Mushroom King"
+			if Inventory.count("altar_key") > 0 else "The altar wants a key")
+
+	for bench in get_tree().get_nodes_in_group("workbench"):
+		if here.distance_to(bench.global_position) <= Tuning.WORKBENCH_RANGE:
+			return _key_line("build", "Craft at the workbench")
+
+	# Riding is offered for a caught pal only, and only while on foot: the
+	# same key dismounts, and the player already knows they are aboard.
+	if player.get("mount") == null:
+		for node in get_tree().get_nodes_in_group("pal"):
+			var pal := node as Pal
+			if pal == null or not pal.caught or not pal.rideable or not pal.visible:
+				continue
+			if here.distance_to(pal.global_position) <= Tuning.RIDE_MOUNT_DISTANCE:
+				return _key_line("ride", "Ride %s" % pal.display_name)
+
+	# Facing matters here and nowhere else, because a punch does: standing
+	# beside a tree with your back to it gathers nothing.
+	var facing: Vector3 = player.facing()
+	for node in get_tree().get_nodes_in_group("resource_node"):
+		if not node.is_available():
+			continue
+		var to_node: Vector3 = node.global_position - here
+		to_node.y = 0.0
+		if to_node.length() > Tuning.GATHER_RANGE:
+			continue
+		if to_node.normalized().dot(facing) <= Tuning.GATHER_FACING_DOT:
+			continue
+		return _key_line("punch", "Gather")
+
+	return ""
+
+
+func _key_line(action: StringName, what: String) -> String:
+	return "%s   %s" % [_key_name(action), what]
+
+
+## The bound key, and the pad button if the action has one, straight from
+## InputMap. The first keyboard event wins; a pad button is appended so a
+## controller player is told their own button rather than a key they do not
+## have.
+func _key_name(action: StringName) -> String:
+	var key := ""
+	var pad := ""
+	if not InputMap.has_action(action):
+		return "?"
+	for event in InputMap.action_get_events(action):
+		if key == "" and event is InputEventKey:
+			key = _key_event_name(event)
+		elif pad == "" and event is InputEventJoypadButton:
+			pad = _pad_button_name(event.button_index)
+	if key == "":
+		key = pad
+		pad = ""
+	# Build is keyboard B and pad B, which printed as "B / B" and read as a bug.
+	if pad == "" or pad == key:
+		return key
+	return "%s / %s" % [key, pad]
+
+
+## The project binds by physical keycode, so that is what is read. Reporting
+## the layout-mapped label instead would need a display server, and this runs
+## headless in the tests.
+func _key_event_name(event: InputEventKey) -> String:
+	var code := event.physical_keycode if event.physical_keycode != 0 else event.keycode
+	return OS.get_keycode_string(code)
+
+
+## The face and shoulder buttons this game binds, named the way the pad has
+## them printed rather than by Godot's enum.
+func _pad_button_name(index: int) -> String:
+	match index:
+		JOY_BUTTON_A: return "A"
+		JOY_BUTTON_B: return "B"
+		JOY_BUTTON_X: return "X"
+		JOY_BUTTON_Y: return "Y"
+		JOY_BUTTON_LEFT_SHOULDER: return "LB"
+		JOY_BUTTON_RIGHT_SHOULDER: return "RB"
+		JOY_BUTTON_DPAD_UP: return "D-pad up"
+		JOY_BUTTON_DPAD_DOWN: return "D-pad down"
+		JOY_BUTTON_DPAD_LEFT: return "D-pad left"
+		JOY_BUTTON_DPAD_RIGHT: return "D-pad right"
+		_: return "pad %d" % index

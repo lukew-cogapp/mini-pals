@@ -1,10 +1,11 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scripts/start_screen.gd" id="1"]
 [ext_resource type="StyleBox" path="res://ui/panel.tres" id="2"]
 [ext_resource type="StyleBox" path="res://ui/button.tres" id="3"]
 [ext_resource type="StyleBox" path="res://ui/button_hover.tres" id="4"]
 [ext_resource type="StyleBox" path="res://ui/button_focus.tres" id="10"]
+[ext_resource type="StyleBox" path="res://ui/button_off.tres" id="11"]
 [ext_resource type="PackedScene" path="res://scenes/models/player_model.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/models/pine_1.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://scenes/models/commontree_1.tscn" id="7"]
@@ -168,9 +169,9 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -140.0
-offset_top = -212.0
-offset_right = 140.0
+offset_left = -200.0
+offset_top = -268.0
+offset_right = 200.0
 offset_bottom = -60.0
 grow_horizontal = 2
 grow_vertical = 0
@@ -179,7 +180,7 @@ theme_override_constants/separation = 14
 [node name="Play" type="Button" parent="UI/Menu"]
 layout_mode = 2
 focus_neighbor_top = NodePath("../Quit")
-focus_neighbor_bottom = NodePath("../Quit")
+focus_neighbor_bottom = NodePath("../Debug")
 theme_override_font_sizes/font_size = 30
 theme_override_colors/font_color = Color(0.96, 0.98, 0.94, 1)
 theme_override_colors/font_focus_color = Color(1, 1, 0.95, 1)
@@ -190,9 +191,25 @@ theme_override_styles/pressed = ExtResource("4")
 theme_override_styles/focus = ExtResource("10")
 text = "Play"
 
-[node name="Quit" type="Button" parent="UI/Menu"]
+; Deliberately smaller and duller than Play: it is a developer shortcut past
+; the whole game, not a second way to start one.
+[node name="Debug" type="Button" parent="UI/Menu"]
 layout_mode = 2
 focus_neighbor_top = NodePath("../Play")
+focus_neighbor_bottom = NodePath("../Quit")
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.72, 0.7, 0.78, 1)
+theme_override_colors/font_focus_color = Color(0.95, 0.9, 0.98, 1)
+theme_override_colors/font_hover_color = Color(0.95, 0.9, 0.98, 1)
+theme_override_styles/normal = ExtResource("11")
+theme_override_styles/hover = ExtResource("4")
+theme_override_styles/pressed = ExtResource("4")
+theme_override_styles/focus = ExtResource("10")
+text = "Debug: start with the Mushroom King"
+
+[node name="Quit" type="Button" parent="UI/Menu"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Debug")
 focus_neighbor_bottom = NodePath("../Play")
 theme_override_font_sizes/font_size = 30
 theme_override_colors/font_color = Color(0.96, 0.98, 0.94, 1)

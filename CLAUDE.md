@@ -348,6 +348,28 @@ roughly 216 ms against world.tscn's 276 ms. The title reads
 `project.godot`. The `Hud` autoload exists before any world does and draws
 over the title, so the start screen hides it and restores it in `_exit_tree`.
 
+Contextual key prompts (`hud.gd` `_prompt_text`, panel `PromptPanel`) name the
+key for whatever the player is standing next to, one line, centre-bottom above
+the message label. Exactly one shows: the checks run in priority order and the
+first hit wins, altar > workbench > rideable caught pal > gatherable node. The
+altar and the bench are places you deliberately walked to and there is one of
+each; a caught pal follows everywhere and would otherwise mask both; trees and
+rocks are underfoot everywhere. A wild pal in cube range gets no prompt, since
+the reticule already shows its name and catch odds. Ranges are the constants
+the actions themselves check, so a prompt can never appear out of reach, and
+the key text comes from `InputMap`, never a literal: bindings have moved once
+already and a prompt naming a dead key is worse than no prompt.
+`test/prompt_test.gd` rebinds `build` mid-test to prove that.
+
+`scenes/start_screen.tscn` also carries a Debug button, styled small and dull
+under Play, which starts the world and then calls `Party.debug_start_king()`.
+That instances `pal_boss.tscn`, sets `caught` and puts it through the normal
+`store()`, so the King follows, fights and gives infinite cubes exactly like a
+real catch; it also raises the player to `DEBUG_START_PLAYER_LEVEL`, since the
+bench's key recipe is gated on that level and the endgame cannot be tested
+without it. `test/debug_start_test.gd` asserts a normal Play still starts with
+an empty party, which is the regression that matters.
+
 `Hud.flash` queues rather than overwrites. Ten callers share one label, and
 catching a pal fires the catch, the XP and sometimes a level in the same
 frame, so the catch used to be gone before it could be read. Queued messages

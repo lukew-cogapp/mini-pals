@@ -548,3 +548,21 @@ const DISMOUNT_BEACH_STEPS := 8
 ## is at SHALLOW_LEVEL, so anything less than that gap leaves the fish
 ## visibly floating on top of the water instead of in it.
 const FISH_SINK := 1.1
+
+
+## --- Contextual key prompts and the debug start ---------------------------
+
+## How often the prompt re-scans for something to act on. Every frame is
+## wasted work on a check that walks three node groups, and a tenth of a
+## second is under the time it takes to walk out of any of the ranges above.
+const PROMPT_POLL_INTERVAL := 0.1
+
+## Fade in and out, so walking past a tree does not strobe the panel.
+const PROMPT_FADE_TIME := 0.14
+
+## The debug start hands over a King at the level the altar would have
+## summoned him at, so he reads and fights exactly like a real one.
+const DEBUG_KING_LEVEL := BOSS_LEVEL
+## Player level that goes with him. KEY_UNLOCK_LEVEL is the endgame gate, so
+## starting there means the bench shows the key recipe without a playthrough.
+const DEBUG_START_PLAYER_LEVEL := KEY_UNLOCK_LEVEL

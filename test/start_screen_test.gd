@@ -44,16 +44,21 @@ func _init() -> void:
 	_check("something has focus on load, so a pad or the keys can drive it",
 		focused == play, "focused=%s" % (focused.name if focused else "<none>"))
 
-	# Both buttons must be reachable in both directions, or a pad can steer
-	# into one of them and never get back out.
-	_check("focus moves down from Play to Quit",
-		play.find_valid_focus_neighbor(SIDE_BOTTOM) == quit_button)
-	_check("focus moves up from Play to Quit",
+	# The menu is a ring: every button reachable both ways, or a pad can steer
+	# into one of them and never get back out. The chain itself is asserted
+	# button by button in debug_start_test.gd, which owns the third one.
+	_check("focus wraps up from Play, so the menu is a ring",
 		play.find_valid_focus_neighbor(SIDE_TOP) == quit_button)
-	_check("focus moves down from Quit to Play",
+	_check("focus wraps down from Quit, so the menu is a ring",
 		quit_button.find_valid_focus_neighbor(SIDE_BOTTOM) == play)
-	_check("focus moves up from Quit to Play",
-		quit_button.find_valid_focus_neighbor(SIDE_TOP) == play)
+	_check("every menu button is reachable going down from Play",
+		_ring(play, SIDE_BOTTOM).size() == screen.get_node("UI/Menu").get_child_count(),
+		"reached=%d of=%d" % [_ring(play, SIDE_BOTTOM).size(),
+			screen.get_node("UI/Menu").get_child_count()])
+	_check("every menu button is reachable going up from Play",
+		_ring(play, SIDE_TOP).size() == screen.get_node("UI/Menu").get_child_count(),
+		"reached=%d of=%d" % [_ring(play, SIDE_TOP).size(),
+			screen.get_node("UI/Menu").get_child_count()])
 
 	# ui_down / ui_accept are what a gamepad's stick and A button feed into,
 	# so the same assertions cover both input devices.
@@ -97,6 +102,20 @@ func _init() -> void:
 			and screen.get_node_or_null("Island") == null)
 
 	_report()
+
+
+## The buttons walking the focus chain from `from` reaches, stopping when it
+## comes back round. A chain that skips one or dead-ends returns fewer than
+## the menu holds.
+func _ring(from: Control, side: int) -> Array:
+	var seen: Array = [from]
+	var at := from
+	for i in 16:
+		at = at.find_valid_focus_neighbor(side)
+		if at == null or at in seen:
+			break
+		seen.append(at)
+	return seen
 
 
 func _report() -> void:

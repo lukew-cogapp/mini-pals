@@ -108,3 +108,30 @@ func _activate(pal: Pal, near := Vector3.ZERO) -> void:
 			+ player.global_transform.basis.x * Tuning.SUMMON_SIDE
 		)
 	pal.summon(at)
+
+
+## --- Debug start -----------------------------------------------------------
+
+## Hand the player a caught Mushroom King, so the endgame can be tested
+## without playing to it. The King's job is infinite cubes, and reaching him
+## legitimately is a full playthrough.
+##
+## The pal is a real one: it is instanced, added to the world, marked caught
+## and put through store(), so it follows, fights and reads exactly like one
+## the altar summoned and a cube took. Nothing here is a special case that
+## `caught` would have to be checked against later.
+##
+## The player level goes with him because the bench's key recipe is gated on
+## it: without that the debug start could not even open the recipe it exists
+## to test around.
+func debug_start_king() -> void:
+	var world := get_tree().current_scene
+	if world == null:
+		return
+	var king: Pal = load("res://scenes/pal_boss.tscn").instantiate()
+	king.level = Tuning.DEBUG_KING_LEVEL
+	world.add_child(king)
+	king.caught = true
+	store(king)
+	player_level = maxi(player_level, Tuning.DEBUG_START_PLAYER_LEVEL)
+	changed.emit()

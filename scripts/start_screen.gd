@@ -26,6 +26,7 @@ const CONTROLS := [
 
 @onready var _turntable: Node3D = $Turntable
 @onready var _play: Button = $UI/Menu/Play
+@onready var _debug: Button = $UI/Menu/Debug
 @onready var _quit: Button = $UI/Menu/Quit
 
 
@@ -34,6 +35,7 @@ func _ready() -> void:
 	$UI/Title/Name.text = ProjectSettings.get_setting("application/config/name")
 	_fill_controls()
 	_play.pressed.connect(_on_play)
+	_debug.pressed.connect(_on_debug)
 	_quit.pressed.connect(_on_quit)
 	# Without a focused control, a gamepad or the arrow keys have nowhere to
 	# start from and the screen can only be driven by the mouse.
@@ -88,6 +90,15 @@ func _cell(
 
 func _on_play() -> void:
 	get_tree().change_scene_to_file(WORLD)
+
+
+## Same start, plus a caught Mushroom King, for testing the endgame without
+## playing to it. change_scene_to_file swaps the tree at the end of the frame,
+## so the party is handed its pal once the world it lives in exists.
+func _on_debug() -> void:
+	get_tree().change_scene_to_file(WORLD)
+	await get_tree().process_frame
+	Party.debug_start_king()
 
 
 func _on_quit() -> void:
