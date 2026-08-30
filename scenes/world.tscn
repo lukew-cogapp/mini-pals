@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=34 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1"]
 [ext_resource type="Material" path="res://materials/ground.tres" id="2"]
@@ -22,6 +22,12 @@
 [ext_resource type="Script" path="res://scripts/island.gd" id="14"]
 [ext_resource type="Material" path="res://materials/sand.tres" id="15"]
 [ext_resource type="Material" path="res://materials/water.tres" id="16"]
+[ext_resource type="Material" path="res://materials/ash.tres" id="23"]
+[ext_resource type="PackedScene" path="res://scenes/models/deadtree_1.tscn" id="24"]
+[ext_resource type="PackedScene" path="res://scenes/models/deadtree_2.tscn" id="25"]
+[ext_resource type="PackedScene" path="res://scenes/models/deadtree_3.tscn" id="26"]
+[ext_resource type="PackedScene" path="res://scenes/models/deadtree_4.tscn" id="27"]
+[ext_resource type="PackedScene" path="res://scenes/models/deadtree_5.tscn" id="28"]
 
 [sub_resource type="PlaneMesh" id="1"]
 size = Vector2(120, 120)
@@ -68,6 +74,7 @@ script = ExtResource("14")
 grass = ExtResource("2")
 sand = ExtResource("15")
 water = ExtResource("16")
+ash = ExtResource("23")
 
 
 
@@ -76,6 +83,7 @@ water = ExtResource("16")
 script = ExtResource("3")
 tree_scenes = [ExtResource("4"), ExtResource("17"), ExtResource("18"), ExtResource("19"), ExtResource("20")]
 rock_scenes = [ExtResource("5"), ExtResource("21"), ExtResource("22")]
+dead_tree_scenes = [ExtResource("24"), ExtResource("25"), ExtResource("26"), ExtResource("27"), ExtResource("28")]
 pal_scene = ExtResource("6")
 palm_scene = ExtResource("12")
 shell_scene = ExtResource("13")

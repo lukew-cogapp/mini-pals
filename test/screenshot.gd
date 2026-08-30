@@ -49,6 +49,16 @@ func _init() -> void:
 	# Wide shot of the world itself.
 	await _shoot("08_world", Vector3(10, 6, 12), Vector3(0, 0, 0))
 
+	# The demon biome, from high enough to see green centre and scorched
+	# ring in one frame. No player angle reaches this far out.
+	var ring := Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MAX
+	await _shoot_free("21_biome", Vector3(0, 95, ring * 1.5), Vector3(0, 0, ring * 0.4))
+	await _shoot_free(
+		"22_biome_ground",
+		Vector3(ring * 0.75, 8, ring * 0.75),
+		Vector3(ring * 0.62, 0, ring * 0.62),
+	)
+
 	# A wolf, for comparison.
 	var pal = get_nodes_in_group("pal")[0]
 	await _shoot_at("09_wolf", pal, Vector3(2.5, 1.2, 2.5))
@@ -175,6 +185,13 @@ func _shoot(name: String, offset: Vector3, look_at: Vector3, recentre := true) -
 	_cam.global_position = base + offset
 	_cam.look_at(base + look_at - Vector3(0, 0, 0) + Vector3.ZERO, Vector3.UP)
 	_cam.look_at(base + Vector3(0, 0.9, 0), Vector3.UP)
+	await _capture(name)
+
+
+## World-space camera, for anything too far out for a player-relative shot.
+func _shoot_free(name: String, at: Vector3, look: Vector3) -> void:
+	_cam.global_position = at
+	_cam.look_at(look, Vector3.UP)
 	await _capture(name)
 
 

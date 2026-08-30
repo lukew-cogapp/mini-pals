@@ -4,6 +4,7 @@ extends Node3D
 
 @export var tree_scenes: Array[PackedScene] = []
 @export var rock_scenes: Array[PackedScene] = []
+@export var dead_tree_scenes: Array[PackedScene] = []
 @export var pal_scene: PackedScene
 @export var pal_scene_b: PackedScene
 @export var demon_scene: PackedScene
@@ -16,8 +17,15 @@ func _ready() -> void:
 	rng.seed = Tuning.SCATTER_SEED
 	_scatter(tree_scenes, Tuning.TREE_COUNT, Tuning.TREE_SCALE_MIN, Tuning.TREE_SCALE_MAX, rng)
 	_scatter(rock_scenes, Tuning.ROCK_COUNT, Tuning.ROCK_SCALE_MIN, Tuning.ROCK_SCALE_MAX, rng)
-	_scatter_shore(palm_scene, Tuning.PALM_COUNT, 0.82, 0.97, 0.8, 1.3, rng)
-	_scatter_shore(shell_scene, Tuning.SHELL_COUNT, 1.0, 1.07, 0.6, 1.4, rng)
+	_scatter_biome(
+		dead_tree_scenes,
+		Tuning.DEAD_TREE_COUNT,
+		Tuning.DEAD_TREE_SCALE_MIN,
+		Tuning.DEAD_TREE_SCALE_MAX,
+		rng,
+	)
+	_scatter_shore(palm_scene, Tuning.PALM_COUNT, Tuning.PALM_BAND, 0.8, 1.3, rng)
+	_scatter_shore(shell_scene, Tuning.SHELL_COUNT, Tuning.SHELL_BAND, 0.6, 1.4, rng)
 	_scatter_pals(rng)
 	_scatter_demons(rng)
 	_place_altar()
@@ -71,6 +79,7 @@ func _scatter(
 			if (
 				pos.length() > Tuning.SCATTER_CLEAR_RADIUS
 				and pos.distance_to(Tuning.ALTAR_POS) > Tuning.ALTAR_CLEAR_RADIUS
+				and not _in_demon_ring(pos)
 			):
 				break
 		var item := scenes[rng.randi() % scenes.size()].instantiate() as Node3D
@@ -89,6 +98,46 @@ func _place_altar() -> void:
 	add_child(altar)
 
 
+## True inside the demon annulus. Living scenery stays out of it, so the
+## scorched ground reads as its own place rather than the same island
+## recoloured.
+func _in_demon_ring(pos: Vector3) -> bool:
+	var d := pos.length()
+	return (
+		d >= Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MIN
+		and d <= Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MAX
+	)
+
+
+## Dead trees, in the demon annulus only. Unlike _scatter this needs no
+## retry loop: the ring never reaches the spawn, and the altar clearing is
+## the one thing to dodge.
+func _scatter_biome(
+	scenes: Array[PackedScene],
+	count: int,
+	scale_min: float,
+	scale_max: float,
+	rng: RandomNumberGenerator,
+) -> void:
+	if scenes.is_empty():
+		return
+	for i in count:
+		var pos := Vector3.ZERO
+		for _attempt in 12:
+			pos = _on_island(
+				rng,
+				Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MIN,
+				Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MAX,
+			)
+			if pos.distance_to(Tuning.ALTAR_POS) > Tuning.ALTAR_CLEAR_RADIUS:
+				break
+		var item := scenes[rng.randi() % scenes.size()].instantiate() as Node3D
+		item.position = pos
+		item.rotation.y = rng.randf() * TAU
+		item.scale = Vector3.ONE * rng.randf_range(scale_min, scale_max)
+		add_child(item)
+
+
 ## A point in an annulus on the island. Sqrt keeps the distribution even
 ## rather than crowding the centre.
 func _on_island(rng: RandomNumberGenerator, inner: float, outer: float) -> Vector3:
@@ -103,8 +152,7 @@ func _on_island(rng: RandomNumberGenerator, inner: float, outer: float) -> Vecto
 func _scatter_shore(
 	scene: PackedScene,
 	count: int,
-	inner: float,
-	outer: float,
+	band: Vector2,
 	scale_min: float,
 	scale_max: float,
 	rng: RandomNumberGenerator,
@@ -114,9 +162,10 @@ func _scatter_shore(
 	for i in count:
 		var item := scene.instantiate() as Node3D
 		item.position = _on_island(
-			rng, Tuning.ISLAND_RADIUS * inner, Tuning.ISLAND_RADIUS * outer
+			rng, Tuning.ISLAND_RADIUS * band.x, Tuning.ISLAND_RADIUS * band.y
 		)
-		if inner >= 1.0:
+		# Out past the grass, so sit on the lower beach instead.
+		if band.x >= 1.0:
 			item.position.y = -0.35
 		item.rotation.y = rng.randf() * TAU
 		item.scale = Vector3.ONE * rng.randf_range(scale_min, scale_max)

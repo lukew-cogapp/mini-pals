@@ -7,10 +7,12 @@ extends Node3D
 @export var grass: Material
 @export var sand: Material
 @export var water: Material
+@export var ash: Material
 
 
 func _ready() -> void:
 	_disc("Grass", Tuning.ISLAND_RADIUS, 0.0, grass, 64)
+	_ash_ring()
 	_disc("Beach", Tuning.ISLAND_RADIUS + Tuning.BEACH_WIDTH, -0.35, sand, 64)
 	_disc("Water", Tuning.WATER_RADIUS, Tuning.WATER_LEVEL, water, 48)
 	_ground_body()
@@ -29,6 +31,36 @@ func _disc(name: String, radius: float, y: float, mat: Material, segments: int) 
 	node.position.y = y - 0.25
 	if mat:
 		node.material_override = mat
+	add_child(node)
+
+
+## The demon annulus, scorched. A ring rather than a disc: _disc draws a
+## solid cylinder, which would paint the safe middle of the island brown
+## too. Built as a triangle strip lifted just above the grass.
+func _ash_ring() -> void:
+	var inner := Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MIN * Tuning.ASH_INNER
+	var outer := Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MAX * Tuning.ASH_OUTER
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	var segments := 96
+	for i in segments + 1:
+		var angle := TAU * i / segments
+		var c := cos(angle)
+		var s := sin(angle)
+		# Flat and face up; generate_normals rejects a triangle strip.
+		st.set_normal(Vector3.UP)
+		# UVs in world units, so the noise tiles at the same scale as grass.
+		st.set_uv(Vector2(c * inner, s * inner))
+		st.add_vertex(Vector3(c * inner, 0.0, s * inner))
+		st.set_normal(Vector3.UP)
+		st.set_uv(Vector2(c * outer, s * outer))
+		st.add_vertex(Vector3(c * outer, 0.0, s * outer))
+	var node := MeshInstance3D.new()
+	node.name = "Ash"
+	node.mesh = st.commit()
+	node.position.y = Tuning.ASH_LIFT
+	if ash:
+		node.material_override = ash
 	add_child(node)
 
 

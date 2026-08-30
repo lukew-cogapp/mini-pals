@@ -82,12 +82,24 @@ const PAL_AGGRO_RADIUS := 9.0
 const AGGRESSIVE_BONUS_HP := 4
 const AGGRESSIVE_ATTACK_DAMAGE := 2.0
 
+
 # --- Demons ---
 const DEMON_COUNT := 12
 ## Fractions of half the ground size: an annulus at the rim, so the
 ## middle of the map stays safe to potter about in.
 const DEMON_RING_MIN := 0.55
 const DEMON_RING_MAX := 0.9
+## Scorched ground over the demon annulus, as fractions of the ring it
+## marks. Slightly wider than the ring at both ends, so demons and dead
+## trees near the edges still stand on ash rather than half off it.
+const ASH_INNER := 0.94
+const ASH_OUTER := 1.03
+## Above the grass disc by less than the step height, so the seam does not
+## z-fight and nothing has to be climbed at the biome edge.
+const ASH_LIFT := 0.02
+const DEAD_TREE_COUNT := 70
+const DEAD_TREE_SCALE_MIN := 0.3
+const DEAD_TREE_SCALE_MAX := 0.7
 
 # --- Player XP ---
 ## 34 XP per pal level: three level 1 catches tip exactly one player level,
@@ -204,6 +216,10 @@ const SHORE_WALL_RADIUS := 114.0
 const SHORE_WALL_HEIGHT := 14.0
 const PALM_COUNT := 48
 const SHELL_COUNT := 72
+## Shore dressing bands, as fractions of ISLAND_RADIUS. Palms start beyond
+## the ash so no living palm stands on scorched ground.
+const PALM_BAND := Vector2(0.94, 0.99)
+const SHELL_BAND := Vector2(1.0, 1.07)
 
 ## Thrown from the right shoulder. Straight ahead the cat's own body hides
 ## the cube for the first few frames, which reads as nothing happening.
