@@ -34,7 +34,15 @@ var _hit_stun := 0.0
 var _aggro := 0.0
 var _attack_cooldown := 0.0
 var _rng := RandomNumberGenerator.new()
-var _player: Node3D
+var _player: Node3D:
+	get:
+		# Resolved on demand: pals are spawned before the player joins its
+		# group, so a lookup in _ready comes back null.
+		if _player_cache == null or not is_instance_valid(_player_cache):
+			_player_cache = get_tree().get_first_node_in_group("player")
+		return _player_cache
+
+var _player_cache: Node3D
 var _label: Label3D
 
 @onready var _model_root: Node3D = $Model
@@ -44,7 +52,6 @@ var _label: Label3D
 func _ready() -> void:
 	_rng.randomize()
 	_home = global_position
-	_player = get_tree().get_first_node_in_group("player")
 	max_hp = _level_hp()
 	hp = max_hp
 	# Grow the model only; the collider stays put so cubes still land.
@@ -170,8 +177,14 @@ func _tick_flee(delta: float) -> void:
 func _tick_follow(delta: float) -> void:
 	if _player == null:
 		return
-	if _flat_distance(_player.global_position) > Tuning.PAL_FOLLOW_DISTANCE:
-		_move_towards(_player.global_position, Tuning.PAL_FOLLOW_SPEED, delta)
+	var gap := _flat_distance(_player.global_position)
+	if gap > Tuning.PAL_FOLLOW_DISTANCE:
+		# Aim for a spot short of the player, or momentum carries the pal
+		# into their heels every time they stop.
+		var toward := (_player.global_position - global_position)
+		toward.y = 0.0
+		var stop_at := _player.global_position - toward.normalized() * Tuning.PAL_FOLLOW_DISTANCE
+		_move_towards(stop_at, Tuning.PAL_FOLLOW_SPEED, delta)
 		_play("Walk")
 	else:
 		velocity.x = 0.0

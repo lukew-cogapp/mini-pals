@@ -94,6 +94,11 @@ func _activate(pal: Pal, near := Vector3.ZERO) -> void:
 	var player = get_tree().get_first_node_in_group("player")
 	var at := near
 	if player:
-		# In front of the body, where the summoner is looking.
-		at = player.global_position + player.facing() * Tuning.SUMMON_DISTANCE
+		# Behind and to one side. Summoning ahead means walking straight into
+		# your own pal, which shoves it along instead of letting it follow.
+		at = (
+			player.global_position
+			- player.facing() * Tuning.SUMMON_DISTANCE
+			+ player.global_transform.basis.x * Tuning.SUMMON_SIDE
+		)
 	pal.summon(at)

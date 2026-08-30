@@ -103,8 +103,10 @@ const PUNCH_DAMAGE_PER_PLAYER_LEVEL := 0.5
 const PAL_BUFF_CAPS := {&"speed": 0.5, &"gather": 3.0}
 
 # --- Catching ---
-const CUBE_THROW_SPEED := 11.0
-const CUBE_THROW_LIFT := 1.6
+## Horizontal lob pace; lower reads floatier and arcs higher.
+const CUBE_LOB_SPEED := 8.0
+const CUBE_LOB_TIME_MIN := 0.35  # Point-blank throws still get a visible arc.
+const CUBE_LOB_TIME_MAX := 1.4  # Long throws stay a lob, not a mortar shot.
 const CUBE_GRAVITY := 10.0
 const CUBE_HALF_SIZE := 0.4
 const CUBE_CATCH_CHANCE := 0.55
@@ -136,6 +138,7 @@ const RIDE_DISMOUNT_SIDE := 1.2
 const RIDE_DISMOUNT_UP := 0.5
 
 # --- Party ---
+const SUMMON_SIDE := 1.4
 const SUMMON_DISTANCE := 2.0
 
 # --- Camera feel ---
@@ -203,4 +206,4 @@ const CUBE_SPAWN_SIDE := 1.4
 
 ## Where the throw is aimed. The cube leaves the shoulder but converges here,
 ## so the side offset is visual and does not send it wide.
-const CUBE_AIM_DISTANCE := 9.0
+const CUBE_AIM_DISTANCE := 16.0
