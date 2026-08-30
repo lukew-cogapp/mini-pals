@@ -55,24 +55,24 @@ func _close() -> void:
 
 
 func _affordable() -> bool:
-	for item in Tuning.SPHERE_RECIPE:
-		if Inventory.count(item) < Tuning.SPHERE_RECIPE[item]:
+	for item in Tuning.CUBE_RECIPE:
+		if Inventory.count(item) < Tuning.CUBE_RECIPE[item]:
 			return false
 	return true
 
 
 func _craft() -> void:
 	if not _affordable():
-		print("Cannot craft Catch Sphere: need 1 wood + 1 stone")
+		print("Cannot craft Pal Cube: need 1 wood + 1 stone")
 		return
-	for item in Tuning.SPHERE_RECIPE:
-		Inventory.remove(item, Tuning.SPHERE_RECIPE[item])
-	Inventory.add("sphere", 1)
-	print("Crafted Catch Sphere (%d held)" % Inventory.count("sphere"))
+	for item in Tuning.CUBE_RECIPE:
+		Inventory.remove(item, Tuning.CUBE_RECIPE[item])
+	Inventory.add("cube", 1)
+	print("Crafted Pal Cube (%d held)" % Inventory.count("cube"))
 
 
 func _refresh() -> void:
-	counts_label.text = "Wood: %d   Stone: %d   Spheres: %d" % [
-		Inventory.count("wood"), Inventory.count("stone"), Inventory.count("sphere")
+	counts_label.text = "Wood: %d   Stone: %d   Cubes: %d" % [
+		Inventory.count("wood"), Inventory.count("stone"), Inventory.count("cube")
 	]
 	craft_button.disabled = not _affordable()

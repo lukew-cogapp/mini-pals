@@ -7,15 +7,16 @@ Kept current as work lands. Newest changes at the top of each section.
 - [ ] Wings for the cat dragon: PrismMesh slabs read as flat blades stuck
       through the body. Needs a real wing mesh, not a primitive
 
-- [ ] Rename spheres to **pal cubes**: box mesh, rename scene/script/vars
 - [ ] Verify the agent-built crafting system myself, gather/craft/menu untested
 - [ ] Adopt **GUT** for tests (researched, recommended over GdUnit4)
       `godot --headless -d -s addons/gut/gut_cmdln.gd -gdir=res://test -ginclude_subdirs -gexit`
       First tests: facing maths, step-up over rock vs tree, inventory/crafting
-- [ ] Seed `catch_sphere.gd`'s `randf()` via an injected RNG so catches are testable
+- [ ] Seed `pal_cube.gd`'s `randf()` via an injected RNG so catches are testable
 - [ ] On-screen controls hint, the list has grown past guessing
 
 ## Done
+
+- [x] Rename spheres to **pal cubes**: box mesh, scene/script/vars renamed
 
 - [x] Resource HUD along the bottom: wood, stone, cubes
 - [x] Fix facing for real: models face +Z, so `atan2(x, z)`, verified by

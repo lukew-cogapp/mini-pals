@@ -2,7 +2,7 @@ extends CharacterBody3D
 ## Third-person player: WASD moves relative to where the camera looks.
 ## Numbers live in scripts/tuning.gd.
 
-const SPHERE_SCENE := preload("res://scenes/catch_sphere.tscn")
+const CUBE_SCENE := preload("res://scenes/pal_cube.tscn")
 
 @onready var pivot: Node3D = $CameraPivot
 @onready var body: Node3D = $Body
@@ -26,7 +26,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_cancel"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event.is_action_pressed("throw"):
-		_throw_sphere()
+		_throw_cube()
 	elif event.is_action_pressed("ride"):
 		_toggle_ride()
 	elif event.is_action_pressed("punch"):
@@ -106,18 +106,18 @@ func _try_step_up(direction: Vector3) -> void:
 
 ## --- Catching -------------------------------------------------------------
 
-func _throw_sphere() -> void:
-	if not Inventory.remove("sphere", 1):
-		print("Out of spheres. Craft more at the workbench.")
+func _throw_cube() -> void:
+	if not Inventory.remove("cube", 1):
+		print("Out of pal cubes. Craft more at the workbench.")
 		return
-	var sphere := SPHERE_SCENE.instantiate()
-	get_parent().add_child(sphere)
+	var cube := CUBE_SCENE.instantiate()
+	get_parent().add_child(cube)
 	var aim := -pivot.global_transform.basis.z
-	sphere.throw(global_position + Vector3.UP * 1.3 + aim * 0.6, aim)
-	sphere.resolved.connect(_on_sphere_resolved)
+	cube.throw(global_position + Vector3.UP * 1.3 + aim * 0.6, aim)
+	cube.resolved.connect(_on_cube_resolved)
 
 
-func _on_sphere_resolved(pal: Node, success: bool) -> void:
+func _on_cube_resolved(pal: Node, success: bool) -> void:
 	if pal and success:
 		print("Caught %s!" % pal.display_name)
 	elif pal:

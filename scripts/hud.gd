@@ -10,5 +10,5 @@ func _ready() -> void:
 
 func _refresh() -> void:
 	_label.text = "Wood %d     Stone %d     Cubes %d" % [
-		Inventory.count("wood"), Inventory.count("stone"), Inventory.count("sphere")
+		Inventory.count("wood"), Inventory.count("stone"), Inventory.count("cube")
 	]

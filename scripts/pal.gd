@@ -150,7 +150,7 @@ func _enter_flee() -> void:
 	state = State.FLEE
 
 
-## Called by the sphere on a successful catch.
+## Called by the pal cube on a successful catch.
 func on_caught() -> void:
 	caught = true
 	state = State.FOLLOW

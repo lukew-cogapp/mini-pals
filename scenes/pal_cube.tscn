@@ -1,20 +1,19 @@
 [gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://scripts/catch_sphere.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/pal_cube.gd" id="1"]
 
-[sub_resource type="SphereMesh" id="1"]
-radius = 0.25
-height = 0.5
+[sub_resource type="BoxMesh" id="1"]
+size = Vector3(0.4, 0.4, 0.4)
 
-[sub_resource type="SphereShape3D" id="2"]
-radius = 0.25
+[sub_resource type="BoxShape3D" id="2"]
+size = Vector3(0.4, 0.4, 0.4)
 
 [sub_resource type="StandardMaterial3D" id="3"]
 albedo_color = Color(0.9, 0.3, 0.25, 1)
 metallic = 0.4
 roughness = 0.3
 
-[node name="CatchSphere" type="Area3D"]
+[node name="PalCube" type="Area3D"]
 collision_layer = 0
 collision_mask = 4
 monitoring = true

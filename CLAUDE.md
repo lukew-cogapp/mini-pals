@@ -7,7 +7,7 @@ Build order, each step playable on its own:
 
 1. ~~Character controller on a ground plane~~ done
 2. ~~Creature that wanders (idle -> wander -> flee)~~ done
-3. ~~Throwable sphere, hit detection, capture roll~~ done
+3. ~~Throwable pal cube, hit detection, capture roll~~ done
 4. ~~Caught creature follows the player~~ done, and can be ridden
 5. Gathering, inventory, workbench crafting (in progress)
 6. Bigger terrain, several creature types
@@ -82,8 +82,8 @@ from `_init` fails with `Identifier not found`. `await process_frame` once
 before doing anything.
 
 **Area3D needs its mask to match the target's layer.** Pals sit on layer 4, so
-the catch sphere needs `collision_mask = 4`; the default mask of 1 silently
-detects nothing. No error, the sphere just sails through.
+the pal cube needs `collision_mask = 4`; the default mask of 1 silently
+detects nothing. No error, the cube just sails through.
 
 **Two CharacterBody3Ds cannot occupy each other.** Riding puts the player
 inside the mount, and the mount's `move_and_slide` then jams against the rider:
@@ -113,12 +113,12 @@ Change the seed for a new layout.
 
 Trees and rocks are gatherable (`scripts/resource_node.gd`, groups
 `tree`/`rock`/`resource_node`): punch (F) yields wood/stone, deplete after
-`Tuning.GATHER_HITS`, respawn in place. The workbench (B nearby) crafts catch
-spheres from `Tuning.SPHERE_RECIPE`; throwing consumes one from `Inventory`
+`Tuning.GATHER_HITS`, respawn in place. The workbench (B nearby) crafts pal
+cubes from `Tuning.CUBE_RECIPE`; throwing consumes one from `Inventory`
 (autoload, `scripts/inventory.gd`).
 
 Every bug this project has hit was invisible on inspection and only showed up
-in a headless test: a sphere flying over the target's head, a mount jammed at
+in a headless test: a cube flying over the target's head, a mount jammed at
 max_slides, a model facing backwards, a collision mask that matched nothing.
 Write the check, run it, read the numbers. Do not reason about whether it works.
 

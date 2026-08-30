@@ -52,10 +52,42 @@ func _init() -> void:
 	var pal = get_nodes_in_group("pal")[0]
 	await _shoot_at("09_wolf", pal, Vector3(2.5, 1.2, 2.5))
 
+	await _shoot_ui()
+
 	print("SHOTS_WRITTEN=", _shots.size())
 	for s in _shots:
 		print("  ", s.name)
 	quit()
+
+
+## The workbench and its menu, which no camera angle would otherwise show.
+func _shoot_ui() -> void:
+	var bench = get_nodes_in_group("workbench")[0]
+	_player.global_position = bench.global_position + Vector3(0, 0.5, 2.0)
+	await physics_frame
+	_cam.global_position = bench.global_position + Vector3(2.5, 2.0, 3.5)
+	_cam.look_at(bench.global_position + Vector3(0, 0.5, 0), Vector3.UP)
+	await _capture("10_workbench")
+
+	# Some stock, so the menu shows both affordable and not.
+	var inv = get_root().get_node("Inventory")
+	inv.add("wood", 3)
+	inv.add("stone", 2)
+	var menu = _world.get_node_or_null("BuildMenu")
+	if menu == null:
+		printerr("no BuildMenu in world")
+		return
+	menu._open()
+	await process_frame
+	await _capture("11_build_menu")
+
+	# And with nothing, to check the refused state.
+	inv.remove("wood", inv.count("wood"))
+	inv.remove("stone", inv.count("stone"))
+	menu._refresh()
+	await process_frame
+	await _capture("12_build_menu_broke")
+	menu._close()
 
 
 func _hold(action: String, frames: int) -> void:

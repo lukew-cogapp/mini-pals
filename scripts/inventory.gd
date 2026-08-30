@@ -3,7 +3,7 @@ extends Node
 
 signal changed
 
-var _counts := {"wood": 0, "stone": 0, "sphere": 0}
+var _counts := {"wood": 0, "stone": 0, "cube": 0}
 
 
 func add(item: String, n: int = 1) -> void:

@@ -44,12 +44,12 @@ const PAL_FOLLOW_SPEED := 6.0
 const PAL_COUNT := 6
 
 # --- Catching ---
-const SPHERE_THROW_SPEED := 14.0
-const SPHERE_THROW_LIFT := 1.5
-const SPHERE_GRAVITY := 14.0
-const SPHERE_RADIUS := 0.25
-const SPHERE_CATCH_CHANCE := 0.55
-const SPHERE_LIFETIME := 6.0
+const CUBE_THROW_SPEED := 14.0
+const CUBE_THROW_LIFT := 1.5
+const CUBE_GRAVITY := 14.0
+const CUBE_HALF_SIZE := 0.2
+const CUBE_CATCH_CHANCE := 0.55
+const CUBE_LIFETIME := 6.0
 
 # --- Gathering ---
 const GATHER_RANGE := 2.5
@@ -61,7 +61,7 @@ const GATHER_PUNCH_TIME := 0.08
 
 # --- Crafting ---
 const WORKBENCH_RANGE := 3.0
-const SPHERE_RECIPE := {"wood": 1, "stone": 1}
+const CUBE_RECIPE := {"wood": 1, "stone": 1}
 
 # --- Riding ---
 const RIDE_SPEED := 11.0
