@@ -5,7 +5,7 @@ const MESSAGE_TIME := 2.5
 const MESSAGE_QUEUED_TIME := 1.4
 ## Always shown, in this order, so the middle of the bar does not reorder
 ## itself as items come and go.
-const CORE_ITEMS := ["wood", "stone", "cube"]
+const CORE_ITEMS := ["wood", "stone"]
 
 @onready var _level: Label = $Bar/Margin/Row/LevelBox/Level
 @onready var _xp_bar: Control = $Bar/Margin/Row/LevelBox/Xp
@@ -18,6 +18,7 @@ const CORE_ITEMS := ["wood", "stone", "cube"]
 @onready var _health_fill: ColorRect = $Health/Fill
 @onready var _health_value: Label = $Health/Value
 @onready var _fade: ColorRect = $Fade
+@onready var _cube_count: Label = $Bar/Margin/Row/CubeBox/Count
 @onready var _reticule: Control = $Reticule
 @onready var _reticule_label: Label = $Reticule/Label
 
@@ -138,6 +139,7 @@ func _refresh() -> void:
 	var frac := clampf(float(Party.xp) / float(Tuning.PLAYER_XP_PER_LEVEL), 0.0, 1.0)
 	_xp_fill.size.x = maxf(0.0, (_xp_bar.size.x - 4.0) * frac)
 
+	_cube_count.text = str(Inventory.count("cube"))
 	_refresh_items()
 
 	if Party.members.is_empty():

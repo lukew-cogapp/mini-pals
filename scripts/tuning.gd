@@ -248,6 +248,8 @@ const ITEM_ICONS := {
 	"cactus_fruit": "res://ui/icons/cactus_fruit.svg",
 	"demon_horn": "res://ui/icons/demon_horn.svg",
 	"altar_key": "res://ui/icons/altar_key.svg",
+	"fin": "res://ui/icons/fin.svg",
+	"scale": "res://ui/icons/scale.svg",
 }
 ## Rows are built once and reused, so the list needs a ceiling. Well above the
 ## seven items that exist; extra items past it are not shown.
