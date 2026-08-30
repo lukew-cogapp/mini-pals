@@ -106,9 +106,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ride"):
 		_toggle_ride()
 	elif event.is_action_pressed("cycle_pal") or event.is_action_pressed("pal_next"):
-		Party.cycle(global_position, 1)
+		_cycle_party(1)
 	elif event.is_action_pressed("pal_prev"):
-		Party.cycle(global_position, -1)
+		_cycle_party(-1)
 	elif event.is_action_pressed("punch"):
 		_punch()
 	elif event is InputEventMouseButton and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
@@ -444,6 +444,15 @@ func _bite() -> void:
 
 
 ## --- Riding ---------------------------------------------------------------
+
+## Swapping the active pal stows it, collider and all. Riding one while that
+## happens drops the player through the world, since the rider's own collider
+## is off, so step off first.
+func _cycle_party(step: int) -> void:
+	if mount and not _dismount():
+		return
+	Party.cycle(global_position, step)
+
 
 func _toggle_ride() -> void:
 	if mount:
