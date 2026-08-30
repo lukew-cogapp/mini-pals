@@ -21,6 +21,9 @@ var _since_hit := 1000.0  ## Long ago, so regen is armed from the start.
 var _invuln := 0.0
 var _dead := false
 var _bite_left := 0.0  ## Seconds the bite clip still owns the rig.
+## Seconds until the saddle can spit again. On the player rather than on the
+## mount, so swapping between two llamas cannot double the rate of fire.
+var _rider_spit_cooldown := 0.0
 var _aiming_throw := false
 ## Why we are aiming, which is what decides whether letting go of the throw
 ## key spends a cube. Holding right mouse aims for free and Q fires; holding
@@ -154,6 +157,9 @@ func _physics_process(delta: float) -> void:
 	_tick_health(delta)
 	_tick_ash(delta)
 	_bite_left = maxf(_bite_left - delta, 0.0)
+	# Ticked before the mounted early return below, or the saddle spit would
+	# never come off cooldown while actually riding.
+	_rider_spit_cooldown = maxf(_rider_spit_cooldown - delta, 0.0)
 	if _aiming_throw:
 		_update_throw_aim()
 	if mount:
@@ -509,6 +515,12 @@ func _punch() -> void:
 	var forward := -pivot.global_transform.basis.z
 	forward.y = 0.0
 	forward = forward.normalized()
+	# Riding a spitter turns the attack button into a spit. Gated on the
+	# MOUNT's own ability, not on a species name: the Wolf and the Mudwader
+	# are rideable too and have to keep biting from the saddle.
+	if mount and mount.can_spit():
+		_rider_spit(forward)
+		return
 	var best: Node3D = null
 	var best_dist := Tuning.GATHER_RANGE
 	for node in get_tree().get_nodes_in_group("resource_node"):
@@ -543,6 +555,32 @@ func _punch() -> void:
 		best.punch()
 	else:
 		Audio.play("whiff", global_position)
+
+
+## Spit from the saddle, along `forward`, which is the CAMERA's flattened
+## heading and not the mount's. The player aims with the camera in every other
+## part of this game, and a shot that left along the animal's nose while the
+## crosshair pointed elsewhere would read as a bug.
+##
+## Godot forward is -Z, so `forward` here is already `-pivot.basis.z` flattened
+## and normalised, exactly as the melee facing test uses it. Orientation has
+## been wrong in this project four times, so test/llama_test.gd asserts the wad
+## travels the way the pivot points for two separate headings rather than
+## trusting the sign.
+##
+## The cooldown is the whole balance lever: a fast mount plus an unlimited
+## ranged attack outranges everything alive.
+func _rider_spit(forward: Vector3) -> void:
+	if _rider_spit_cooldown > 0.0:
+		return
+	_rider_spit_cooldown = Tuning.RIDER_SPIT_COOLDOWN
+	# Lethal and credited, exactly like the punch it replaces: it is the
+	# player's attack, so a kill from the saddle pays the drop and the XP.
+	mount.spit_along(forward, Tuning.RIDER_SPIT_RANGE, Spit.Mode.RIDER)
+	kick(minf(
+		Pal.player_punch_damage() * Tuning.SHAKE_PUNCH_PER_DAMAGE,
+		Tuning.SHAKE_PUNCH_MAX,
+	))
 
 
 ## The swing itself, played whether or not it lands. Without this the most

@@ -1,0 +1,37 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/spit.gd" id="1"]
+
+[sub_resource type="SphereShape3D" id="1"]
+radius = 0.22
+
+[sub_resource type="SphereMesh" id="2"]
+radius = 0.22
+height = 0.44
+radial_segments = 8
+rings = 4
+
+[sub_resource type="StandardMaterial3D" id="3"]
+albedo_color = Color(0.72, 0.88, 0.45, 1)
+shading_mode = 2
+emission_enabled = true
+emission = Color(0.62, 0.85, 0.4, 1)
+emission_energy_multiplier = 0.5
+
+[node name="Spit" type="Area3D"]
+collision_layer = 0
+; The player is on layer 1 and pals on layer 4, and one wad can be aimed at
+; either. A mask that matched neither would let it sail through in silence:
+; there is no error for a mask that catches nothing.
+collision_mask = 5
+monitoring = true
+script = ExtResource("1")
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+shape = SubResource("1")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("2")
+material_override = SubResource("3")
+
+[connection signal="body_entered" from="." to="." method="_on_body_entered"]

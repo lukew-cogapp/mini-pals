@@ -1,4 +1,4 @@
-[gd_scene load_steps=41 format=3]
+[gd_scene load_steps=42 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1"]
 [ext_resource type="Material" path="res://materials/ground.tres" id="2"]
@@ -35,6 +35,7 @@
 [ext_resource type="Material" path="res://materials/rock.tres" id="33"]
 [ext_resource type="PackedScene" path="res://scenes/pal_grottolo.tscn" id="34"]
 [ext_resource type="Material" path="res://materials/far_land.tres" id="35"]
+[ext_resource type="PackedScene" path="res://scenes/pal_llama.tscn" id="36"]
 
 [sub_resource type="PlaneMesh" id="1"]
 size = Vector2(120, 120)
@@ -105,6 +106,7 @@ pal_scene_b = ExtResource("9")
 demon_scene = ExtResource("10")
 amphibian_scene = ExtResource("29")
 fish_scene = ExtResource("30")
+llama_scene = ExtResource("36")
 altar_scene = ExtResource("11")
 workbench_scene = ExtResource("7")
 cave_pal_scene = ExtResource("34")

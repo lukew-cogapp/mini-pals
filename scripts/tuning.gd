@@ -270,10 +270,12 @@ const PAL_CREDIT_TIME := 20.0
 ## Wild fights kill and so does the player, so the island trickles pals back
 ## in. See scripts/scenery.gd; test/respawn_test.gd covers the pacing.
 
-## Headcount the island aims to hold, which is what the initial scatter puts
-## there: PAL_COUNT + DEMON_COUNT + AMPHIBIAN_COUNT + FISH_COUNT. At or above
-## it nothing respawns at all.
-const PAL_POPULATION := 52
+## Headcount the island aims to hold: PAL_COUNT + DEMON_COUNT +
+## AMPHIBIAN_COUNT + FISH_COUNT + LLAMA_COUNT. At or above it nothing respawns
+## at all. GROTTOLO_COUNT is left out even though the scatter places them: the
+## trickle has no way to put one back in the hollow, so counting them would
+## raise a floor it could never reach.
+const PAL_POPULATION := 58
 ## Seconds between respawn rolls, sampled per roll so the trickle is not a
 ## metronome. Long on purpose: a cull the player could not walk home from
 ## before it was undone would not be a cull.
@@ -301,6 +303,7 @@ const PAL_BUFF_CAPS := {
 	&"gather": 3.0,
 	&"damage": DEMON_DAMAGE_BUFF_CAP,
 	&"stone": GROTTOLO_STONE_CAP,
+	&"drop": LLAMA_DROP_BUFF_CAP,
 }
 
 # --- Catching ---
@@ -453,6 +456,7 @@ const ITEM_ICONS := {
 	"fin": "res://ui/icons/fin.svg",
 	"scale": "res://ui/icons/scale.svg",
 	"glow_cap": "res://ui/icons/glow_cap.svg",
+	"llama_wool": "res://ui/icons/llama_wool.svg",
 }
 ## Rows are built once and reused, so the list needs a ceiling. Well above the
 ## seven items that exist; extra items past it are not shown.
@@ -944,3 +948,87 @@ const GROTTOLO_RADIUS := CAVE_DEPTH + CAVE_WIDTH * 0.5
 const GROTTOLO_WANDER_RADIUS := 3.0
 const GROTTOLO_STONE_PER_LEVEL := 0.25
 const GROTTOLO_STONE_CAP := 1.5
+
+# --- Spitting: the Llama's ranged attack ---
+## Every other attack in the game is melee under 2 m. A spitter opens fire at
+## SPIT_RANGE and stops closing there, so its fights read differently from
+## everything else's without a new state machine: `Pal.attack_range()` returns
+## this in place of PAL_ATTACK_RANGE, FOLLOWER_ATTACK_RANGE and
+## RIVAL_ATTACK_RANGE alike, and each existing combat tick keeps its own
+## damage path.
+##
+## 8 m is deliberately short. It clears melee by four times over, so standing
+## off is a real tactic, but it is well inside PAL_CHASE_GIVE_UP (20) and
+## FOLLOWER_DEFEND_RADIUS (12), so a spitter never fights at a distance the
+## player cannot see or walk out of.
+const SPIT_RANGE := 8.0
+## Muzzle height above the pal's origin, so a wad leaves the head rather than
+## the feet and a target's own capsule is what it has to clear.
+const SPIT_MUZZLE_HEIGHT := 1.4
+## Horizontal pace of the wad. Flight time over SPIT_RANGE is about 0.6 s,
+## which is long enough for a walking target to step out of it and short
+## enough that a standing one is hit.
+const SPIT_SPEED := 13.0
+## Its own gravity, like the cube's: light, so the arc is a lob rather than a
+## bullet, and the wad is visible against the ground for the whole flight.
+const SPIT_GRAVITY := 9.0
+## Sphere-swept like the cube, and for the same reason: a ray let a fast cube
+## tunnel clean through a target between frames. Wider than CUBE_HIT_RADIUS
+## because a wad is not aimed by the player and a near miss should still count.
+const SPIT_HIT_RADIUS := 0.7
+## Seconds a wad lives before giving up, and the height at which it counts as
+## having hit the ground.
+const SPIT_LIFETIME := 3.0
+const SPIT_GROUND_HEIGHT := 0.1
+## How far ahead of a moving target the wad is aimed, as a fraction of the
+## lead a perfect solution would need. Below 1.0 on purpose: a shot that
+## always connects is hitscan with a delay, and one that never leads is free
+## to walk out of. At 0.7 a target holding a straight line is hit and one that
+## turns is missed.
+const SPIT_LEAD_FACTOR := 0.7
+## Damage per wad. Below the melee it replaces (PAL_ATTACK_DAMAGE 1.0 to the
+## player, RIVAL_DAMAGE 1 and FOLLOWER_DEFEND_DAMAGE 1 to a pal), because a
+## spitter takes none of the risk a biter does: it never has to enter reach.
+## The player figure is a float to match Player.damage.
+const SPIT_PLAYER_DAMAGE := 1.0
+const SPIT_PAL_DAMAGE := 1
+## Slower than PAL_ATTACK_COOLDOWN (1.4) for the same reason.
+const SPIT_COOLDOWN := 2.0
+## Art. A small pale-green wad, unshaded so it reads at range.
+const SPIT_RADIUS := 0.22
+const SPIT_COLOUR := Color(0.72, 0.88, 0.45)
+## Cues: a wet launch, and a splat that only fires on a hit. A miss is silent
+## on purpose. A spitter shooting at nothing every two seconds across the
+## island would be a metronome.
+const SPIT_SOUND := "spit"
+const SPIT_HIT_SOUND := "splat"
+
+# --- The Llama ---
+## Where it lives: the open grass between the starting clearing and the
+## demons' scorched blob, as a fraction of ISLAND_RADIUS. Outside PAL_BAND
+## (0.6), where the wolves and cactoros are, and inside AMPHIBIAN_BAND (0.95)
+## on the sand, so the ranged fight is met in ground the player crosses on the
+## way to the altar rather than on top of the crowded spawn.
+const LLAMA_BAND := Vector2(0.62, 0.9)
+const LLAMA_COUNT := 6
+## Its job: pelts. Punching a tree or rock yields nothing extra, so the Llama
+## pays out on catches and kills instead, adding this fraction per level to
+## every pal drop while it is the pal that is out.
+const LLAMA_DROP_BUFF_CAP := 1.5
+
+# --- Spitting from the saddle ---
+## Riding a spitter turns the player's own attack into a spit. The mount is
+## what makes it ranged, so the branch in `player.gd _punch` gates on the
+## mount being able to spit rather than on its species: a Wolf or a Mudwader
+## still bites from the saddle exactly as before.
+##
+## Further than the wild llama's own SPIT_RANGE, because the player is aiming
+## it and a shot that fell short of what the crosshair is on would read as
+## broken. Still well inside PAL_AGGRO_RADIUS, so a target hit from the saddle
+## can always reach the player back.
+const RIDER_SPIT_RANGE := 12.0
+## The lever that stops this trivialising the game. A fast mount plus a free
+## ranged attack outranges everything on the island; a shot every 0.7 s is
+## quicker than the wild llama's SPIT_COOLDOWN, since the player is aiming and
+## can miss, but far slower than the click rate a punch allows.
+const RIDER_SPIT_COOLDOWN := 0.7

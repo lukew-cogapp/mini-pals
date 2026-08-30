@@ -183,6 +183,8 @@ func _buff_text(pal: Pal) -> String:
 			return " (+%d gather)" % int(Party.buff(&"gather"))
 		&"damage":
 			return " (+%d punch)" % int(Party.buff(&"damage"))
+		&"drop":
+			return " (+%d drops)" % int(Party.buff(&"drop"))
 		_:
 			return ""
 

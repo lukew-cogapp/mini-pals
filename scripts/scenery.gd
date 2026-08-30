@@ -13,6 +13,7 @@ extends Node3D
 @export var demon_scene: PackedScene
 @export var amphibian_scene: PackedScene
 @export var fish_scene: PackedScene
+@export var llama_scene: PackedScene
 @export var palm_scene: PackedScene
 @export var shell_scene: PackedScene
 @export var altar_scene: PackedScene
@@ -58,6 +59,7 @@ func _ready() -> void:
 	_scatter_amphibians(rng)
 	_scatter_fish(rng)
 	_scatter_cave_pals(rng)
+	_scatter_llamas(rng)
 	_place_altar()
 	_place_workbenches()
 	# Unseeded, deliberately: the initial layout must be identical every run,
@@ -112,6 +114,11 @@ func _scatter_cave_pals(rng: RandomNumberGenerator) -> void:
 		_spawn_pal(cave_pal_scene, rng, mouth + back * along + across)
 
 
+func _scatter_llamas(rng: RandomNumberGenerator) -> void:
+	for i in Tuning.LLAMA_COUNT:
+		_spawn_pal(llama_scene, rng)
+
+
 ## One pal of `scene`, levelled and placed where its species belongs.
 ##
 ## Both the initial scatter and the respawn trickle come through here, so a
@@ -155,10 +162,15 @@ func _spawn_pal(
 ##              into the water, so it must be catchable without one
 ##   fish       the shallow ring past a cube's reach from the shore, the gate
 ##              the whole water feature turns on (see test/water_test.gd)
+##   llamas     the open outer grass between the starting clearing and the
+##              ash, so the one ranged fight is met with room to back out of
+##              it rather than in the crowd around spawn
 ##   the rest   the green, inside the middle of the island
 func _pal_position(scene: PackedScene, rng: RandomNumberGenerator) -> Vector3:
 	if scene == demon_scene:
 		return _in_ash(rng, 0.0)
+	if scene == llama_scene:
+		return _on_grass(rng, Tuning.LLAMA_BAND)
 	if scene == amphibian_scene:
 		return _on_island(
 			rng,
@@ -168,6 +180,26 @@ func _pal_position(scene: PackedScene, rng: RandomNumberGenerator) -> Vector3:
 	if scene == fish_scene:
 		return _on_island(rng, Tuning.FISH_RING_MIN, Tuning.FISH_RING_MAX)
 	return _on_island(rng, 0.0, Tuning.ISLAND_RADIUS * Tuning.PAL_BAND)
+
+
+## A point in `band` of the island radius that is on the living grass, not on
+## the scorched blob.
+##
+## The band the llamas want straddles the ash, and the ash is the demons'
+## ground: a species that spawned on it would be brawling from the first
+## frame. Rejection sampling asks the zone, exactly as _in_ash does in the
+## other direction, so the two agree by construction. The fallback is the
+## inner edge on the far side of the island from ALTAR_POS, which is always
+## grass, so a spawn always gets a position.
+func _on_grass(rng: RandomNumberGenerator, band: Vector2) -> Vector3:
+	for _attempt in 32:
+		var pos := _on_island(
+			rng, Tuning.ISLAND_RADIUS * band.x, Tuning.ISLAND_RADIUS * band.y
+		)
+		if not _in_demon_ring(pos):
+			return pos
+	var away := -Vector3(Tuning.ALTAR_POS.x, 0.0, Tuning.ALTAR_POS.z).normalized()
+	return away * Tuning.ISLAND_RADIUS * band.x
 
 
 func _scatter(
@@ -365,7 +397,9 @@ func _respawn_one() -> void:
 
 func _species_pool() -> Array[PackedScene]:
 	var pool: Array[PackedScene] = []
-	for scene in [pal_scene, pal_scene_b, demon_scene, amphibian_scene, fish_scene]:
+	for scene in [
+		pal_scene, pal_scene_b, demon_scene, amphibian_scene, fish_scene, llama_scene
+	]:
 		if scene != null:
 			pool.append(scene)
 	return pool

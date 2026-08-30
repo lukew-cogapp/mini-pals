@@ -1,0 +1,50 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/pal.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/models/llama_model.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/spit.tscn" id="3"]
+
+[sub_resource type="CapsuleShape3D" id="1"]
+radius = 0.5
+height = 1.7
+
+[node name="PalLlama" type="CharacterBody3D" groups=["pal"]]
+collision_layer = 4
+script = ExtResource("1")
+display_name = "Llama"
+rideable = true
+; The Alpaking is 4.3 m long and 2.1 m tall raw, twice the dog. Two thirds
+; puts its shoulder at the wolf's and keeps the capsule below believable.
+model_scale = 0.66
+; An ambler. Fleeing at 5.5 * 0.85 = 4.7 it loses to a walk, which is the
+; point: the danger it carries is the range of its spit, not its legs, and a
+; species that could both outrun the player and shell them from 8 m would have
+; no counter.
+speed_factor = 0.85
+; NEUTRAL. It neither flees nor picks fights, so a spitter is only ever
+; something the player started. A SKITTISH one would back away while firing
+; and never be caught; an AGGRESSIVE one would open on sight from outside the
+; range the player can see it at.
+temperament = 1
+ranged = true
+spit_scene = ExtResource("3")
+level_min = 2
+level_max = 4
+drop_item = "llama_wool"
+drop_item_name = "Llama wool"
+; Its job: fatter payouts. Every catch and kill drops more while it is out,
+; which is the one buff that rewards the loop the game is actually about
+; rather than the gathering around it.
+buff_kind = &"drop"
+buff_per_level = 0.375
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+shape = SubResource("1")
+
+[node name="Model" type="Node3D" parent="."]
+
+[node name="Llama" parent="Model" instance=ExtResource("2")]
+
+[node name="Seat" type="Marker3D" parent="Model"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 0)

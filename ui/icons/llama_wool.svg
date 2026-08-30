@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Skein of pink wool, waist band, one loose end trailing off. -->
+  <path d="M8 16c0-6 3.6-10 8-10s8 4 8 10-3.6 10-8 10-8-4-8-10z" fill="#e8629f"/>
+  <path d="M11.4 16c0-4.6 2-7.6 4.6-7.6s4.6 3 4.6 7.6-2 7.6-4.6 7.6-4.6-3-4.6-7.6z" fill="#ff9ecb"/>
+  <g fill="none" stroke="#c24a80" stroke-width="1.2" stroke-linecap="round">
+    <path d="M13.2 9.4c-1.6 3.9-1.6 9.3 0 13.2M18.8 9.4c1.6 3.9 1.6 9.3 0 13.2"/>
+  </g>
+  <path d="M9.6 12.6h12.8v3H9.6z" fill="#ffd9e8"/>
+  <path d="M24 20c2.4 1 3.6 3 3.4 5.4" fill="none" stroke="#ff9ecb" stroke-width="2" stroke-linecap="round"/>
+</svg>

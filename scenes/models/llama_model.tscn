@@ -1,0 +1,14 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/monsters/Flying/Alpaking.gltf" id="1"]
+[ext_resource type="Script" path="res://scripts/apply_material.gd" id="2"]
+[ext_resource type="Material" path="res://materials/llama_pink.tres" id="3"]
+
+; The pink recolour is the atlas swap the cat already proves out. The Alpaking
+; samples five texels of one row (see scripts/tools/inspect_atlas.py), so the
+; painted copy touches those and leaves every other monster's columns alone.
+[node name="LlamaModel" type="Node3D"]
+script = ExtResource("2")
+material = ExtResource("3")
+
+[node name="Alpaking" parent="." instance=ExtResource("1")]

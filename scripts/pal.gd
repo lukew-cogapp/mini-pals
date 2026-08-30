@@ -48,6 +48,15 @@ enum Temperament { SKITTISH, NEUTRAL, AGGRESSIVE }
 ## Effect is buff_per_level * level; kinds and caps live in Party and Tuning.
 @export var buff_kind: StringName = &""
 @export var buff_per_level := 0.0
+## Attacks at SPIT_RANGE with a projectile instead of closing to melee. One
+## flag rather than a per-species range, because every consequence of fighting
+## at 8 m is the same in all three fights a pal can be in, and `attack_range()`
+## is the single place any of them reads it.
+@export var ranged := false
+## The wad a ranged species fires. Left null for everything else, so a species
+## that forgot to wire it falls back to melee rather than standing there
+## harmlessly out of reach.
+@export var spit_scene: PackedScene
 
 ## Reads across the file are all about hunting, so they keep the old name.
 var aggressive: bool:
@@ -701,7 +710,7 @@ func _tick_rival(delta: float) -> void:
 		return
 
 	var dist := _flat_distance(_rival.global_position)
-	if dist > Tuning.RIVAL_ATTACK_RANGE:
+	if dist > attack_range(Tuning.RIVAL_ATTACK_RANGE):
 		_move_towards(_rival.global_position, speed(Tuning.PAL_CHASE_SPEED), delta)
 		_play("Run" if _anim and _anim.has_animation("Run") else "Walk")
 		return
@@ -713,7 +722,9 @@ func _tick_rival(delta: float) -> void:
 	if dir.length() > 0.01:
 		face(dir.normalized(), delta, Tuning.PAL_TURN_SPEED)
 	if _attack_cooldown <= 0.0:
-		_attack_cooldown = Tuning.RIVAL_ATTACK_COOLDOWN
+		_attack_cooldown = (
+			Tuning.SPIT_COOLDOWN if _can_spit() else Tuning.RIVAL_ATTACK_COOLDOWN
+		)
 		_swing_at_rival(_rival)
 
 
@@ -755,6 +766,9 @@ func take_rival_hit(from: Pal) -> void:
 
 
 func _swing_at_rival(target: Pal) -> void:
+	if _can_spit():
+		_fire_spit(target, Spit.Mode.RIVAL)
+		return
 	if _anim:
 		for anim_name in ["Punch", "Bite_Front"]:
 			if _anim.has_animation(anim_name):
@@ -859,7 +873,7 @@ func _tick_defend(delta: float) -> void:
 		return
 
 	var dist := _flat_distance(_defend_target.global_position)
-	if dist > Tuning.FOLLOWER_ATTACK_RANGE:
+	if dist > attack_range(Tuning.FOLLOWER_ATTACK_RANGE):
 		_move_towards(_defend_target.global_position, speed(Tuning.FOLLOWER_CHASE_SPEED), delta)
 		_play("Run" if _anim and _anim.has_animation("Run") else "Walk")
 		return
@@ -871,11 +885,20 @@ func _tick_defend(delta: float) -> void:
 	if dir.length() > 0.01:
 		face(dir.normalized(), delta, Tuning.PAL_TURN_SPEED)
 	if _attack_cooldown <= 0.0:
-		_attack_cooldown = Tuning.FOLLOWER_ATTACK_COOLDOWN
+		_attack_cooldown = (
+			Tuning.SPIT_COOLDOWN if _can_spit() else Tuning.FOLLOWER_ATTACK_COOLDOWN
+		)
 		_swing_at(_defend_target)
 
 
+## One landed hit from a caught pal. Spat or bitten, the damage goes through
+## take_follower_hit and so through the FOLLOWER_MIN_TARGET_HP clamp: a
+## follower must never land the kill and cost the player the catch, and a
+## ranged attack that did its own arithmetic would be a way round that.
 func _swing_at(target: Pal) -> void:
+	if _can_spit():
+		_fire_spit(target, Spit.Mode.FOLLOWER)
+		return
 	if _anim:
 		for anim_name in ["Punch", "Bite_Front"]:
 			if _anim.has_animation(anim_name):
@@ -901,6 +924,89 @@ func take_follower_hit() -> void:
 		_anim.play("HitRecieve")
 	elif _anim and _anim.has_animation("HitReact"):
 		_anim.play("HitReact")
+
+
+## --- Ranged attack ---------------------------------------------------------
+
+## How close this pal has to get before it will attack, given the melee reach
+## the fight would otherwise use. A spitter stops at SPIT_RANGE in every fight
+## it can be in, so all three combat ticks ask this instead of reading their
+## own constant, and a species becomes ranged by setting one export.
+##
+## A spitter with no wad wired falls back to the melee reach: standing off at
+## 8 m firing nothing is worse than biting.
+func attack_range(melee: float) -> float:
+	if _can_spit():
+		return Tuning.SPIT_RANGE
+	return melee
+
+
+func _can_spit() -> bool:
+	return ranged and spit_scene != null
+
+
+## Fire one wad at `target`, settled by `mode` on arrival.
+##
+## The mode is what keeps a follower's spit inside the catch clamp: the wad
+## calls `take_follower_hit` exactly as `_swing_at` does, rather than carrying
+## a damage number of its own. See scripts/spit.gd.
+##
+## Parented to the world rather than to the shooter, so a wad outlives a pal
+## that dies mid-flight, and so it does not inherit the pal's scale.
+func _fire_spit(target: Node3D, mode: Spit.Mode) -> Spit:
+	if not _can_spit() or target == null:
+		return null
+	var wad := spit_scene.instantiate() as Spit
+	if wad == null:
+		return null
+	wad.mode = mode
+	wad.shooter = self
+	get_parent().add_child(wad)
+	var muzzle := global_position + Vector3.UP * Tuning.SPIT_MUZZLE_HEIGHT
+	var aim := target.global_position + Vector3.UP * Tuning.SPIT_MUZZLE_HEIGHT * 0.5
+	var moving: Vector3 = target.get("velocity") if target.get("velocity") != null else Vector3.ZERO
+	wad.launch(muzzle, aim, moving)
+	Audio.play(Tuning.SPIT_SOUND, global_position)
+	if _anim:
+		for anim_name in ["Headbutt", "Punch", "Bite_Front"]:
+			if _anim.has_animation(anim_name):
+				_anim.stop()
+				_anim.play(anim_name)
+				break
+	return wad
+
+
+## Whether this pal can be fired from the saddle. Public, because player.gd
+## gates its mounted attack on the MOUNT's ability rather than on a species
+## name: a Wolf or a Mudwader is rideable too and must keep biting.
+func can_spit() -> bool:
+	return _can_spit()
+
+
+## Fire one wad along `direction`, `range_m` ahead, on the player's behalf.
+##
+## A direction rather than a target, because the rider aims with the camera
+## and there may be nothing under the crosshair at all. The wad still leaves
+## the mount's head, so it reads as the animal spitting rather than the rider.
+func spit_along(direction: Vector3, range_m: float, mode: Spit.Mode) -> Spit:
+	if not _can_spit():
+		return null
+	var flat := Vector3(direction.x, 0.0, direction.z)
+	if flat.length() < 0.01:
+		return null
+	var muzzle := global_position + Vector3.UP * Tuning.SPIT_MUZZLE_HEIGHT
+	var aim := muzzle + flat.normalized() * range_m
+	var wad := spit_scene.instantiate() as Spit
+	if wad == null:
+		return null
+	wad.mode = mode
+	wad.shooter = self
+	get_parent().add_child(wad)
+	# No lead: the rider is aiming this one, so guessing ahead of them would
+	# fight the crosshair rather than help it.
+	wad.launch(muzzle, aim)
+	Audio.play(Tuning.SPIT_SOUND, global_position)
+	return wad
 
 
 ## Every shared speed constant is read through here, so one export gives a
@@ -1100,7 +1206,7 @@ func _tick_attack(delta: float) -> void:
 	if _attack_without_hit >= Tuning.PAL_NO_HIT_GIVE_UP_TIME:
 		_give_up_attack()
 		return
-	if dist > Tuning.PAL_ATTACK_RANGE:
+	if dist > attack_range(Tuning.PAL_ATTACK_RANGE):
 		_move_towards(_player.global_position, speed(Tuning.PAL_CHASE_SPEED), delta)
 		# The Big rigs have a Run cycle; the Blobs only Walk.
 		_play("Run" if _anim and _anim.has_animation("Run") else "Walk")
@@ -1112,6 +1218,15 @@ func _tick_attack(delta: float) -> void:
 	if dir.length() > 0.01:
 		face(dir.normalized(), delta, Tuning.PAL_TURN_SPEED)
 	if _attack_cooldown <= 0.0:
+		if _can_spit():
+			_attack_cooldown = Tuning.SPIT_COOLDOWN
+			# A wad in the air is progress, whether or not it lands. Without
+			# this the give-up timer runs out mid-volley and a spitter that
+			# has the player pinned at range simply stops.
+			_attack_without_hit = 0.0
+			_credit_player()
+			_fire_spit(_player, Spit.Mode.PLAYER)
+			return
 		_attack_cooldown = Tuning.PAL_ATTACK_COOLDOWN
 		if _swing():
 			_attack_without_hit = 0.0
@@ -1243,8 +1358,11 @@ func _die() -> void:
 	queue_free()
 
 
+## The Llama's job: every catch and kill pays more. Summed before the
+## truncation, the way player_punch_damage does it, or a half-point buff would
+## round away to nothing.
 func _grant_drop() -> int:
-	var n := Tuning.PAL_DROP_BASE + int(level / 2.0)
+	var n := Tuning.PAL_DROP_BASE + int(level / 2.0 + Party.buff(&"drop"))
 	Inventory.add(drop_item, n)
 	return n
 

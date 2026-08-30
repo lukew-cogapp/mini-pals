@@ -55,6 +55,11 @@ func _ready() -> void:
 	# an octave up, so the extra items are audible without a new UI.
 	_bank["gather_buff"] = _tone(840.0, 600.0, 0.11, "square", 0.32)
 	_bank["boss_attack"] = _tone(110.0, 45.0, 0.3, "saw", 0.45)
+	# The llama firing: a short rising hiss, so a shot from 8 m away is heard
+	# before the wad arrives and the player knows to move.
+	_bank["spit"] = _tone(240.0, 620.0, 0.09, "saw", 0.3)
+	# And the wad landing. Lower and wetter than "hit", which is a bite.
+	_bank["splat"] = _tone(420.0, 110.0, 0.13, "sine", 0.34)
 	# A-minor bass under a sparse melody; loops seamlessly (see _music).
 	_bank["boss_music"] = _music(
 		[55.0, 55.0, 65.41, 55.0, 55.0, 55.0, 98.0, 82.41],

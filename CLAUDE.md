@@ -194,7 +194,31 @@ slides nowhere) and otherwise lets the pal drive itself.
 
 **Area3D needs its mask to match the target's layer.** Pals sit on layer 4, so
 the pal cube needs `collision_mask = 4`; the default mask of 1 silently
-detects nothing. No error, the cube just sails through.
+detects nothing. No error, the cube just sails through. Spit is aimed at
+either a pal or the player, so it masks 5.
+
+**An Area3D can land its hit more than once.** `queue_free` is deferred, so a
+projectile that decides it has arrived is still in the tree, still monitoring,
+for the frames until it actually leaves; `body_entered` and a per-frame sweep
+can also both see the same target on one frame. One wad billed its target
+three times this way, and the test read as a damage-tuning failure rather than
+a lifecycle one. Guard the arrival function itself, not only its callers, and
+`set_deferred("monitoring", false)` on the way out.
+
+**A Quaternius model samples a handful of atlas texels, not a region.** The
+Alpaking's 1339 vertices all land on five texels of ONE row: `(0..4, 22)` of
+`Alpaking_Atlas_Monsters.png`. Every other row belongs to other monsters and
+recolouring it does nothing visible, which is how the cat's body got greyed
+once. `scripts/tools/inspect_atlas.py GLTF` decodes the embedded image and the
+UVs and prints exactly which texels are read, with vertex counts;
+`scripts/tools/paint_atlas.py IN OUT x,y=rrggbb` then paints only those.
+Run the first before the second, always.
+
+Five texels is also why a rainbow does not work on these models. They are not
+five bands down the body: they are the body, the ears, the muzzle and the
+eyes, so five hues render as a red animal with mint ears. Tried, rendered,
+looked at, dropped. Pink is one hue family across the four non-eye texels and
+reads correctly.
 
 **Two CharacterBody3Ds cannot occupy each other.** Riding puts the player
 inside the mount, and the mount's `move_and_slide` then jams against the rider:
@@ -521,7 +545,7 @@ stays identical. `test/respawn_test.gd` covers pacing and placement.
 Species jobs, so choosing which pal is out matters: Cactoro chops trees, Wolf
 fetches stone and adds speed, Mudwader adds speed and is the only way into
 water, Glimmerfin adds gather, Grottolo adds stone and is `cave_only` so the
-cave is worth finding, Demon adds punch damage
+cave is worth finding, Llama fattens every drop, Demon adds punch damage
 (`buff_kind = &"damage"`, capped at `DEMON_DAMAGE_BUFF_CAP` so no catch
 becomes a one-hit kill), and the Mushroom King makes throws free
 (`Party.infinite_cubes()`, checked in `_begin_throw_aim` and `_throw_cube`;
@@ -552,6 +576,63 @@ actions that branch sits ABOVE them all in `_unhandled_input`. It gates on
 not settable under the headless renderer and reads VISIBLE forever there.
 `test/input_map_test.gd` asserts the branch order and every action's event
 count, since a bad hand-edit to `[input]` has taken the whole map out before.
+
+## The Llama, and ranged attacks
+
+The Llama (`scenes/pal_llama.tscn`, a pink-recoloured Alpaking) is the first
+species that attacks at range, and `scripts/spit.gd` is the game's first
+projectile weapon. It scatters in `LLAMA_BAND` (0.62 to 0.9 of the island
+radius), on the grass between the starting ring and the sand, with the ash
+rejected by `scenery.gd` `_on_grass`. Its job is `buff_kind = &"drop"`: every
+catch and kill pays more while it is out, read in `Pal._grant_drop`.
+
+One export makes a species ranged. `Pal.ranged` plus a `spit_scene`, and
+`Pal.attack_range(melee)` returns `SPIT_RANGE` instead of whatever the caller
+passed. All three combat ticks ask it rather than reading their own constant,
+so wild-on-player, follower-on-hostile and rival-on-rival all become ranged
+together and none of them can be forgotten. A `ranged` species with no
+`spit_scene` falls back to melee rather than standing uselessly out of reach.
+
+**A wad carries no damage number.** It carries a `Spit.Mode` and calls exactly
+the function the melee swing at that target would have called:
+`Player.damage`, `Pal.take_follower_hit`, `Pal.take_rival_hit`. This is
+what keeps the catch loop intact: `take_follower_hit` clamps at
+`FOLLOWER_MIN_TARGET_HP` so a follower can never land the kill and cost the
+player a catch, and a ranged attack that did its own arithmetic would be a way
+straight round that clamp. `test/llama_test.gd` drives thirty volleys from a
+spitting follower and asserts the target lands on exactly
+`FOLLOWER_MIN_TARGET_HP`, and separately that a RIVAL wad still kills, so the
+two modes cannot be collapsed into one.
+
+The wad leads a moving target by `SPIT_LEAD_FACTOR` (0.7) of a perfect
+solution and then steers no further. Full lead is hitscan with a delay and no
+lead is free to walk out of; at 0.7 a target holding its line is hit and one
+that turns is missed. Damage is below the melee it replaces and the cooldown
+above it, because a spitter never enters reach.
+
+**Riding a llama turns the player's attack into a spit.** `player.gd _punch`
+branches on `mount.can_spit()`, the MOUNT's own ability, never on a species
+name: the Wolf and the Mudwader are rideable too and must keep biting from the
+saddle, and a branch reading `if mount:` breaks both while still firing no
+projectile, so it fails silently rather than loudly. `test/llama_test.gd`
+guards it from the wolf side, which is the direction the mistake goes.
+
+The mounted wad aims along the CAMERA's flattened heading, not the mount's
+nose, since the player aims with the camera everywhere else in this game. It
+carries `Spit.Mode.RIDER` and lands on `Pal.take_hit`, so a kill from the
+saddle pays the drop, the XP and the knockback exactly as a punch does.
+`RIDER_SPIT_COOLDOWN` (0.7 s, on the player, not the mount) is the balance
+lever: a fast mount plus an unlimited ranged attack outranges everything
+alive.
+
+The Llama stays NEUTRAL, so nothing about the spit gives it a reason to open
+fire. It cannot: `_wants_attack` is false for anything not aggressive, and
+only `take_hit` sets `_aggro`. Both halves are asserted, because "it never
+spits" and "it never spits unprovoked" look identical from a passing test that
+only checks the first.
+
+`test/llama_shot.gd` renders shots 40 to 44 (windowed, like every other
+renderer here).
 
 A following pal does fight for you. In `State.DEFEND` it picks the nearest
 hostile (one in `State.ATTACK`, or an aggressive species within
