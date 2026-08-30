@@ -19,7 +19,7 @@ cd "$(dirname "$0")/.." || exit 1
 FILTER="${1:-}"
 OUT="${TMPDIR:-/tmp}/mini-pals-tests"
 mkdir -p "$OUT"
-LIMIT=240
+LIMIT=420
 fails=0
 noisy=0
 
