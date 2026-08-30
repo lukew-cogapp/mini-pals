@@ -2,10 +2,11 @@ extends SceneTree
 ## Headless assertions for wild-versus-wild aggression. Run:
 ##   godot --headless --path . -s test/species_fight_test.gd
 ##
-## The three things that would ruin the world if they were wrong: a demon
-## brawling with its own kind, a demon that ignores the player because it is
-## busy, and a fight that never ends, either because it kills the map's pals
-## off or because two immortal pals swing at each other for good.
+## The things that would ruin the world if they were wrong: a demon brawling
+## with its own kind, a demon that ignores the player because it is busy, a
+## fight that never ends, and who gets paid when a pal dies. Wild fights kill,
+## so the payout is decided by whether the player was in the fight recently
+## (Tuning.PAL_CREDIT_TIME) rather than by who struck last.
 
 class FarAway:
 	extends Node3D
@@ -26,9 +27,18 @@ func _init() -> void:
 	await _test_demon_engages_a_wolf()
 	await _test_demon_ignores_another_demon()
 	await _test_player_outranks_a_rival()
-	await _test_a_fight_never_kills()
+	await _test_a_fight_kills()
 	await _test_a_fight_terminates()
 	await _test_a_rival_hits_back()
+	await _test_a_skittish_pal_fights_the_pal_that_hit_it()
+	await _test_a_retaliating_pal_hurts_its_attacker()
+	await _test_retaliation_never_angers_a_pal_at_the_player()
+	await _test_a_mutual_fight_terminates()
+	await _test_a_brawl_the_player_started_pays()
+	await _test_a_brawl_across_the_island_pays_nothing()
+	await _test_a_pal_that_hit_the_player_pays()
+	await _test_the_credit_window_expires()
+	await _test_the_players_own_kill_pays()
 	await _test_a_neutral_pal_does_not_flee()
 	await _test_a_skittish_pal_still_flees()
 	await _test_a_neutral_pal_fights_back()
@@ -102,16 +112,16 @@ func _test_player_outranks_a_rival() -> void:
 	_free(f)
 
 
-## A world that culled its own pals would be empty by the time the player
-## walked out to it, so the loser is maimed and left for a cube instead.
-func _test_a_fight_never_kills() -> void:
+## Wild fights kill. The world is kept populated by respawning instead; see
+## test/respawn_test.gd.
+func _test_a_fight_kills() -> void:
 	var f = await _fixture("res://scenes/pal_wolf.tscn")
 	# Long enough to run the wolf's whole health bar down several times over.
 	for i in 400:
 		_tick(f.demon, 0.25)
 	_check(
-		"a wild fight maims but never kills",
-		f.other.hp == Tuning.RIVAL_MIN_TARGET_HP and not f.other.dying,
+		"a wild fight kills the loser",
+		f.other.hp <= 0 and f.other.dying and not f.other.is_in_group("pal"),
 		"hp=%d max_hp=%d dying=%s" % [f.other.hp, f.other.max_hp, f.other.dying],
 	)
 	_free(f)
@@ -122,7 +132,7 @@ func _test_a_fight_terminates() -> void:
 	for i in 400:
 		_tick(f.demon, 0.25)
 	_check(
-		"a fight ends rather than looping on a maimed loser",
+		"a fight ends rather than looping on a dead loser",
 		f.demon._rival == null and f.demon.state != f.demon.State.ATTACK,
 		"rival=%s state=%s" % [f.demon._rival, f.demon.State.keys()[f.demon.state]],
 	)
@@ -144,6 +154,241 @@ func _test_a_rival_hits_back() -> void:
 		],
 	)
 	other_demon.queue_free()
+	_free(f)
+
+
+## --- Retaliation -----------------------------------------------------------
+
+## The case the old `aggressive and ...` gate never covered: a demon mauling a
+## wolf used to get no answer at all, because demons are the only aggressive
+## species and _is_rival excludes their own kind.
+func _test_a_skittish_pal_fights_the_pal_that_hit_it() -> void:
+	var f = await _fixture("res://scenes/pal_wolf.tscn")
+	f.other.take_rival_hit(f.demon)
+	_check(
+		"a skittish pal attacked by another pal fights that pal",
+		f.other.state == f.other.State.ATTACK and f.other._rival == f.demon,
+		"state=%s rival is the demon=%s" % [
+			f.other.State.keys()[f.other.state], f.other._rival == f.demon,
+		],
+	)
+	_free(f)
+
+
+## Entering ATTACK is not the same as landing anything, so this drives the
+## wolf's own ticks and reads the demon's health.
+func _test_a_retaliating_pal_hurts_its_attacker() -> void:
+	var f = await _fixture("res://scenes/pal_wolf.tscn")
+	f.demon.max_hp = 30
+	f.demon.hp = 30
+	var before: int = f.demon.hp
+	f.other.take_rival_hit(f.demon)
+	for i in 10:
+		_tick(f.other, 0.5)
+	_check(
+		"a retaliating pal damages the pal that hit it",
+		f.demon.hp < before,
+		"demon hp %d -> %d" % [before, f.demon.hp],
+	)
+	_free(f)
+
+
+## Retaliation is against the attacking pal only. Nothing here may make a
+## skittish species hostile to the player, who is a separate rule entirely.
+##
+## The brawl is run and then the rival taken away, because that is where a
+## leaked player-aggro would show: while a rival is alive _tick_attack runs
+## the brawl branch and never looks at the player at all, so a wolf that had
+## been angered at them would look identical until the demon was gone.
+func _test_retaliation_never_angers_a_pal_at_the_player() -> void:
+	var f = await _fixture("res://scenes/pal_wolf.tscn")
+	f.demon.max_hp = 60
+	f.demon.hp = 60
+	# The player stands right next to the brawl, well inside attack range.
+	f.player.global_position = f.other.global_position + Vector3(0.0, 0.0, 1.0)
+	f.other.take_rival_hit(f.demon)
+	for i in 20:
+		_tick(f.other, 0.25)
+	var during: int = f.player.hits
+	# The demon is gone; a wolf carrying player aggro would now turn on them.
+	f.other._rival = null
+	f.other._rival_fight = 0.0
+	for i in 40:
+		_tick(f.other, 0.25)
+	_check(
+		"retaliation never turns a pal on the player",
+		during == 0 and f.player.hits == 0,
+		"player hits during=%d after=%d, wolf state=%s" % [
+			during, f.player.hits, f.other.State.keys()[f.other.state],
+		],
+	)
+	_free(f)
+
+
+## A hits B, B answers, A answers back.
+##
+## RIVAL_FIGHT_TIME does NOT bound this: when it expires each side drops its
+## rival, and the next hit that lands re-arms retaliation with a fresh timer,
+## so the pair simply renews. What ends it is lethality. Both start on 30 hp
+## and RIVAL_DAMAGE is 1 on a RIVAL_ATTACK_COOLDOWN, so the window here is
+## sized from those rather than from the fight timer.
+func _test_a_mutual_fight_terminates() -> void:
+	var f = await _fixture("res://scenes/pal_wolf.tscn")
+	f.demon.max_hp = 30
+	f.demon.hp = 30
+	f.other.take_rival_hit(f.demon)
+	var step := 0.25
+	var rounds: float = f.demon.max_hp * Tuning.RIVAL_ATTACK_COOLDOWN * 2.0
+	var limit := int(rounds / step)
+	for i in limit:
+		_tick(f.demon, step)
+		_tick(f.other, step)
+	var settled: bool = (
+		f.demon.dying
+		or f.other.dying
+		or (f.demon._rival == null and f.other._rival == null)
+	)
+	_check(
+		"a mutual fight settles rather than trading blows for good",
+		settled,
+		"demon dying=%s hp=%d, wolf dying=%s hp=%d, over %.0fs" % [
+			f.demon.dying, f.demon.hp, f.other.dying, f.other.hp, limit * step,
+		],
+	)
+	_free(f)
+
+
+## --- Who gets paid for a death ---------------------------------------------
+
+## Every item plus the XP, so a test can diff the lot across a death without
+## having to know which drop the species carries.
+func _payout() -> Array:
+	var inv = get_root().get_node("Inventory")
+	var party = get_root().get_node("Party")
+	var items := 0
+	for item in inv.items():
+		items += inv.count(item)
+	return [items, party.player_level, party.xp]
+
+
+## Age a pal through the real countdown in _physics_process rather than by
+## setting _credit directly, so this asserts against the shipped timer. The
+## pal is put back where it started afterwards: a physics frame walks it.
+func _age(pal, seconds: float) -> void:
+	var at: Vector3 = pal.global_position
+	var step := 0.5
+	var left := seconds
+	while left > 0.0:
+		pal._physics_process(minf(step, left))
+		left -= step
+	pal.global_position = at
+	pal.velocity = Vector3.ZERO
+
+
+## Kill a pal outright by another pal's hand, however much health it has.
+func _rival_kill(victim, killer) -> void:
+	for i in victim.max_hp + 2:
+		if victim.dying:
+			return
+		victim.take_rival_hit(killer)
+
+
+## The case the whole rule exists for: the player softens a pal, something
+## else finishes it seconds later. The player did the work.
+func _test_a_brawl_the_player_started_pays() -> void:
+	var f = await _fixture("res://scenes/pal_wolf.tscn")
+	f.other.take_hit(Vector3(0.0, 0.0, 5.0))
+	var before := _payout()
+	_rival_kill(f.other, f.demon)
+	var after := _payout()
+	_check(
+		"a pal the player bit still pays when something else kills it",
+		after[0] > before[0] and (after[1] > before[1] or after[2] > before[2]),
+		"drops %d -> %d, level %d -> %d, xp %d -> %d" % [
+			before[0], after[0], before[1], after[1], before[2], after[2],
+		],
+	)
+	_free(f)
+
+
+## The abuse this blocks: standing back and watching demons brawl to farm
+## pelts and XP for nothing.
+func _test_a_brawl_across_the_island_pays_nothing() -> void:
+	var f = await _fixture("res://scenes/pal_wolf.tscn")
+	var before := _payout()
+	_rival_kill(f.other, f.demon)
+	var after := _payout()
+	_check(
+		"a wild kill the player had no part in pays nothing",
+		f.other.dying and after == before,
+		"dying=%s payout %s -> %s" % [f.other.dying, before, after],
+	)
+	_free(f)
+
+
+## Being attacked counts as being in the fight, so a demon that chased the
+## player and then lost to a wolf is still the player's.
+func _test_a_pal_that_hit_the_player_pays() -> void:
+	var f = await _fixture("res://scenes/pal_wolf.tscn")
+	var other_demon = await _spawn("res://scenes/pal_demon.tscn", Vector3(60.0, 0.0, 0.0), f.player)
+	other_demon.max_hp = 30
+	other_demon.hp = 30
+	# The demon reaches the player and lands one, which is what opens the
+	# window; the player never swings back.
+	other_demon.global_position = f.player.global_position + Vector3(0.0, 0.0, 1.0)
+	other_demon._enter_attack()
+	for i in 10:
+		other_demon._tick_attack(0.5)
+	var landed: bool = f.player.hits > 0
+	var before := _payout()
+	_rival_kill(other_demon, f.other)
+	var after := _payout()
+	_check(
+		"a pal that hit the player pays when a third party kills it",
+		landed and other_demon.dying and after[0] > before[0],
+		"player hits=%d drops %d -> %d" % [f.player.hits, before[0], after[0]],
+	)
+	other_demon.queue_free()
+	_free(f)
+
+
+## The assertion that proves the window is a timer and not a flag: the same
+## bite, left long enough, pays nothing.
+func _test_the_credit_window_expires() -> void:
+	var f = await _fixture("res://scenes/pal_wolf.tscn")
+	f.other.take_hit(Vector3(0.0, 0.0, 5.0))
+	var opened: bool = f.other._credit > 0.0
+	_age(f.other, Tuning.PAL_CREDIT_TIME + 1.0)
+	var before := _payout()
+	_rival_kill(f.other, f.demon)
+	var after := _payout()
+	_check(
+		"a bite older than PAL_CREDIT_TIME no longer pays",
+		opened and f.other.dying and after == before,
+		"credit opened=%s window=%.1f payout %s -> %s" % [
+			opened, Tuning.PAL_CREDIT_TIME, before, after,
+		],
+	)
+	_free(f)
+
+
+## Nothing about the rule may change the ordinary case of punching a pal to
+## death yourself.
+func _test_the_players_own_kill_pays() -> void:
+	var f = await _fixture("res://scenes/pal_wolf.tscn")
+	var before := _payout()
+	for i in f.other.max_hp + 2:
+		if f.other.dying:
+			break
+		f.other.take_hit(Vector3(0.0, 0.0, 5.0))
+	var after := _payout()
+	_check(
+		"the player's own kill still pays the drop and the XP",
+		f.other.dying and after[0] > before[0] and (after[1] > before[1] or after[2] > before[2]),
+		"drops %d -> %d, level %d -> %d, xp %d -> %d" % [
+			before[0], after[0], before[1], after[1], before[2], after[2],
+		],
+	)
 	_free(f)
 
 

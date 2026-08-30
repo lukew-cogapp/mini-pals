@@ -1,6 +1,9 @@
 extends Node3D
 ## Scatters trees and rocks so the ground has landmarks to move past.
 ## Seeded, so the world is the same every run.
+##
+## Also trickles pals back in as they are killed off, on an unseeded rng, so
+## a culled world refills without the initial layout ever changing.
 
 @export var tree_scenes: Array[PackedScene] = []
 @export var rock_scenes: Array[PackedScene] = []
@@ -13,6 +16,10 @@ extends Node3D
 @export var palm_scene: PackedScene
 @export var shell_scene: PackedScene
 @export var altar_scene: PackedScene
+
+var _respawn_rng := RandomNumberGenerator.new()
+var _respawn_wait := 0.0
+
 
 func _ready() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -33,6 +40,10 @@ func _ready() -> void:
 	_scatter_amphibians(rng)
 	_scatter_fish(rng)
 	_place_altar()
+	# Unseeded, deliberately: the initial layout must be identical every run,
+	# but a refill that arrived in the same order every run would be a script.
+	_respawn_rng.randomize()
+	_respawn_wait = _next_respawn_wait()
 
 
 func _scatter_pals(rng: RandomNumberGenerator) -> void:
@@ -40,59 +51,65 @@ func _scatter_pals(rng: RandomNumberGenerator) -> void:
 		return
 	for i in Tuning.PAL_COUNT:
 		# Alternate species so both are findable near spawn.
-		var source := pal_scene if (i % 2 == 0 or pal_scene_b == null) else pal_scene_b
-		var pal := source.instantiate() as Pal
-		# Same rng as the scatter, so levels are part of the reproducible
-		# world. Each species rolls inside its own band from the scene.
-		pal.level = rng.randi_range(pal.level_min, pal.level_max)
-		pal.position = _on_island(rng, 0.0, Tuning.ISLAND_RADIUS * 0.6)
-		pal.rotation.y = rng.randf() * TAU
-		add_child(pal)
+		_spawn_pal(pal_scene if (i % 2 == 0 or pal_scene_b == null) else pal_scene_b, rng)
 
 
-## Demons live on the scorched blob; the rest of the island stays safe for
-## pottering.
 func _scatter_demons(rng: RandomNumberGenerator) -> void:
-	if demon_scene == null:
-		return
 	for i in Tuning.DEMON_COUNT:
-		var demon := demon_scene.instantiate() as Pal
-		demon.level = rng.randi_range(demon.level_min, demon.level_max)
-		demon.position = _in_ash(rng, 0.0)
-		demon.rotation.y = rng.randf() * TAU
-		add_child(demon)
+		_spawn_pal(demon_scene, rng)
 
 
-## Amphibians wade ashore onto the sand, where a player on foot can reach
-## them. Catching one is the only way into the water, so they must be
-## catchable without one.
 func _scatter_amphibians(rng: RandomNumberGenerator) -> void:
-	if amphibian_scene == null:
-		return
 	for i in Tuning.AMPHIBIAN_COUNT:
-		var pal := amphibian_scene.instantiate() as Pal
-		pal.level = rng.randi_range(pal.level_min, pal.level_max)
-		pal.position = _on_island(
+		_spawn_pal(amphibian_scene, rng)
+
+
+func _scatter_fish(rng: RandomNumberGenerator) -> void:
+	for i in Tuning.FISH_COUNT:
+		_spawn_pal(fish_scene, rng)
+
+
+## One pal of `scene`, levelled and placed where its species belongs.
+##
+## Both the initial scatter and the respawn trickle come through here, so a
+## respawned demon lands on the ash and a respawned fish out in the ring for
+## the same reason the original ones did, with no second copy of the rules.
+## `at` overrides the species position, for a caller that has already picked
+## and vetted one.
+func _spawn_pal(scene: PackedScene, rng: RandomNumberGenerator, at := Vector3.INF) -> Pal:
+	if scene == null:
+		return null
+	var pal := scene.instantiate() as Pal
+	# Levels roll from the same rng as the position, so a seeded scatter is
+	# reproducible in both. Each species rolls inside its own band.
+	pal.level = rng.randi_range(pal.level_min, pal.level_max)
+	pal.position = _pal_position(scene, rng) if at == Vector3.INF else at
+	pal.rotation.y = rng.randf() * TAU
+	add_child(pal)
+	return pal
+
+
+## Where a species lives.
+##
+##   demons     the scorched blob only, so the rest of the island stays safe
+##              for pottering
+##   amphibians the sand, reachable on foot: catching one is the only way
+##              into the water, so it must be catchable without one
+##   fish       the shallow ring past a cube's reach from the shore, the gate
+##              the whole water feature turns on (see test/water_test.gd)
+##   the rest   the green, inside the middle of the island
+func _pal_position(scene: PackedScene, rng: RandomNumberGenerator) -> Vector3:
+	if scene == demon_scene:
+		return _in_ash(rng, 0.0)
+	if scene == amphibian_scene:
+		return _on_island(
 			rng,
 			Tuning.ISLAND_RADIUS * Tuning.AMPHIBIAN_BAND.x,
 			Tuning.ISLAND_RADIUS * Tuning.AMPHIBIAN_BAND.y,
 		)
-		pal.rotation.y = rng.randf() * TAU
-		add_child(pal)
-
-
-## Fish, out in the shallows past a cube's reach from the shore. The inner
-## radius is the gate the whole feature turns on; test/water_test.gd asserts
-## it against CUBE_AIM_DISTANCE.
-func _scatter_fish(rng: RandomNumberGenerator) -> void:
-	if fish_scene == null:
-		return
-	for i in Tuning.FISH_COUNT:
-		var pal := fish_scene.instantiate() as Pal
-		pal.level = rng.randi_range(pal.level_min, pal.level_max)
-		pal.position = _on_island(rng, Tuning.FISH_RING_MIN, Tuning.FISH_RING_MAX)
-		pal.rotation.y = rng.randf() * TAU
-		add_child(pal)
+	if scene == fish_scene:
+		return _on_island(rng, Tuning.FISH_RING_MIN, Tuning.FISH_RING_MAX)
+	return _on_island(rng, 0.0, Tuning.ISLAND_RADIUS * Tuning.PAL_BAND)
 
 
 func _scatter(
@@ -206,3 +223,89 @@ func _scatter_shore(
 		item.rotation.y = rng.randf() * TAU
 		item.scale = Vector3.ONE * rng.randf_range(scale_min, scale_max)
 		add_child(item)
+
+
+## --- Respawning ------------------------------------------------------------
+
+## Wild fights kill and so does the player, so the island refills itself.
+##
+## Driven by the total live population rather than a per-species quota or a
+## fixed clock: near the intended headcount respawns all but stop, and a
+## culled world refills faster the emptier it is. Deliberately slow. The
+## point of a lethal world is that a cull is felt, and one that repopulated
+## while the player walked home would undo that.
+func _process(delta: float) -> void:
+	_respawn_wait -= delta
+	if _respawn_wait > 0.0:
+		return
+	_respawn_wait = _next_respawn_wait()
+	var deficit := Tuning.PAL_POPULATION - _live_pal_count()
+	if deficit <= 0:
+		return
+	# The emptier the island, the likelier a roll spawns: a single missing pal
+	# is usually skipped, a gutted map almost never is. randf() can return
+	# exactly 0, so the full-world case is the guard above rather than odds of
+	# zero, which would let one through now and then.
+	var odds := float(deficit) / float(Tuning.PAL_POPULATION)
+	if _respawn_rng.randf() > odds * Tuning.RESPAWN_URGENCY:
+		return
+	_respawn_one()
+
+
+func _next_respawn_wait() -> float:
+	return _respawn_rng.randf_range(Tuning.RESPAWN_INTERVAL_MIN, Tuning.RESPAWN_INTERVAL_MAX)
+
+
+## Wild pals only. A caught pal is the player's, and counting it would let a
+## full party starve the island of respawns; a dying one is already gone as
+## far as the population is concerned.
+func _live_pal_count() -> int:
+	var n := 0
+	for node in get_tree().get_nodes_in_group("pal"):
+		var pal := node as Pal
+		if pal != null and not pal.caught and not pal.dying:
+			n += 1
+	return n
+
+
+## One pal of a randomly chosen species, somewhere clear.
+##
+## Species is rolled rather than balanced back towards the starting mix: the
+## roll is the variety, and chasing exact per-species quotas would need a
+## census the feature does not otherwise want.
+func _respawn_one() -> void:
+	var pool := _species_pool()
+	if pool.is_empty():
+		return
+	var scene := pool[_respawn_rng.randi() % pool.size()]
+	# Retry like _scatter does, for the same reason: nothing may appear inside
+	# a tree, a rock, or on top of the player. The position is settled before
+	# anything joins the tree, so a run of blocked tries costs no node.
+	for _attempt in Tuning.RESPAWN_PLACE_TRIES:
+		var pos := _pal_position(scene, _respawn_rng)
+		if _is_clear(pos):
+			_spawn_pal(scene, _respawn_rng, pos)
+			return
+
+
+func _species_pool() -> Array[PackedScene]:
+	var pool: Array[PackedScene] = []
+	for scene in [pal_scene, pal_scene_b, demon_scene, amphibian_scene, fish_scene]:
+		if scene != null:
+			pool.append(scene)
+	return pool
+
+
+## Far enough from the player to not appear in front of them, and clear of
+## the scenery already standing there.
+func _is_clear(pos: Vector3) -> bool:
+	var player := get_tree().get_first_node_in_group("player")
+	if player != null and pos.distance_to(player.global_position) < Tuning.RESPAWN_CLEAR_RADIUS:
+		return false
+	# One group covers both trees and rocks, which is every gatherable thing
+	# a pal could otherwise appear inside.
+	for node in get_tree().get_nodes_in_group("resource_node"):
+		var item := node as Node3D
+		if item != null and pos.distance_to(item.global_position) < Tuning.SCATTER_CLEAR_RADIUS:
+			return false
+	return true

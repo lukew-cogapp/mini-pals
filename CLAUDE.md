@@ -433,13 +433,59 @@ An aggressive wild pal also brawls with other species. `_pick_rival` scans
 on `RIVAL_SCAN_INTERVAL`, staggered per pal by instance id so thirty of them
 never scan on one frame, and a rival is anything wild, alive, out, and of a
 different `display_name`. The player always outranks a rival:
-`_tick_attack` drops the brawl the frame `_wants_attack` turns true. Wild
-fights maim and never kill, clamped at `RIVAL_MIN_TARGET_HP` for the same
-reason `take_follower_hit` clamps: a world that culled its own pals would be
-empty by the time the player walked out to it, and a softened loser is a
-gift. A maimed pal stops being a valid rival, which is what stops a winner
-and a spent loser locking each other up; `RIVAL_FIGHT_TIME` is the backstop.
+`_tick_attack` drops the brawl the frame `_wants_attack` turns true.
+
+**Anything wild fights back when a pal hits it**, temperament regardless.
+The gate in `take_rival_hit` used to read `aggressive and ...`, which never
+fired: demons are the only aggressive species and `_is_rival` excludes their
+own kind, so a demon mauling a wolf got no answer at all. Retaliation sets
+`_rival` and enters ATTACK but touches neither `_aggro` nor the flee gate, and
+`_wants_attack` is false for anything not aggressive, so a retaliating wolf
+always takes the `_tick_rival` branch of `_tick_attack` and never turns on the
+player. Once its rival is gone it goes back to fleeing them as before. The
+test for this takes the rival away before asserting, because while one is
+alive `_tick_attack` never looks at the player and a leaked player-aggro would
+be invisible.
+
+**Wild fights kill.** They used to clamp at a `RIVAL_MIN_TARGET_HP` of 1, and
+that clamp is what the maimed-rival exclusion in `_is_rival` was guarding: a
+winner that kept picking a loser no further hit could reach locked the pair
+up for good. Both are gone. A loser dies, `dying` and the `pal` group already
+exclude it, and the population is held up by respawning instead.
+`RIVAL_FIGHT_TIME` stays, because it bounds the one non-progress case
+lethality does not touch: a chase that never closes to `RIVAL_ATTACK_RANGE`.
+It does NOT bound a mutual brawl, which was measured rather than assumed:
+when it expires each side drops its rival, and the next landed hit re-arms
+retaliation with a fresh timer, so the pair renews. What ends a brawl is one
+of them dying, which at `RIVAL_DAMAGE` on a `RIVAL_ATTACK_COOLDOWN` takes
+about `max_hp * cooldown` seconds.
+
+Who a death pays is **participation, not the final blow**. Each pal carries a
+`_credit` countdown, reset to `PAL_CREDIT_TIME` by `take_hit` (the player hit
+it) and by a landed `_swing` (it hit the player), ticked down in
+`_physics_process`. `_die` is one path with the drop, the XP and the HUD
+message conditional on that window still being open, so a demon the player
+softened and a wolf finished pays out, and two pals brawling across the
+island while the player gathers wood pay nothing. `take_follower_hit` still
+clamps at `FOLLOWER_MIN_TARGET_HP` so a follower cannot cost you the catch,
+but a pal it left on 1 hp is killable by a rival like any other. Every path
+that changes hp calls `_refresh_bar()` behind an `if _bar_back:`, and `_die`
+hides the bar before either payout branch, so a corpse never floats one.
 `test/species_fight_test.gd` covers all of it, temperament included.
+
+The island refills itself (`scripts/scenery.gd`, `_process`). A roll every
+`RESPAWN_INTERVAL_MIN..MAX` seconds spawns at most one pal, with odds equal
+to the shortfall against `PAL_POPULATION` times `RESPAWN_URGENCY`, so a full
+world respawns nothing and a gutted one nearly always does. Caught and dying
+pals do not count. Species is rolled from whatever scenes are wired on the
+Scenery node, and placement goes through `_pal_position`, the same function
+the initial scatter uses, so a respawned demon lands on the ash and a
+respawned fish in the shallow ring by construction rather than by a second
+copy of the rules. Nothing lands inside `RESPAWN_CLEAR_RADIUS` of the player
+or `SCATTER_CLEAR_RADIUS` of a tree or rock; the position is vetted before
+anything joins the tree. `_respawn_rng` is randomized, NOT seeded from
+`SCATTER_SEED`, so the refill differs run to run while the initial layout
+stays identical. `test/respawn_test.gd` covers pacing and placement.
 
 Species jobs, one each, so choosing which pal is out matters: Cactoro chops
 trees, Wolf fetches stone and adds speed, Mudwader is the only way into

@@ -196,14 +196,44 @@ const RIVAL_SCAN_INTERVAL := 0.75
 const RIVAL_ATTACK_RANGE := 2.0
 const RIVAL_ATTACK_COOLDOWN := 1.5
 const RIVAL_DAMAGE := 1
-## Wild fights maim, they never kill. A world that culled its own pals before
-## the player found them would empty the map, and the loser is left softened
-## for a cube instead, which is the same bargain FOLLOWER_MIN_TARGET_HP makes.
-const RIVAL_MIN_TARGET_HP := 1
-## A fight that cannot progress ends rather than looping forever: once the
-## loser is down to RIVAL_MIN_TARGET_HP no further hit lands, so the winner
-## would otherwise swing at it for good.
+## Backstop on a fight that cannot finish because it never closes to attack
+## range. It does not bound a brawl that is landing hits: each side re-arms
+## this on the next hit taken, so what ends those is one of them dying. The
+## world is kept populated by the respawn block below.
 const RIVAL_FIGHT_TIME := 12.0
+
+## How long after trading blows with the player a pal's death still pays out
+## the drop, the XP and the message. Participation, not the final blow: a
+## demon the player softened and a wolf finished is the player's kill, and two
+## pals brawling across the island while the player gathers wood are nobody's.
+const PAL_CREDIT_TIME := 20.0
+
+# --- Respawning ---
+## Wild fights kill and so does the player, so the island trickles pals back
+## in. See scripts/scenery.gd; test/respawn_test.gd covers the pacing.
+
+## Headcount the island aims to hold, which is what the initial scatter puts
+## there: PAL_COUNT + DEMON_COUNT + AMPHIBIAN_COUNT + FISH_COUNT. At or above
+## it nothing respawns at all.
+const PAL_POPULATION := 52
+## Seconds between respawn rolls, sampled per roll so the trickle is not a
+## metronome. Long on purpose: a cull the player could not walk home from
+## before it was undone would not be a cull.
+const RESPAWN_INTERVAL_MIN := 20.0
+const RESPAWN_INTERVAL_MAX := 45.0
+## Multiplies the deficit fraction to get the odds a roll spawns anything, so
+## a nearly full island rarely does and a gutted one nearly always does. Above
+## 1.0 so a badly depleted world refills at close to one pal per interval.
+const RESPAWN_URGENCY := 1.6
+## Nothing appears this close to the player: a pal fading in ahead of them
+## reads as a glitch rather than as the world going on without them.
+const RESPAWN_CLEAR_RADIUS := 30.0
+## Placement retries before the respawn is abandoned, matching the scatter's
+## own retry loop.
+const RESPAWN_PLACE_TRIES := 12
+## Fraction of the island radius the ordinary species scatter within, so the
+## green stays populated and the shoreline stays for the amphibians.
+const PAL_BAND := 0.6
 
 # --- Active-pal buffs ---
 ## speed is a fraction of player speed, gather is bonus items per punch,

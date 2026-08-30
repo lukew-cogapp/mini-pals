@@ -4,7 +4,8 @@ class_name Pal
 ## player and can be ridden. Punched (or aggressive by species) it hunts the
 ## player instead. A caught pal never attacks the player, but does step in
 ## against whatever is hostile to them, always stopping short of the kill.
-## An aggressive wild pal also brawls with other species, on the same terms.
+## An aggressive wild pal also brawls with other species, and those fights
+## kill.
 
 enum State { WANDER, IDLE, FLEE, FOLLOW, RIDDEN, ATTACK, DEFEND, GATHER }
 
@@ -58,6 +59,9 @@ var _aggro := 0.0
 var _attack_cooldown := 0.0
 var _attack_without_hit := 0.0
 var _sight_aggro_suppressed := false
+## Seconds left in which a death here still pays the player, reset by a hit
+## in either direction. See _die and _credit_player.
+var _credit := 0.0
 var _defend_target: Pal = null
 var _rival: Pal = null
 var _rival_scan := 0.0
@@ -254,6 +258,7 @@ func _physics_process(delta: float) -> void:
 		velocity += get_gravity() * delta
 
 	_update_label()
+	_credit = maxf(_credit - delta, 0.0)
 
 	# Knockback plays out before the state ticks retake the velocity.
 	if _hit_stun > 0.0:
@@ -534,21 +539,18 @@ func _is_rival(other: Pal) -> bool:
 		and not other.dying
 		and other.visible
 		and other.display_name != display_name
-		# Already maimed: no further hit would land, so picking it again is how
-		# a winner and a spent loser lock each other up for good.
-		and other.hp > Tuning.RIVAL_MIN_TARGET_HP
 	)
 
 
-## The fight ends when the loser can take no more, when it is caught or
-## killed by something else, or on RIVAL_FIGHT_TIME. Without the timer a
-## winner would swing at a maimed loser for good, since no further hit lands.
+## The fight ends when the loser dies, is caught, walks out of RIVAL_GIVE_UP,
+## or on RIVAL_FIGHT_TIME. The timer is the backstop for a fight that cannot
+## finish because it cannot start: a chase that never closes to attack range,
+## which no other clause here bounds.
 func _rival_valid() -> bool:
 	return (
 		_rival != null
 		and is_instance_valid(_rival)
 		and _is_rival(_rival)
-		and _rival.hp > Tuning.RIVAL_MIN_TARGET_HP
 		and _rival_fight > 0.0
 		and _flat_distance(_rival.global_position) < Tuning.RIVAL_GIVE_UP
 	)
@@ -578,23 +580,30 @@ func _tick_rival(delta: float) -> void:
 		_swing_at_rival(_rival)
 
 
-## Damage from one wild pal to another. Clamped like take_follower_hit, and
-## for the same reason: a world that killed off its own pals would empty
-## itself before the player walked out to find them. The loser is left
-## softened for a cube instead, which is a gift to the player.
+## Damage from one wild pal to another. Unlike take_follower_hit this kills:
+## a wild fight has a loser. The world is kept populated by respawning in
+## scenery.gd rather than by making its pals unkillable.
 func take_rival_hit(from: Pal) -> void:
-	if caught or dying or hp <= Tuning.RIVAL_MIN_TARGET_HP:
+	if caught or dying:
 		return
-	hp = maxi(hp - Tuning.RIVAL_DAMAGE, Tuning.RIVAL_MIN_TARGET_HP)
+	hp -= Tuning.RIVAL_DAMAGE
+	if hp <= 0:
+		_die()
+		return
+	if _bar_back:
+		_refresh_bar()
 	Audio.play("hit", global_position)
 	# The Blob rigs misspell the hit animation; other sets use HitReact.
 	if _anim and _anim.has_animation("HitRecieve"):
 		_anim.play("HitRecieve")
 	elif _anim and _anim.has_animation("HitReact"):
 		_anim.play("HitReact")
-	# Hit back if we are the sort that fights, so a brawl is mutual rather
-	# than one pal beating on a bystander.
-	if aggressive and _rival == null and _is_rival(from):
+	# Anything cornered fights, temperament regardless, and it outranks the
+	# flee a skittish pal would otherwise answer with. The gate read
+	# `aggressive and ...` and so never fired: demons are the only aggressive
+	# species and _is_rival excludes their own kind. Setting neither _aggro nor
+	# anything the flee gate reads is what keeps this off the player.
+	if _rival == null and _is_rival(from):
 		_rival = from
 		_rival_fight = Tuning.RIVAL_FIGHT_TIME
 		_enter_attack()
@@ -610,8 +619,8 @@ func _swing_at_rival(target: Pal) -> void:
 	target.take_rival_hit(self)
 
 
-## Back to wandering, with the scan on cooldown so the pal does not reacquire
-## the same maimed rival on the very next frame.
+## Back to wandering, with the scan on cooldown so a pal that just gave up on
+## a chase does not reacquire the same rival on the very next frame.
 func _drop_rival() -> void:
 	_rival = null
 	_rival_fight = 0.0
@@ -904,6 +913,8 @@ func _tick_attack(delta: float) -> void:
 		_attack_cooldown = Tuning.PAL_ATTACK_COOLDOWN
 		if _swing():
 			_attack_without_hit = 0.0
+			# Trading blows with the player makes it their fight too.
+			_credit_player()
 
 
 func _give_up_attack() -> void:
@@ -959,6 +970,12 @@ static func player_punch_damage() -> int:
 	return Tuning.PUNCH_DAMAGE + int(bonus + Party.buff(&"damage"))
 
 
+## Reopen the window in which this pal's death pays the player. Called from
+## both directions of a fight, because either one means the player was in it.
+func _credit_player() -> void:
+	_credit = Tuning.PAL_CREDIT_TIME
+
+
 ## Punched by the player: damage, knockback, and a spell of forced flight.
 func take_hit(from: Vector3) -> void:
 	if caught or dying:
@@ -966,6 +983,7 @@ func take_hit(from: Vector3) -> void:
 	hp -= player_punch_damage()
 	if _bar_back:
 		_refresh_bar()
+	_credit_player()
 	Audio.play("hit", global_position)
 	var away := global_position - from
 	away.y = 0.0
@@ -987,7 +1005,15 @@ func take_hit(from: Vector3) -> void:
 	_enter_attack()
 
 
+## One death path, paid for only when the player was part of the fight.
+##
+## Wild fights kill, so the last blow is a poor test of who earned the kill:
+## a demon softened by the player and finished by a wolf seconds later is the
+## player's, and two pals brawling across the island while the player gathers
+## wood are nobody's. `_credit` is the window that answers it.
 func _die() -> void:
+	if dying:
+		return
 	dying = true
 	if _label:
 		_label.visible = false
@@ -998,10 +1024,11 @@ func _die() -> void:
 	# Out of the group so punches and cubes stop finding the corpse.
 	remove_from_group("pal")
 	Audio.play("defeat", global_position)
-	var n := _grant_drop()
-	# A kill is worth half a catch: progress for the cubeless, never parity.
-	Party.grant_xp(int(xp_worth() * Tuning.XP_KILL_FACTOR))
-	Hud.flash("%s defeated! +%d %s" % [display_name, n, drop_item_name])
+	if _credit > 0.0:
+		var n := _grant_drop()
+		# A kill is worth half a catch: progress for the cubeless, never parity.
+		Party.grant_xp(int(xp_worth() * Tuning.XP_KILL_FACTOR))
+		Hud.flash("%s defeated! +%d %s" % [display_name, n, drop_item_name])
 	var wait := Tuning.PAL_DEATH_TIME
 	if _anim and _anim.has_animation("Death"):
 		_anim.play("Death")
