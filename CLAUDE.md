@@ -38,12 +38,10 @@ Two conventions the owner asked for, worth keeping:
 `atan2(-dir.x, -dir.z)`. Using `atan2(x, z)` points it backwards; the tell is
 a model that moons you as you walk. Cost us one bug already.
 
-**Quaternius models face +Z, Godot forward is -Z.** So every imported monster
-needs a 180 degree Y flip in its model scene:
-`transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)`. Do it in the
-model scene, not by inverting the controller maths, or the two fixes cancel
-out and the next model is wrong again. Anything attached to the body (wings,
-seat markers) needs its Z negated to match.
+**Quaternius models already face Godot forward.** Import them and leave them
+alone. A 180 degree flip was added on a wrong inference from vertex counts and
+had to be reverted; screenshots settled it in one shot. Do not reason about
+model orientation from geometry, render it and look.
 
 **`.tscn` sub-resources must be declared before the node that uses them.**
 A `SubResource("2")` referenced above its own `[sub_resource]` block fails with
@@ -58,12 +56,27 @@ errors, use `--import`. To check a scene actually runs, `--quit-after N`
 (frames). Both exit 0 on success and print nothing useful on failure, so grep
 stderr for `error`.
 
+**Screenshots.** `test/screenshot.gd` renders the player and world to
+`test/shots/*.png` from several angles, walking and jumping included:
+
+    godot --path . -s test/screenshot.gd
+
+It must run WINDOWED. Under `--headless` the dummy renderer writes blank
+images. Downscale with `sips -Z 700` before reading them. This is the only way
+to check anything visual, and it has already caught a backwards model and
+wings buried inside a body.
+
 **Verifying without a screen.** `godot --headless --path . -s some_script.gd`
 with `extends SceneTree` runs arbitrary checks: instantiate a scene, count
 children, read a material. The `RID allocations ... leaked at exit` errors from
 such scripts are the script not freeing nodes, not a real fault.
 
 **Hot reload:** `.gd` yes, `.tscn` no. F8 stop, F5 play.
+
+**Autoloads register after a `-s` script's `_init` starts.** A verify script
+that touches an autoload (or `load()`s a scene whose scripts reference one)
+from `_init` fails with `Identifier not found`. `await process_frame` once
+before doing anything.
 
 **Area3D needs its mask to match the target's layer.** Pals sit on layer 4, so
 the catch sphere needs `collision_mask = 4`; the default mask of 1 silently
@@ -94,6 +107,12 @@ built-in stair stepping and the proposal for it is still open.
 
 Scatter is seeded (`Tuning.SCATTER_SEED`), so the world is identical each run.
 Change the seed for a new layout.
+
+Trees and rocks are gatherable (`scripts/resource_node.gd`, groups
+`tree`/`rock`/`resource_node`): punch (F) yields wood/stone, deplete after
+`Tuning.GATHER_HITS`, respawn in place. The workbench (B nearby) crafts catch
+spheres from `Tuning.SPHERE_RECIPE`; throwing consumes one from `Inventory`
+(autoload, `scripts/inventory.gd`).
 
 Every bug this project has hit was invisible on inspection and only showed up
 in a headless test: a sphere flying over the target's head, a mount jammed at

@@ -4,6 +4,9 @@ Kept current as work lands. Newest changes at the top of each section.
 
 ## Next
 
+- [ ] Wings for the cat dragon: PrismMesh slabs read as flat blades stuck
+      through the body. Needs a real wing mesh, not a primitive
+
 - [ ] Rename spheres to **pal cubes**: box mesh, rename scene/script/vars
 - [ ] Verify the agent-built crafting system myself, gather/craft/menu untested
 - [ ] Adopt **GUT** for tests (researched, recommended over GdUnit4)
@@ -14,6 +17,9 @@ Kept current as work lands. Newest changes at the top of each section.
 
 ## Done
 
+- [x] Sunset lighting: warm low sun, orange horizon, light fog
+- [x] Screenshot harness `test/screenshot.gd`, 9 angles including walk and jump
+- [x] Revert the wrong 180 degree model flip, models were already correct
 - [x] Blue cat: recoloured atlas via `scripts/tools/recolour_texture.py`, wings
       left purple
 - [x] Confirm facing convention: Quaternius heads point +Z, Godot forward is -Z,
