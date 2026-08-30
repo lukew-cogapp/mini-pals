@@ -1,0 +1,24 @@
+[gd_resource type="StyleBoxFlat" format=3]
+
+; Drawn over the normal style, so only the border and a light wash show.
+; The amber matches the panel borders and is unmistakable at a glance, which
+; the two greens of button.tres and button_hover.tres were not.
+[resource]
+content_margin_left = 20.0
+content_margin_top = 12.0
+content_margin_right = 20.0
+content_margin_bottom = 12.0
+bg_color = Color(0.45, 0.6, 0.4, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(1, 0.83, 0.45, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+expand_margin_left = 5.0
+expand_margin_top = 5.0
+expand_margin_right = 5.0
+expand_margin_bottom = 5.0
