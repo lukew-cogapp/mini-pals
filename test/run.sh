@@ -32,6 +32,17 @@ mkdir -p "$OUT"
 log="$OUT/gut.txt"
 LIMIT=600
 
+# GUT skips a script that does not extend GutTest: it warns and exits 0, so a
+# suite written in the old `extends SceneTree` style never runs and never
+# fails. Eight of them accumulated that way. Only `*_test.gd` is checked; the
+# screenshot renderers and compile_check are tools, and stay as they are.
+stray=$(/usr/bin/grep -L '^extends GutTest' test/*_test.gd)
+if [ -n "$stray" ]; then
+    echo "These suites do not extend GutTest, so GUT would skip them:"
+    echo "$stray"
+    exit 1
+fi
+
 args=(-gdir=res://test -ginclude_subdirs -gprefix= -gsuffix=_test.gd -gexit)
 [ -n "$SELECT" ] && args+=("-gselect=$SELECT")
 
@@ -51,7 +62,9 @@ if ! /usr/bin/grep -qE '^Passing Tests' "$log"; then
     exit 1
 fi
 
-/usr/bin/grep -A 12 '^Totals' "$log"
+# -a: GUT's colour escapes make grep call the log binary and print nothing
+# but "Binary file matches", which hides the totals this whole script is for.
+/usr/bin/grep -a -A 12 '^Totals' "$log"
 
 if [ "$status" != "0" ]; then
     echo
