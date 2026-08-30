@@ -1,7 +1,8 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Material" path="res://materials/trunk.tres" id="1"]
 [ext_resource type="Material" path="res://materials/leaves.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/resource_node.gd" id="3"]
 
 [sub_resource type="CylinderMesh" id="1"]
 top_radius = 0.18
@@ -16,7 +17,9 @@ height = 2.6
 radius = 0.35
 height = 2.4
 
-[node name="Tree" type="StaticBody3D"]
+[node name="Tree" type="StaticBody3D" groups=["resource_node", "tree"]]
+script = ExtResource("3")
+item = "wood"
 
 [node name="Trunk" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)

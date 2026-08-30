@@ -51,6 +51,18 @@ const SPHERE_RADIUS := 0.25
 const SPHERE_CATCH_CHANCE := 0.55
 const SPHERE_LIFETIME := 6.0
 
+# --- Gathering ---
+const GATHER_RANGE := 2.5
+const GATHER_FACING_DOT := 0.3
+const GATHER_HITS := 3
+const GATHER_RESPAWN_DELAY := 30.0
+const GATHER_PUNCH_SCALE := 0.85
+const GATHER_PUNCH_TIME := 0.08
+
+# --- Crafting ---
+const WORKBENCH_RANGE := 3.0
+const SPHERE_RECIPE := {"wood": 1, "stone": 1}
+
 # --- Riding ---
 const RIDE_SPEED := 11.0
 const RIDE_TURN_SPEED := 3.0

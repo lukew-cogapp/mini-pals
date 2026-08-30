@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/models/workbench_model.tscn" id="1"]
+
+[sub_resource type="BoxShape3D" id="1"]
+size = Vector3(1.2, 0.9, 0.8)
+
+[node name="Workbench" type="StaticBody3D" groups=["workbench"]]
+
+[node name="Model" parent="." instance=ExtResource("1")]
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+shape = SubResource("1")

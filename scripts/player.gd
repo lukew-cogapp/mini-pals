@@ -6,6 +6,7 @@ const SPHERE_SCENE := preload("res://scenes/catch_sphere.tscn")
 
 @onready var pivot: Node3D = $CameraPivot
 @onready var body: Node3D = $Body
+@onready var _anim: AnimationPlayer = _find_anim(body)
 
 var mount: Pal = null  ## The pal we are riding, if any.
 
@@ -28,6 +29,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_throw_sphere()
 	elif event.is_action_pressed("ride"):
 		_toggle_ride()
+	elif event.is_action_pressed("punch"):
+		_punch()
 	elif event is InputEventMouseButton and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -62,6 +65,7 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 	_try_step_up(direction)
+	_animate(direction)
 
 
 ## CharacterBody3D stops dead at any lip, however small. When we collide with
@@ -103,6 +107,9 @@ func _try_step_up(direction: Vector3) -> void:
 ## --- Catching -------------------------------------------------------------
 
 func _throw_sphere() -> void:
+	if not Inventory.remove("sphere", 1):
+		print("Out of spheres. Craft more at the workbench.")
+		return
 	var sphere := SPHERE_SCENE.instantiate()
 	get_parent().add_child(sphere)
 	var aim := -pivot.global_transform.basis.z
@@ -115,6 +122,27 @@ func _on_sphere_resolved(pal: Node, success: bool) -> void:
 		print("Caught %s!" % pal.display_name)
 	elif pal:
 		print("%s broke free!" % pal.display_name)
+
+
+## --- Gathering ------------------------------------------------------------
+
+func _punch() -> void:
+	var forward := -pivot.global_transform.basis.z
+	forward.y = 0.0
+	forward = forward.normalized()
+	var best: Node3D = null
+	var best_dist := Tuning.GATHER_RANGE
+	for node in get_tree().get_nodes_in_group("resource_node"):
+		if not node.is_available():
+			continue
+		var to_node: Vector3 = node.global_position - global_position
+		to_node.y = 0.0
+		var dist := to_node.length()
+		if dist < best_dist and to_node.normalized().dot(forward) > Tuning.GATHER_FACING_DOT:
+			best = node
+			best_dist = dist
+	if best:
+		best.punch()
 
 
 ## --- Riding ---------------------------------------------------------------
@@ -148,6 +176,26 @@ func _dismount() -> void:
 	_set_collision_enabled(true)
 	global_position = landing + Vector3.UP * 0.5
 	velocity = Vector3.ZERO
+
+
+func _find_anim(n: Node) -> AnimationPlayer:
+	for c in n.get_children():
+		if c is AnimationPlayer:
+			return c
+		var found := _find_anim(c)
+		if found:
+			return found
+	return null
+
+
+func _animate(direction: Vector3) -> void:
+	if _anim == null:
+		return
+	var want := "Walk" if direction else "Idle"
+	if not is_on_floor() and _anim.has_animation("Jump"):
+		want = "Jump"
+	if _anim.has_animation(want) and _anim.current_animation != want:
+		_anim.play(want)
 
 
 func _set_collision_enabled(on: bool) -> void:
