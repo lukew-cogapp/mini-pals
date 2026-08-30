@@ -1,26 +1,30 @@
 [gd_resource type="StandardMaterial3D" load_steps=9 format=3]
 
-; Scorched ground. Cellular noise in "distance to edge" mode draws the cracks:
-; the value falls to zero along the boundaries between cells, which is exactly
-; where a dried, broken crust splits. The same texture drives albedo and
-; emission, so every crack that reads dark also glows.
+; Scorched ground: a cracked crust with lava in the splits. Cellular noise in
+; DISTANCE2_SUB mode draws the crack network, one gradient colours the crust
+; from it and a second, inverted one masks the emission down to the cracks
+; alone.
 
 [sub_resource type="FastNoiseLite" id="crack_noise"]
-; noise_type 2 is cellular; return_type 0 is distance to the cell edge.
+; noise_type 2 is cellular. cellular_return_type 4 is DISTANCE2_SUB (F2 minus
+; F1), which falls to zero exactly along the boundary between two cells and so
+; draws a connected crack network. Type 0 is CELL_VALUE, a flat random colour
+; per cell, which is what this used to be: it gave scattered specks that mipped
+; to a uniform haze and could not carry a glow.
+; A single octave keeps the cells convex; fractal octaves break the network up
+; into the same speckle.
 noise_type = 2
-frequency = 0.09
-cellular_return_type = 0
+frequency = 0.02
+cellular_return_type = 4
 cellular_jitter = 1.0
-fractal_octaves = 2
-fractal_lacunarity = 2.5
+fractal_octaves = 1
 
 [sub_resource type="Gradient" id="crack_ramp"]
-; Black at the crack itself, then up fast into the crust. The tight first two
-; stops keep the cracks thin lines rather than wide smudges. Values are low
-; because the sun multiplies them by roughly three before they reach the
-; frame, and a mid-brown ramp lands as pale clay.
-offsets = PackedFloat32Array(0, 0.06, 0.16, 0.5, 1)
-colors = PackedColorArray(0.02, 0.008, 0.004, 1, 0.055, 0.024, 0.012, 1, 0.1, 0.05, 0.028, 1, 0.15, 0.08, 0.045, 1, 0.2, 0.115, 0.07, 1)
+; Near black in the crack, warm scorched brown across the crust. The crust
+; stays warm-biased rather than neutral because the ambient light here is a
+; cold purple, which turns a neutral brown to grey slate.
+offsets = PackedFloat32Array(0, 0.03, 0.1, 0.45, 1)
+colors = PackedColorArray(0.02, 0.008, 0.004, 1, 0.035, 0.014, 0.007, 1, 0.2, 0.11, 0.075, 1, 0.34, 0.2, 0.14, 1, 0.46, 0.29, 0.21, 1)
 
 [sub_resource type="NoiseTexture2D" id="crack_tex"]
 width = 512
@@ -30,11 +34,11 @@ color_ramp = SubResource("crack_ramp")
 noise = SubResource("crack_noise")
 
 [sub_resource type="Gradient" id="glow_ramp"]
-; Inverse of the albedo ramp: bright where the crack is, black everywhere
-; else, so only the splits emit. This is what must still read once the boss
-; fight darkens the world.
-offsets = PackedFloat32Array(0, 0.03, 0.08, 0.15, 1)
-colors = PackedColorArray(1, 0.42, 0.06, 1, 0.7, 0.22, 0.02, 1, 0.16, 0.04, 0, 1, 0.02, 0, 0, 1, 0, 0, 0, 1)
+; Hot orange in the crack, black by 0.06. The crack is the low tail of
+; DISTANCE2_SUB, so a narrow band is a thin hot line and a wide one is molten
+; ground.
+offsets = PackedFloat32Array(0, 0.024, 0.06, 1)
+colors = PackedColorArray(1, 0.45, 0.1, 1, 0.9, 0.22, 0.02, 1, 0, 0, 0, 1, 0, 0, 0, 1)
 
 [sub_resource type="NoiseTexture2D" id="glow_tex"]
 width = 512
@@ -68,15 +72,17 @@ roughness_texture = SubResource("soot_tex")
 ; across the whole blob at eye level, which reads as wet grey slate.
 specular_mode = 1
 emission_enabled = true
-; Low. The glow ramp is bright orange, and anything near 1.0 lifts the whole
-; crust to white in daylight and buries the albedo that makes it read as
-; earth. This is dim by day and still the only lit thing once the boss fight
-; darkens the world.
+; emission_operator 1 is MULTIPLY. The default, ADD, adds emission_texture to
+; the emission colour rather than masking by it, so a white emission colour
+; lights every texel equally and the mask does nothing at all. That is why
+; every attempt to raise the energy turned the whole biome white: it was never
+; the cracks glowing, it was a flat white wash over the albedo.
+emission_operator = 1
 emission = Color(1, 1, 1, 1)
-emission_energy_multiplier = 0.05
+emission_energy_multiplier = 2.0
 emission_texture = SubResource("glow_tex")
-; One tile per 2 m, which puts a crack cell at roughly half a metre: big
-; enough to read from above, small enough to still be cracks underfoot. At
-; 0.09 (one tile per 11 m) the cells were metres wide and read as soft
-; blotches rather than a broken crust.
-uv1_scale = Vector3(0.5, 0.5, 1)
+; One tile per 6.25 m, which puts a crack cell at roughly 20 cm. The old 0.5
+; (one tile per 2 m) put a cell at 6 cm, below a pixel at eye height, and the
+; whole pattern averaged away into flat ground; 16 m the other way gave cells
+; metres wide that read as a stylised honeycomb.
+uv1_scale = Vector3(0.16, 0.16, 1)
