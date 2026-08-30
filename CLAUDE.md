@@ -46,6 +46,12 @@ tried, and it makes a model that looks right standing still and walks
 backwards. Never infer orientation from vertex counts or bone positions, both
 gave the wrong answer here. Render it and look.
 
+**SpringArm3D extends along +Z.** With a camera child, the camera therefore
+sits at +Z of its pivot. The Quaternius cat also faces +Z, so an unrotated
+pivot puts the camera in front of the player's face and throws go backwards
+over its shoulder. `player.tscn` rotates CameraPivot 180 degrees to sit the
+camera behind. Symptom if this regresses: you see the cat's face, not its back.
+
 **`.tscn` sub-resources must be declared before the node that uses them.**
 A `SubResource("2")` referenced above its own `[sub_resource]` block fails with
 `Condition "!int_resources.has(id)" is true` and a parse error on the *using*

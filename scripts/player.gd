@@ -116,7 +116,11 @@ func _throw_cube() -> void:
 	var cube := CUBE_SCENE.instantiate()
 	get_parent().add_child(cube)
 	var aim := -pivot.global_transform.basis.z
-	cube.throw(global_position + Vector3.UP * 1.3 + aim * 0.6, aim)
+	cube.throw(
+		global_position + Vector3.UP * Tuning.CUBE_SPAWN_HEIGHT
+		+ aim * Tuning.CUBE_SPAWN_FORWARD,
+		aim,
+	)
 	cube.resolved.connect(_on_cube_resolved)
 
 
