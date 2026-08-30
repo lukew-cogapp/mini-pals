@@ -33,7 +33,8 @@ const EXPECTED := {
 	"minimap": 2,
 	"pal_prev": 1,
 	"pal_next": 1,
-	"pal_attack": 2,
+	# Middle click, T, and RB.
+	"pal_attack": 3,
 	"aim": 2,
 }
 
@@ -102,6 +103,11 @@ func test_pal_attack() -> void:
 		elif e is InputEventJoypadButton:
 			pad = true
 	assert_true(middle, "middle click commands the active pal to attack")
+	var t_key := false
+	for e in InputMap.action_get_events("pal_attack"):
+		if e is InputEventKey and e.physical_keycode == KEY_T:
+			t_key = true
+	assert_true(t_key, "T also commands the active pal to attack")
 	assert_true(pad, "pal_attack has a gamepad button too")
 
 

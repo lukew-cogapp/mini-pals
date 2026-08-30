@@ -16,7 +16,7 @@ const CONTROLS := [
 	["Run", "Shift", "Stick click"],
 	["Jump", "Space", "A"],
 	["Bite tree, rock or pal", "Click or F", "Y"],
-	["Send your pal at a target", "Middle click", "RB"],
+	["Send your pal at a target", "Middle click / T", "RB"],
 	["Build menu (at bench)", "B", "B"],
 	["Aim a pal cube (free)", "Right click", "Left trigger"],
 	["Throw while aiming", "Q", "Right trigger"],

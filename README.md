@@ -38,7 +38,7 @@ Press `/` in game for the same list.
 | Jump | Space | A |
 | Look | Mouse | Right stick |
 | Bite a tree, rock or pal | Left click or F | Y |
-| Send your pal at what you are aiming at | Middle click | RB |
+| Send your pal at what you are aiming at | Middle click or T | RB |
 | Build menu, at the workbench | B | B |
 | Aim a pal cube (hold, free) | Right click | Left trigger |
 | Throw the cube | Q, while aiming | Right trigger |

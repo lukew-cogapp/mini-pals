@@ -117,7 +117,7 @@ text = "Bite tree, rock or pal"
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(0.98, 0.82, 0.52, 1)
-text = "Middle click"
+text = "Middle click / T"
 
 [node name="V4b" type="Label" parent="Help/Pad/Col/Grid"]
 layout_mode = 2
