@@ -431,6 +431,31 @@ follower can never land the kill and cost you the catch. It drops back to
 FOLLOW when the target dies, is caught, calms down, or the player passes
 `FOLLOWER_LEASH` away. `test/pal_combat_test.gd` covers all of it.
 
+Pals unstick themselves. `_move_towards` in `pal.gd` compares ground covered
+against the speed the state asked for; below `PAL_STUCK_SPEED_FRACTION` of it
+for `PAL_STUCK_TIME` the pal turns sharply off the blocked heading and runs
+for `PAL_STUCK_ESCAPE_TIME` before resuming. The state itself is untouched, so
+a fleeing pal is still fleeing when it comes out. `_tick_follow` steers itself
+rather than calling `_move_towards`, so it opts in by hand, and only while the
+gap exceeds `FOLLOW_SLOW_RADIUS`: a follower jostling against the player it
+has already reached moves nowhere every frame and is not stuck.
+`get_slide_collision_count()` was the other candidate and is wrong for this,
+since a pal walking cleanly along a trunk collides every frame while making
+fine progress. `test/pal_stuck_test.gd` covers both directions.
+
+Wild pals show a floating health bar above the name label within
+`PAL_HEALTH_BAR_DISTANCE`, sampled every `PAL_HEALTH_BAR_CHECK_INTERVAL`
+rather than per frame. Two `MeshInstance3D` quads built once in `_ready` and
+rescaled, never rebuilt. Both are billboarded, and a billboard is vertex work
+in the material that does not touch the node basis: a child node offset stays
+in world space and swings out of the bar as the camera moves. So the fill is a
+sibling at the same origin, shifted inside its own mesh with
+`QuadMesh.center_offset`. `billboard_keep_scale` is also required, or every
+bar renders as the default 1 m square whatever it was scaled to; both of those
+looked correct until the screenshot. Caught and dying pals hide theirs, as the
+name label already does. `test/pal_health_bar_test.gd` covers it, shots 29 and
+30.
+
 Every bug this project has hit was invisible on inspection and only showed up
 in a headless test: a cube flying over the target's head, a mount jammed at
 max_slides, a model facing backwards, a collision mask that matched nothing.

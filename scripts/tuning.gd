@@ -64,6 +64,42 @@ const PAL_LABEL_HEIGHT := 2.0
 const PAL_LABEL_FONT_SIZE := 40
 const PAL_LABEL_OUTLINE := 10
 
+# --- Pal health bars ---
+## Bars are drawn above the name label, but only near the player: a bar on
+## every pal in the world reads as clutter and costs a draw call each.
+const PAL_HEALTH_BAR_DISTANCE := 18.0
+## How often a pal re-checks that distance. Every frame for 30-odd pals is
+## work for a value that changes at walking pace.
+const PAL_HEALTH_BAR_CHECK_INTERVAL := 0.25
+const PAL_HEALTH_BAR_WIDTH := 1.1
+const PAL_HEALTH_BAR_HEIGHT := 0.16
+## Clearance above the name label, so the bar sits over the text, not on it.
+const PAL_HEALTH_BAR_RISE := 0.45
+## Near-black backing behind the fill, which is what makes the bar read
+## against pale grass and scorched ground alike.
+const PAL_HEALTH_BAR_BACK_COLOUR := Color(0.05, 0.04, 0.06)
+const PAL_HEALTH_BAR_FILL_COLOUR := Color(0.25, 0.85, 0.3)
+const PAL_HEALTH_BAR_LOW_COLOUR := Color(0.9, 0.2, 0.15)
+## Below this fraction the fill turns red.
+const PAL_HEALTH_BAR_LOW_FRACTION := 0.35
+## Border thickness, as a fraction of the bar height.
+const PAL_HEALTH_BAR_BORDER := 0.22
+
+# --- Pal unsticking ---
+## A pal wanting to move but covering less than STUCK_SPEED_FRACTION of the
+## speed it asked for is making no progress. Held that way for STUCK_TIME it
+## backs off along a fresh heading for STUCK_ESCAPE_TIME, then resumes
+## whatever it was doing.
+const PAL_STUCK_TIME := 0.8
+const PAL_STUCK_SPEED_FRACTION := 0.3
+const PAL_STUCK_ESCAPE_TIME := 0.9
+## How far off the blocked heading the escape run aims, in radians either
+## side. Near a right angle, so it slides along the obstacle rather than
+## bouncing straight back into it.
+const PAL_STUCK_TURN_MIN := 1.2
+const PAL_STUCK_TURN_MAX := 2.2
+const PAL_STUCK_ESCAPE_SPEED := 3.0
+
 # --- Player health ---
 const PLAYER_MAX_HP := 10.0
 const PLAYER_REGEN_DELAY := 5.0

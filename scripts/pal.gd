@@ -65,6 +65,11 @@ var _rival_fight := 0.0
 var _gather_target: Node3D = null
 var _gather_cooldown := 0.0
 var _gather_rest := 0.0
+var _stuck_time := 0.0
+var _escape_time := 0.0
+var _escape_dir := Vector3.FORWARD
+var _last_flat_position := Vector3.ZERO
+var _last_move_frame := -1
 var _rng := RandomNumberGenerator.new()
 var _side := 1.0
 var _player: Node3D:
@@ -77,6 +82,9 @@ var _player: Node3D:
 
 var _player_cache: Node3D
 var _label: Label3D
+var _bar_back: MeshInstance3D
+var _bar_fill: MeshInstance3D
+var _bar_check := 0.0
 
 @onready var _model_root: Node3D = $Model
 @onready var _anim: AnimationPlayer = _find_anim(self)
@@ -96,6 +104,7 @@ func _ready() -> void:
 	if water_only:
 		sink_model(Tuning.FISH_SINK)
 	_make_label(grow)
+	_make_health_bar(grow)
 	_enter_idle()
 
 
@@ -114,8 +123,105 @@ func _update_label() -> void:
 		return
 	if caught or dying:
 		_label.visible = false
+		_set_bar_visible(false)
 		return
 	_label.text = "Lv%d %s" % [level, display_name]
+	_tick_health_bar()
+
+
+## --- Health bar ------------------------------------------------------------
+
+## A backing quad and a fill quad, both billboarded like the name label above
+## which they sit. Built once and rescaled, never rebuilt: there can be thirty
+## pals in the world and a bar per frame per pal would be thirty allocations.
+## The dark backing is what makes it read against pale grass and scorched ash
+## alike; a bare green bar disappeared into one or the other.
+func _make_health_bar(grow: float) -> void:
+	var top := Tuning.PAL_LABEL_HEIGHT * grow + Tuning.PAL_HEALTH_BAR_RISE * grow
+	_bar_back = _bar_quad(Tuning.PAL_HEALTH_BAR_BACK_COLOUR)
+	_bar_back.position = Vector3.UP * top
+	_bar_back.scale = Vector3(
+		Tuning.PAL_HEALTH_BAR_WIDTH, Tuning.PAL_HEALTH_BAR_HEIGHT, 1.0
+	)
+	add_child(_bar_back)
+
+	# Sibling, not child. A billboard is vertex work in the material and does
+	# not touch the node basis, so a child offset stays in world space and
+	# swings out of the bar as the camera moves round. Both quads sit at the
+	# same origin instead, and the fill is shifted inside its own mesh.
+	_bar_fill = _bar_quad(Tuning.PAL_HEALTH_BAR_FILL_COLOUR)
+	_bar_fill.position = _bar_back.position
+	var fill_mat: StandardMaterial3D = _bar_fill.material_override
+	fill_mat.render_priority = 2
+	add_child(_bar_fill)
+	_refresh_bar()
+	_set_bar_visible(false)
+
+
+func _bar_quad(colour: Color) -> MeshInstance3D:
+	var quad := MeshInstance3D.new()
+	quad.mesh = QuadMesh.new()
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = colour
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	# The billboard shader rebuilds the model matrix from scratch and throws
+	# the node's scale away with it, so without this every bar renders as the
+	# QuadMesh's default 1m square regardless of what it was scaled to.
+	mat.billboard_keep_scale = true
+	# Drawn on top of the pal, so a bar behind a shoulder is still readable.
+	mat.no_depth_test = true
+	mat.render_priority = 1
+	quad.material_override = mat
+	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return quad
+
+
+## Distance is sampled on an interval rather than every frame: it changes at
+## walking pace and thirty pals asking every frame is work for nothing.
+func _tick_health_bar() -> void:
+	if _bar_back == null:
+		return
+	_bar_check -= get_physics_process_delta_time()
+	if _bar_check > 0.0:
+		return
+	_bar_check = Tuning.PAL_HEALTH_BAR_CHECK_INTERVAL
+	var near := (
+		_player != null
+		and _flat_distance(_player.global_position) < Tuning.PAL_HEALTH_BAR_DISTANCE
+	)
+	_set_bar_visible(near)
+	if near:
+		_refresh_bar()
+
+
+func _set_bar_visible(on: bool) -> void:
+	if _bar_back:
+		_bar_back.visible = on
+	if _bar_fill:
+		_bar_fill.visible = on
+
+
+## Fill width is the hp fraction, inset by a border on all sides so the dark
+## backing shows as an outline.
+func _refresh_bar() -> void:
+	var frac := clampf(float(hp) / float(maxi(max_hp, 1)), 0.0, 1.0)
+	var border := Tuning.PAL_HEALTH_BAR_BORDER
+	var inner := 1.0 - border
+	var w := Tuning.PAL_HEALTH_BAR_WIDTH
+	var h := Tuning.PAL_HEALTH_BAR_HEIGHT
+	_bar_fill.scale = Vector3(w * inner * frac, h * (1.0 - border * 2.0), 1.0)
+	# Shifted in the mesh rather than by the node, which the billboard would
+	# ignore. center_offset is in the quad's own units, so it is divided by
+	# the scale the node then applies.
+	var quad: QuadMesh = _bar_fill.mesh
+	quad.center_offset.x = -0.5 * (1.0 - frac) / maxf(frac, 0.001)
+	var mat: StandardMaterial3D = _bar_fill.material_override
+	mat.albedo_color = (
+		Tuning.PAL_HEALTH_BAR_LOW_COLOUR
+		if frac <= Tuning.PAL_HEALTH_BAR_LOW_FRACTION
+		else Tuning.PAL_HEALTH_BAR_FILL_COLOUR
+	)
 
 
 func _find_anim(n: Node) -> AnimationPlayer:
@@ -262,6 +368,17 @@ func _tick_follow(delta: float) -> void:
 		if gap < Tuning.FOLLOW_SLOW_RADIUS:
 			speed *= maxf(gap / Tuning.FOLLOW_SLOW_RADIUS, 0.35)
 		wanted = to_target.normalized() * speed
+
+	# Following steers itself rather than calling _move_towards, so it opts
+	# into the unstick by hand. Only while genuinely trying to close a gap:
+	# a pal jostling against the player it has already reached is not stuck.
+	if _escape_time > 0.0:
+		_escape_time -= delta
+		wanted = _escape_dir * Tuning.PAL_STUCK_ESCAPE_SPEED
+	elif gap > Tuning.FOLLOW_SLOW_RADIUS:
+		_track_progress(to_target.normalized(), wanted.length(), delta)
+	else:
+		_stuck_time = 0.0
 
 	velocity.x = move_toward(velocity.x, wanted.x, Tuning.FOLLOW_ACCEL * delta * 10.0)
 	velocity.z = move_toward(velocity.z, wanted.z, Tuning.FOLLOW_ACCEL * delta * 10.0)
@@ -589,6 +706,8 @@ func take_follower_hit() -> void:
 	if caught or dying or hp <= Tuning.FOLLOWER_MIN_TARGET_HP:
 		return
 	hp = maxi(hp - Tuning.FOLLOWER_DEFEND_DAMAGE, Tuning.FOLLOWER_MIN_TARGET_HP)
+	if _bar_back:
+		_refresh_bar()
 	Audio.play("hit", global_position)
 	# The Blob rigs misspell the hit animation; other sets use HitReact.
 	if _anim and _anim.has_animation("HitRecieve"):
@@ -597,15 +716,67 @@ func take_follower_hit() -> void:
 		_anim.play("HitReact")
 
 
+## Every moving state steers through here, so the unstick lives here too and
+## none of them has to know about it. The signal is intent against progress:
+## a pal that asked for `speed` and covered almost none of it since the last
+## move is pushing on something. `get_slide_collision_count()` was the other
+## candidate and is wrong for this: a pal walking cleanly along a tree trunk
+## collides every frame while making perfectly good progress.
 func _move_towards(point: Vector3, speed: float, delta: float) -> void:
+	if _escape_time > 0.0:
+		_escape_time -= delta
+		velocity.x = _escape_dir.x * Tuning.PAL_STUCK_ESCAPE_SPEED
+		velocity.z = _escape_dir.z * Tuning.PAL_STUCK_ESCAPE_SPEED
+		face(_escape_dir, delta, Tuning.PAL_TURN_SPEED)
+		return
+
 	var dir := point - global_position
 	dir.y = 0.0
 	if dir.length() < 0.01:
+		_stuck_time = 0.0
 		return
 	dir = dir.normalized()
+	_track_progress(dir, speed, delta)
 	velocity.x = dir.x * speed
 	velocity.z = dir.z * speed
 	face(dir, delta, Tuning.PAL_TURN_SPEED)
+
+
+## Compare ground covered since the previous call against what was asked for.
+## Measured only while a move is wanted, so a pal that arrived and stopped, or
+## one idling, can never accumulate stuck time.
+func _track_progress(dir: Vector3, speed: float, delta: float) -> void:
+	var here := global_position
+	here.y = 0.0
+	if _last_move_frame == Engine.get_physics_frames() - 1:
+		var moved := here.distance_to(_last_flat_position)
+		if moved < speed * delta * Tuning.PAL_STUCK_SPEED_FRACTION:
+			_stuck_time += delta
+			if _stuck_time >= Tuning.PAL_STUCK_TIME:
+				_begin_escape(dir)
+		else:
+			_stuck_time = 0.0
+	else:
+		# First move after a pause: no previous sample to compare against.
+		_stuck_time = 0.0
+	_last_flat_position = here
+	_last_move_frame = Engine.get_physics_frames()
+
+
+## Turn sharply off the blocked heading for a moment. The state is untouched,
+## so a fleeing pal is still fleeing and a follower still catches up; it only
+## loses control of the steering until the escape runs out.
+func _begin_escape(blocked_dir: Vector3) -> void:
+	_stuck_time = 0.0
+	_escape_time = Tuning.PAL_STUCK_ESCAPE_TIME
+	var turn := _rng.randf_range(Tuning.PAL_STUCK_TURN_MIN, Tuning.PAL_STUCK_TURN_MAX)
+	if _rng.randf() < 0.5:
+		turn = -turn
+	_escape_dir = blocked_dir.rotated(Vector3.UP, turn).normalized()
+	# A wandering pal would walk straight back into the same trunk, since its
+	# target is fixed; give it somewhere else to be.
+	if state == State.WANDER:
+		_enter_wander()
 
 
 func face(dir: Vector3, delta: float, speed: float) -> void:
@@ -793,6 +964,8 @@ func take_hit(from: Vector3) -> void:
 	if caught or dying:
 		return
 	hp -= player_punch_damage()
+	if _bar_back:
+		_refresh_bar()
 	Audio.play("hit", global_position)
 	var away := global_position - from
 	away.y = 0.0
@@ -818,6 +991,7 @@ func _die() -> void:
 	dying = true
 	if _label:
 		_label.visible = false
+	_set_bar_visible(false)
 	velocity = Vector3.ZERO
 	set_physics_process(false)
 	$Collision.set_deferred("disabled", true)
@@ -865,6 +1039,12 @@ func gain_level() -> void:
 	if _label:
 		_label.text = "Lv%d %s" % [level, display_name]
 		_label.position = Vector3.UP * Tuning.PAL_LABEL_HEIGHT * grow
+	if _bar_back:
+		_bar_back.position = Vector3.UP * (
+			Tuning.PAL_LABEL_HEIGHT * grow + Tuning.PAL_HEALTH_BAR_RISE * grow
+		)
+		_bar_fill.position = _bar_back.position
+		_refresh_bar()
 
 
 ## Called by the pal cube on a successful catch. Every catch pays the drop;
@@ -874,6 +1054,7 @@ func on_caught() -> void:
 	clear_aggro()
 	if _label:
 		_label.visible = false
+	_set_bar_visible(false)
 	_grant_drop()
 	Party.grant_xp(xp_worth())
 	Party.store(self)

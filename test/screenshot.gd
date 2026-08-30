@@ -89,6 +89,8 @@ func _init() -> void:
 
 	await _shoot_pal_gathering()
 
+	await _shoot_health_bars()
+
 	await _shoot_ui()
 
 	await _shoot_hud()
@@ -384,3 +386,32 @@ func _shoot_shallows() -> void:
 	_player.mount = null
 	_player._set_collision_enabled(true)
 	_player._set_shore_wall_enabled(true)
+
+
+## The floating health bar: one damaged pal close enough to show it, and the
+## same shot with the player walked away, which must show nothing but the
+## name. Neither is checkable any other way; the whole point is whether the
+## bar reads at a glance against the ground behind it.
+func _shoot_health_bars() -> void:
+	var pal = load("res://scenes/pal_wolf.tscn").instantiate()
+	_world.add_child(pal)
+	await process_frame
+	pal.global_position = _player.global_position + Vector3(3.0, 0.5, -3.0)
+	pal.max_hp = 6
+	pal.hp = 4
+	pal._refresh_bar()
+	for i in 10:
+		await physics_frame
+	await _shoot_at("29_health_bar_near", pal, Vector3(2.5, 1.4, 3.5))
+
+	# Same framing, player walked out of range: the bar must be gone.
+	var was := _player.global_position
+	_player.global_position = pal.global_position + Vector3(
+		0.0, 0.0, Tuning.PAL_HEALTH_BAR_DISTANCE + 15.0
+	)
+	for i in 20:
+		await physics_frame
+	await _shoot_at("30_health_bar_far", pal, Vector3(2.5, 1.4, 3.5))
+
+	_player.global_position = was
+	pal.queue_free()
