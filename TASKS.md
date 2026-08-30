@@ -26,6 +26,20 @@ Kept current as work lands.
 - [x] Catch chance shown in the HUD
 - [x] Overlay styling: shared styles in `ui/`, amber on dark, matching HUD,
       build menu and help
+- [x] Orientation settled for good: art is flipped at source by
+      scripts/tools/face_forward.py, game code uses plain Godot -Z forward.
+      test/orientation_test.gd covers facing, camera, throw and punch
+- [x] Thrown cubes solve a ballistic arc onto the crosshair, visible leaving
+      the shoulder
+- [x] Caught pals follow: the player lookup ran before the player existed
+- [x] Start with five cubes
+- [x] Island: bounded land, beach, water, palms, shells, shore wall
+- [x] Pal levels, HP, drops, live catch labels, duplicate-catch merging,
+      player XP, active-pal buffs
+- [x] Player health, death and respawn, aggro, Demon at the rim
+- [x] Endgame: altar key at level 4, stone circle, MushroomKing boss with
+      music, world darkening and glowing creatures
+- [x] Starlight wiki at ../godot-world-wiki
 - [x] Cactoro as a second species, 8 pals now, alternating
 - [x] Cube throw fixed: was aimed backwards after the camera rotation and
       arced over anything close. Hits from 3 to 12 units
