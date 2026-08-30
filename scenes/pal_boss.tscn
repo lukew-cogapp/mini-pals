@@ -11,6 +11,10 @@ height = 3.2
 collision_layer = 4
 script = ExtResource("1")
 display_name = "Mushroom King"
+; Level 10 growth already multiplies the scene's own bulk by 1.63, which put
+; the king near five times the player's height. Trimmed so he still towers
+; without filling the screen.
+model_scale = 0.85
 rideable = false
 aggressive = true
 drop_item = "kings_crown"
