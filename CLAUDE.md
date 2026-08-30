@@ -182,6 +182,17 @@ script, so a `before_all` fixture needs an explicit `after_all` calling
 still `extends SceneTree`. They are renderers and tools, not tests, and the
 `_test.gd` suffix filter leaves them alone.
 
+**A suite that is not `extends GutTest` is skipped, not failed.** GUT prints a
+warning nobody reads and exits 0. Eight suites written after the migration sat
+dead for hours that way, three of them mine. `run.sh` now greps for the line
+and refuses to start if any suite lacks it, so the failure is loud. Check the
+script count in the summary too: a suite that stops being discovered shows up
+there and nowhere else.
+
+**`run.sh`'s log path is not worktree-scoped.** Two agents running it at once
+clobber each other's log, and one has already read another's results as its
+own. Set an isolated `TMPDIR` when anything else might be running.
+
 **Wrap every test run in a wall-clock timeout.** A test awaiting something
 that never fires hangs forever, and no GDScript harness bounds it. This
 already burned 15 minutes on a test whose first assertion had failed. There
@@ -662,6 +673,32 @@ names kept only so headless tests can assert a sound fired.
 `take_follower_hit` deliberately still has NO knockback: it keeps a softened
 target inside cube range, and `juice2_test` guards that so the rival change
 cannot creep into it.
+
+## Assertions that pass while the thing is broken
+
+Four times today a fix shipped green and the bug was still visible on screen.
+Every one was the assertion measuring the wrong thing, not the fix being
+wrong, so these are worth carrying to any new check.
+
+**An origin is not a footprint.** The cave boulders sat exactly on
+`height_at` at their own origin and still floated: the glTF's visual bottom is
+5 cm below its origin while the mesh spans 4 to 7 m, and on a 0.72-per-metre
+slope the downhill edge hangs 3 to 5 m clear. Assert the extent, on a grid
+across the face, not a point. A corner check missed a roof showing through by
+half a metre while reporting 6.6 m of cover.
+
+**Frame the check where the player stands, not where the feature is.** A shot
+taken at the cave mouth passed twice while the structure was plainly broken
+from open grass 30 m away. `test/cave_shots.gd` orbits eight compass points at
+eye height for that reason; read several, because one angle lies.
+
+**Write the assertion first and watch it fail.** An assertion written after
+the fix proves the fix ran, not that it works. The cave was "fixed" twice
+before anyone did this.
+
+**A collider is not a mesh.** `backface_collision` on the trimesh made physics
+two-sided while the material stayed single-sided, so the player stood on a
+hill they could see through. Anything carved has to be carved in both.
 
 ## The cave
 
