@@ -212,3 +212,17 @@ const CUBE_AIM_DISTANCE := 16.0
 ## A handful to start with, so the first thing a player does can be to throw
 ## one rather than gather for a workbench they have not found yet.
 const STARTING_CUBES := 5
+
+## Following. The pal walks a trail of where the player has been rather than
+## chasing their current position, which reads as a companion instead of a
+## magnet, and sits off to one side so it is not underfoot.
+const FOLLOW_TRAIL_SPACING := 0.4
+const FOLLOW_TRAIL_LENGTH := 40
+const FOLLOW_SIDE_OFFSET := 1.3
+const FOLLOW_SLOW_RADIUS := 0.9
+const FOLLOW_ACCEL := 8.0
+
+## A pal that tops out below the player's run speed drifts back then sprints
+## to catch up. It speeds up with distance instead, up to this.
+const FOLLOW_CATCHUP_SPEED := 11.0
+const FOLLOW_CATCHUP_RADIUS := 7.0

@@ -129,7 +129,10 @@ glTF geometry is embedded, so there are no `.bin` sidecars. Godot imports
 
 Trees and rocks have collision. Rocks under `Tuning.STEP_HEIGHT` are stepped
 over, trees block. Step-up is a home-rolled probe in `player.gd`; Godot has no
-built-in stair stepping and the proposal for it is still open.
+built-in stair stepping and the proposal for it is still open. The shore wall
+is a generated ring of box colliders with each long side tangent to the shore;
+`test/water_bounds_test.gd` covers the gap between wall segments for walking
+and riding.
 
 Scatter is seeded (`Tuning.SCATTER_SEED`), so the world is identical each run.
 Change the seed for a new layout.
@@ -159,9 +162,12 @@ regen after a no-hit delay, and death -> respawn at the origin spawn with
 inventory and party kept and all pal aggro cleared. HUD shows a bar top-left.
 
 Pals fight back: punching one puts it in `State.ATTACK` (chase + hit on a
-cooldown) for `PAL_AGGRO_TIME`. Species with `aggressive = true` (the Demon,
+cooldown) for `PAL_AGGRO_TIME`. If it cannot land a hit for
+`PAL_NO_HIT_GIVE_UP_TIME`, it gives up; a successful `Player.damage()` or
+another player hit on the pal resets that timer. Species with `aggressive = true` (the Demon,
 `scenes/pal_demon.tscn`, spawned in an annulus at the map rim) attack on sight
-inside `PAL_AGGRO_RADIUS` and never flee. A caught pal never attacks.
+inside `PAL_AGGRO_RADIUS`; after giving up they wait for the player to leave
+and re-enter that radius before reacquiring. A caught pal never attacks.
 
 Every bug this project has hit was invisible on inspection and only showed up
 in a headless test: a cube flying over the target's head, a mount jammed at

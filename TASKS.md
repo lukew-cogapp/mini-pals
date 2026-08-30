@@ -15,6 +15,10 @@ Kept current as work lands.
 
 - [x] Catch sequence: pal shrinks into the cube, three shakes, particle burst,
       escape bursts the pal back out at full size
+- [x] Pals give up after five seconds without landing a hit; either side's
+      hit resets that timer, so running away breaks the chase
+- [x] Shore wall blocks walking and riding before the player reaches visible
+      water
 - [x] Endgame: altar key at level 4, stone circle, Mushroom King boss with
       music, world darkening and glowing creatures; catching it wins
 - [x] Player health, death and respawn; punched pals fight back and demons

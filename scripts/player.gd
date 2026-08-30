@@ -16,6 +16,32 @@ var _since_hit := 1000.0  ## Long ago, so regen is armed from the start.
 var _invuln := 0.0
 var _dead := false
 
+## Breadcrumbs of where we have walked, so a following pal has a path to
+## take rather than homing on us every frame.
+var trail: Array[Vector3] = []
+
+
+## The point on our trail roughly `distance` behind us, measured along the
+## path rather than by index, so it does not depend on how fast we were going
+## when the crumbs were dropped.
+func trail_point_at(distance: float) -> Vector3:
+	if trail.is_empty():
+		return global_position
+	var walked := global_position.distance_to(trail[-1])
+	for i in range(trail.size() - 1, 0, -1):
+		if walked >= distance:
+			return trail[i]
+		walked += trail[i].distance_to(trail[i - 1])
+	return trail[0]
+
+
+func _record_trail() -> void:
+	if trail.is_empty() or trail[-1].distance_to(global_position) > Tuning.FOLLOW_TRAIL_SPACING:
+		trail.append(global_position)
+		if trail.size() > Tuning.FOLLOW_TRAIL_LENGTH:
+			trail.pop_front()
+
+
 func _ready() -> void:
 	add_to_group("player")
 	_spawn = global_position
@@ -85,6 +111,7 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, 0.0, speed)
 
 	move_and_slide()
+	_record_trail()
 	_try_step_up(direction)
 	_animate(direction)
 

@@ -36,6 +36,7 @@ var _attack_cooldown := 0.0
 var _attack_without_hit := 0.0
 var _sight_aggro_suppressed := false
 var _rng := RandomNumberGenerator.new()
+var _side := 1.0
 var _player: Node3D:
 	get:
 		# Resolved on demand: pals are spawned before the player joins its
@@ -179,18 +180,43 @@ func _tick_flee(delta: float) -> void:
 func _tick_follow(delta: float) -> void:
 	if _player == null:
 		return
-	var gap := _flat_distance(_player.global_position)
-	if gap > Tuning.PAL_FOLLOW_DISTANCE:
-		# Aim for a spot short of the player, or momentum carries the pal
-		# into their heels every time they stop.
-		var toward := (_player.global_position - global_position)
-		toward.y = 0.0
-		var stop_at := _player.global_position - toward.normalized() * Tuning.PAL_FOLLOW_DISTANCE
-		_move_towards(stop_at, Tuning.PAL_FOLLOW_SPEED, delta)
+
+	# Walk the player's old footsteps rather than their current position, so
+	# the pal trails behind instead of homing in and snapping about.
+	var target: Vector3 = (
+		_player.trail_point_at(Tuning.PAL_FOLLOW_DISTANCE)
+		if _player.has_method("trail_point_at")
+		else _player.global_position
+	)
+	# Sit off to one side so the player does not walk through their own pal.
+	target += _player.global_transform.basis.x * _side * Tuning.FOLLOW_SIDE_OFFSET
+
+	var to_target := target - global_position
+	to_target.y = 0.0
+	var gap := to_target.length()
+
+	# Ease off as it arrives instead of stopping dead, which reads as a glitch.
+	var wanted := Vector3.ZERO
+	if gap > 0.15:
+		# Faster the further behind it is, so it closes without ever sprinting
+		# from a standstill.
+		var speed: float = lerpf(
+			Tuning.PAL_FOLLOW_SPEED,
+			Tuning.FOLLOW_CATCHUP_SPEED,
+			clampf(gap / Tuning.FOLLOW_CATCHUP_RADIUS, 0.0, 1.0),
+		)
+		if gap < Tuning.FOLLOW_SLOW_RADIUS:
+			speed *= maxf(gap / Tuning.FOLLOW_SLOW_RADIUS, 0.35)
+		wanted = to_target.normalized() * speed
+
+	velocity.x = move_toward(velocity.x, wanted.x, Tuning.FOLLOW_ACCEL * delta * 10.0)
+	velocity.z = move_toward(velocity.z, wanted.z, Tuning.FOLLOW_ACCEL * delta * 10.0)
+
+	var moving := Vector2(velocity.x, velocity.z).length()
+	if moving > 0.4:
+		face(Vector3(velocity.x, 0.0, velocity.z).normalized(), delta, Tuning.PAL_TURN_SPEED)
 		_play("Walk")
 	else:
-		velocity.x = 0.0
-		velocity.z = 0.0
 		_play("Idle")
 
 
@@ -450,6 +476,7 @@ func stow() -> void:
 
 
 func summon(at: Vector3) -> void:
+	_side = 1.0 if _rng.randf() < 0.5 else -1.0
 	global_position = at
 	visible = true
 	set_physics_process(true)
