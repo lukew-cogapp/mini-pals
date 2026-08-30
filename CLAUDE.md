@@ -332,8 +332,16 @@ The workbench (B nearby) crafts pal
 cubes from `Tuning.CUBE_RECIPE`; throwing consumes one from `Inventory`
 (autoload, `scripts/inventory.gd`).
 
-Holding the throw key aims: a reticule appears at screen centre showing the
-locked pal's name and catch %, and releasing throws. `_current_throw_aim`
+Aiming and firing are separate. Holding right mouse (action `aim`, left
+trigger) raises the reticule for free and releasing it cancels, so catch odds
+can be read without spending a cube; Q throws while it is held and the aim
+survives the throw, for a follow-up after a miss. Holding Q alone still aims
+and throws on release, the flow that shipped first, and `_aim_held` is what
+tells the release handler which of the two it is in. Aiming with an empty
+pouch is allowed: looking is free, and the throw itself says why nothing
+flew. `test/aim_test.gd` covers all of it.
+
+The reticule shows the locked pal's name and catch %. `_current_throw_aim`
 projects the ray from the active camera through the screen centre, prefers a
 pal within a lock radius that widens with distance
 (`CUBE_AIM_ASSIST_RADIUS` + `CUBE_AIM_ASSIST_GROWTH` per metre), and falls
@@ -531,6 +539,31 @@ becomes a one-hit kill), and the Mushroom King makes throws free
 (`Party.infinite_cubes()`, checked in `_begin_throw_aim` and `_throw_cube`;
 the HUD shows `INFINITE_CUBE_TEXT` rather than a stock count that would read
 as a broken zero). `test/pal_skills_test.gd` covers the last two.
+
+Middle click (action `pal_attack`, pad button 5) sends the active pal at
+whatever the reticule is over. The target comes from `_current_throw_aim`,
+the same raycast the throw uses, since `locked_pal` only exists while the
+throw key is held. `Pal.command_attack` reuses `State.DEFEND` rather than
+adding a state, so the chase, the swing and the `take_follower_hit` clamp are
+all the shipped ones and a commanded pal still cannot land the kill.
+`_command_time` is what makes it an order: while it runs `_defend_target` is
+the commanded one and `_find_defend_target` is not consulted, so a nearer
+hostile cannot steal the pal off its job. It ends on the target dying or
+being caught, the player passing `FOLLOWER_LEASH`, or `COMMAND_TIME`.
+`COMMAND_RANGE` (14) is measured from the player and sits inside
+`FOLLOWER_LEASH` (16), so a command the pal would abandon at the leash is
+refused with a message instead; the reticule reaches 30 m, which is the trap
+that constraint exists for. Every refusal flashes why. `test/pal_command_test.gd`
+covers it and asserts the range against the leash arithmetically.
+
+Left click also bites, alongside F and pad Y. Left click was removed from
+`throw` because `player.gd` recaptures the mouse on any click, so clicking
+back in after Escape spent a cube; with three mouse buttons now in gameplay
+actions that branch sits ABOVE them all in `_unhandled_input`. It gates on
+`player._mouse_free` rather than reading `Input.mouse_mode` back, which is
+not settable under the headless renderer and reads VISIBLE forever there.
+`test/input_map_test.gd` asserts the branch order and every action's event
+count, since a bad hand-edit to `[input]` has taken the whole map out before.
 
 A following pal does fight for you. In `State.DEFEND` it picks the nearest
 hostile (one in `State.ATTACK`, or an aggressive species within

@@ -180,6 +180,19 @@ const FOLLOWER_MIN_TARGET_HP := 1
 ## never strand it on the far side of the map.
 const FOLLOWER_LEASH := 16.0
 
+# --- Commanded attack ---
+## Middle click (action `pal_attack`) sends the active pal at whatever the
+## reticule is over. A command outranks the pal's own choice of hostile for
+## COMMAND_TIME, so it does not drop the order the moment something nearer
+## walks past; it still runs through take_follower_hit, so a commanded pal
+## cannot land the kill either.
+##
+## Range is measured from the PLAYER, and sits inside FOLLOWER_LEASH: a pal
+## sent further would break off at the leash the moment it set out, which
+## reads as the command being ignored.
+const COMMAND_RANGE := 14.0
+const COMMAND_TIME := 12.0
+
 # --- Demons ---
 const DEMON_COUNT := 12
 ## The scorched blob is one place on the island rather than a band around

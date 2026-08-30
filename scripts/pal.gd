@@ -73,6 +73,9 @@ var _sight_aggro_suppressed := false
 ## in either direction. See _die and _credit_player.
 var _credit := 0.0
 var _defend_target: Pal = null
+## Seconds left on a player-issued attack order. While it runs _defend_target
+## is the commanded one and _find_defend_target is not consulted.
+var _command_time := 0.0
 var _rival: Pal = null
 var _rival_scan := 0.0
 var _rival_fight := 0.0
@@ -805,20 +808,53 @@ func _find_defend_target() -> Pal:
 
 ## The target stops being worth fighting once it is dead, caught, calmed, or
 ## the player has walked far enough that following matters more.
+##
+## A commanded target skips the hostility test: the player picked it, and a
+## peaceable wolf would otherwise fail it on the first tick. Everything else
+## still applies, the leash included, so an order cannot strand the pal.
+## The order also runs out on its own timer, which is the backstop for a
+## target that neither dies nor is caught.
 func _defend_target_valid() -> bool:
-	return (
-		_defend_target != null
-		and is_instance_valid(_defend_target)
-		and _player != null
-		and _is_hostile(_defend_target)
-		and _flat_distance(_player.global_position) < Tuning.FOLLOWER_LEASH
-	)
+	if _defend_target == null or not is_instance_valid(_defend_target) or _player == null:
+		return false
+	if _flat_distance(_player.global_position) >= Tuning.FOLLOWER_LEASH:
+		return false
+	if _commanded():
+		return not _defend_target.caught and not _defend_target.dying
+	return _is_hostile(_defend_target)
+
+
+## Whether a player order is still running.
+func _commanded() -> bool:
+	return _command_time > 0.0
+
+
+## Send this pal at `target` on the player's order. Refused by anything that
+## is not an out, living, caught pal; the caller reports the refusal.
+func command_attack(target: Pal) -> bool:
+	# `visible` is what stow() sets; the collider it disables is deferred and
+	# so still reads as enabled on the frame the order arrives.
+	if not caught or dying or not visible or target == null or not is_instance_valid(target):
+		return false
+	if target == self or target.caught or target.dying:
+		return false
+	if _player == null or _player.global_position.distance_to(target.global_position) \
+			> Tuning.COMMAND_RANGE:
+		return false
+	_defend_target = target
+	_command_time = Tuning.COMMAND_TIME
+	_attack_cooldown = 0.0
+	_gather_target = null
+	state = State.DEFEND
+	return true
 
 
 func _tick_defend(delta: float) -> void:
 	_attack_cooldown = maxf(_attack_cooldown - delta, 0.0)
+	_command_time = maxf(_command_time - delta, 0.0)
 	if not _defend_target_valid():
 		_defend_target = null
+		_command_time = 0.0
 		state = State.FOLLOW
 		return
 
@@ -1111,6 +1147,7 @@ func _swing() -> bool:
 ## The player respawned (or caught us): forget the fight.
 func clear_aggro() -> void:
 	_aggro = 0.0
+	_command_time = 0.0
 	_attack_cooldown = 0.0
 	_attack_without_hit = 0.0
 	_sight_aggro_suppressed = false
@@ -1261,6 +1298,7 @@ func on_caught() -> void:
 ## wander state survive being put away.
 func stow() -> void:
 	state = State.IDLE
+	_command_time = 0.0
 	_defend_target = null
 	_rival = null
 	_gather_target = null
@@ -1275,6 +1313,7 @@ func summon(at: Vector3) -> void:
 	global_position = at
 	visible = true
 	set_physics_process(true)
+	_command_time = 0.0
 	$Collision.set_deferred("disabled", false)
 	_defend_target = null
 	_rival = null

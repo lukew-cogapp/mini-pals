@@ -105,13 +105,25 @@ text = "Look"
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(0.98, 0.82, 0.52, 1)
-text = "F"
+text = "Click / F"
 
 [node name="V4" type="Label" parent="Help/Pad/Col/Grid"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
 text = "Bite tree, rock or pal"
+
+[node name="K4b" type="Label" parent="Help/Pad/Col/Grid"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.98, 0.82, 0.52, 1)
+text = "Middle click"
+
+[node name="V4b" type="Label" parent="Help/Pad/Col/Grid"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
+text = "Send your pal at a target"
 
 [node name="K5" type="Label" parent="Help/Pad/Col/Grid"]
 layout_mode = 2
@@ -129,13 +141,25 @@ text = "Build menu (at bench)"
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(0.98, 0.82, 0.52, 1)
-text = "Q"
+text = "Right click"
 
 [node name="V6" type="Label" parent="Help/Pad/Col/Grid"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
-text = "Aim / throw pal cube"
+text = "Aim a pal cube (free)"
+
+[node name="K6b" type="Label" parent="Help/Pad/Col/Grid"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.98, 0.82, 0.52, 1)
+text = "Q"
+
+[node name="V6b" type="Label" parent="Help/Pad/Col/Grid"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
+text = "Throw while aiming (or hold Q)"
 
 [node name="K7" type="Label" parent="Help/Pad/Col/Grid"]
 layout_mode = 2

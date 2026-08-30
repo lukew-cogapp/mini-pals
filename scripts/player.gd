@@ -22,6 +22,17 @@ var _invuln := 0.0
 var _dead := false
 var _bite_left := 0.0  ## Seconds the bite clip still owns the rig.
 var _aiming_throw := false
+## Why we are aiming, which is what decides whether letting go of the throw
+## key spends a cube. Holding right mouse aims for free and Q fires; holding
+## Q alone still aims and throws on release, the flow that shipped first.
+## Without this the right-click release path would throw a cube the player
+## meant to cancel, which is the whole point of the feature.
+var _aim_held := false
+## Whether Escape has freed the mouse. Tracked rather than read back from
+## `Input.mouse_mode`, which is not settable at all under the headless
+## renderer and reads MOUSE_MODE_VISIBLE forever there, so every click would
+## take the recapture branch and no gameplay button would ever be seen.
+var _mouse_free := false
 var _throw_target := Vector3.ZERO
 var _throw_aim := Vector3.FORWARD
 var _shake := 0.0  ## Decaying camera shake strength; 0 means the arm sits at rest.
@@ -71,7 +82,7 @@ func _ready() -> void:
 	_spawn = global_position
 	hp = Tuning.PLAYER_MAX_HP
 	Hud.set_health(hp, Tuning.PLAYER_MAX_HP)
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_capture_mouse()
 	# The arm's shape cast would otherwise hit our own capsule and pull the
 	# camera into the player's head.
 	_arm.add_excluded_object(get_rid())
@@ -112,9 +123,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		)
 	elif event.is_action_pressed("ui_cancel"):
 		_cancel_throw_aim()
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_free_mouse()
+	elif event is InputEventMouseButton and _mouse_free:
+		# Clicking back into the window after Escape recaptures the mouse and
+		# does nothing else. It sits ABOVE the action branches on purpose:
+		# left click bites and middle click commands, and a recapture click
+		# that also swung is the bug that was removed from throwing.
+		_capture_mouse()
+	elif event.is_action_pressed("aim"):
+		_begin_aim()
+	elif event.is_action_released("aim"):
+		_end_aim()
 	elif event.is_action_pressed("throw"):
-		_begin_throw_aim()
+		_press_throw()
 	elif event.is_action_released("throw"):
 		_release_throw_aim()
 	elif event.is_action_pressed("ride"):
@@ -125,8 +146,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_cycle_party(-1)
 	elif event.is_action_pressed("punch"):
 		_punch()
-	elif event is InputEventMouseButton and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	elif event.is_action_pressed("pal_attack"):
+		_command_pal_attack()
 
 
 func _physics_process(delta: float) -> void:
@@ -268,18 +289,57 @@ func _respawn() -> void:
 
 ## --- Catching -------------------------------------------------------------
 
-func _begin_throw_aim() -> void:
-	if not Party.infinite_cubes() and Inventory.count("cube") <= 0:
-		Hud.flash("No pal cubes. Punch trees and rocks, then craft at the workbench.")
-		return
-	if Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+## Holding right mouse: the reticule comes up and nothing is spent. Looking
+## is free, so this does NOT refuse with an empty pouch: reading a pal's
+## catch odds is worth doing before you have a cube to act on it, and the
+## message on the throw itself is enough to say why nothing flew.
+func _capture_mouse() -> void:
+	_mouse_free = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _free_mouse() -> void:
+	_mouse_free = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _begin_aim() -> void:
+	_capture_mouse()
+	_aim_held = true
 	_aiming_throw = true
 	_update_throw_aim()
 
 
+## Letting go of right mouse cancels. Never a throw: that is the point.
+func _end_aim() -> void:
+	_aim_held = false
+	_cancel_throw_aim()
+
+
+## Q. While right mouse is held it fires straight away and stays aimed, so a
+## miss can be followed up without re-aiming. On its own it starts the old
+## hold-to-aim, throw-on-release flow.
+func _press_throw() -> void:
+	if _aim_held:
+		_update_throw_aim()
+		_throw_cube(_throw_target, _throw_aim)
+		return
+	_begin_throw_aim()
+
+
+func _begin_throw_aim() -> void:
+	if not Party.infinite_cubes() and Inventory.count("cube") <= 0:
+		Hud.flash("No pal cubes. Punch trees and rocks, then craft at the workbench.")
+		return
+	_capture_mouse()
+	_aiming_throw = true
+	_update_throw_aim()
+
+
+## Releasing Q throws only when Q is what started the aim. Under right mouse
+## the throw already happened on the press, and the aim outlives the key.
 func _release_throw_aim() -> void:
-	if not _aiming_throw:
+	if _aim_held or not _aiming_throw:
 		return
 	_update_throw_aim()
 	var target: Vector3 = _throw_target
@@ -292,6 +352,7 @@ func _cancel_throw_aim() -> void:
 	if not _aiming_throw:
 		return
 	_aiming_throw = false
+	_aim_held = false
 	locked_pal = null
 	Hud.set_reticule(false)
 
@@ -365,6 +426,36 @@ func _current_throw_aim() -> Dictionary:
 	var target := origin + aim * Tuning.CUBE_AIM_DISTANCE
 	target.y = minf(target.y, Tuning.CUBE_HALF_SIZE)
 	return {"origin": origin, "aim": aim, "target": target, "pal": null}
+
+
+## --- Commanding the active pal --------------------------------------------
+
+## Middle click: send the pal that is out at whatever the reticule is over.
+##
+## The reticule aim is recomputed here rather than read from `locked_pal`,
+## which only exists while the throw key is held down. `_current_throw_aim`
+## is the same raycast the throw uses, so the pal the command picks is the
+## one the crosshair would have cubed.
+##
+## Every refusal says why. A command that quietly found nothing is worse
+## than no command at all.
+func _command_pal_attack() -> void:
+	var pal := Party.active
+	if pal == null or not is_instance_valid(pal) or not pal.visible:
+		Hud.flash("No pal out. Cycle to one first.")
+		return
+	if pal == mount:
+		Hud.flash("%s cannot fight while you are riding it." % pal.display_name)
+		return
+	var target: Pal = _current_throw_aim().pal
+	if target == null:
+		Hud.flash("Nothing to attack. Aim at a wild pal.")
+		return
+	if not pal.command_attack(target):
+		Hud.flash("%s is too far away." % target.display_name)
+		return
+	Audio.play("bite", pal.global_position)
+	Hud.flash("%s attacks the %s!" % [pal.display_name, target.display_name])
 
 
 func _pal_under_reticule(origin: Vector3, aim: Vector3) -> Pal:
