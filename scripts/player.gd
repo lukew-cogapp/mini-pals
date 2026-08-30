@@ -56,8 +56,8 @@ func _physics_process(delta: float) -> void:
 		velocity.x = direction.x * speed
 		velocity.z = direction.z * speed
 		# Face travel direction rather than snapping instantly.
-		# Negated because -Z is forward in Godot, so atan2(x, z) would face away.
-		var target := atan2(-direction.x, -direction.z)
+		# Quaternius models put the face on +Z, so +Z leads, not Godot's -Z.
+		var target := atan2(direction.x, direction.z)
 		body.rotation.y = lerp_angle(body.rotation.y, target, Tuning.PLAYER_TURN_SPEED * delta)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, speed)

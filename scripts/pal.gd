@@ -117,7 +117,8 @@ func _move_towards(point: Vector3, speed: float, delta: float) -> void:
 
 
 func face(dir: Vector3, delta: float, speed: float) -> void:
-	var target := atan2(-dir.x, -dir.z)
+	# Quaternius models put the face on +Z, so +Z leads.
+	var target := atan2(dir.x, dir.z)
 	_model_root.rotation.y = lerp_angle(_model_root.rotation.y, target, speed * delta)
 
 

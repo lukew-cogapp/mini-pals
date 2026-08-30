@@ -38,10 +38,13 @@ Two conventions the owner asked for, worth keeping:
 `atan2(-dir.x, -dir.z)`. Using `atan2(x, z)` points it backwards; the tell is
 a model that moons you as you walk. Cost us one bug already.
 
-**Quaternius models already face Godot forward.** Import them and leave them
-alone. A 180 degree flip was added on a wrong inference from vertex counts and
-had to be reverted; screenshots settled it in one shot. Do not reason about
-model orientation from geometry, render it and look.
+**Quaternius models put the face on +Z**, the opposite of Godot's forward. Turn
+a model to face its travel direction with `atan2(dir.x, dir.z)`, NOT the
+`atan2(-x, -z)` that Godot's own convention implies. Both `player.gd` and
+`pal.gd` depend on this. Do not rotate the model scenes to compensate; that was
+tried, and it makes a model that looks right standing still and walks
+backwards. Never infer orientation from vertex counts or bone positions, both
+gave the wrong answer here. Render it and look.
 
 **`.tscn` sub-resources must be declared before the node that uses them.**
 A `SubResource("2")` referenced above its own `[sub_resource]` block fails with

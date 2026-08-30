@@ -17,6 +17,9 @@ Kept current as work lands. Newest changes at the top of each section.
 
 ## Done
 
+- [x] Resource HUD along the bottom: wood, stone, cubes
+- [x] Fix facing for real: models face +Z, so `atan2(x, z)`, verified by
+      screenshot from ahead of travel
 - [x] Sunset lighting: warm low sun, orange horizon, light fog
 - [x] Screenshot harness `test/screenshot.gd`, 9 angles including walk and jump
 - [x] Revert the wrong 180 degree model flip, models were already correct
