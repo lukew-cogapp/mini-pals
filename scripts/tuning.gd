@@ -15,10 +15,7 @@ const CAMERA_PITCH_MAX := 0.4
 ## Where the camera starts. Tilted down onto the ground ahead rather than out
 ## at the horizon, so what the player can walk into is on screen.
 const CAMERA_PITCH_START := -0.31
-const CAMERA_DISTANCE := 5.0
 
-# --- World ---
-const GROUND_SIZE := 120.0
 
 # --- Scenery scatter ---
 const SCATTER_SEED := 20260830
@@ -48,8 +45,6 @@ const PAL_FOLLOW_DISTANCE := 3.0
 const PAL_FOLLOW_SPEED := 6.0
 const PAL_COUNT := 20
 
-# --- Pal levels and combat ---
-const PAL_LEVEL_MIN := 1
 const PAL_LEVEL_MAX := 5
 const PAL_BASE_HP := 2
 const PAL_HP_PER_LEVEL := 1
@@ -318,8 +313,6 @@ const RIDE_DISMOUNT_CLEARANCE := 0.75
 const SUMMON_SIDE := 1.4
 const SUMMON_DISTANCE := 2.0
 
-# --- Camera feel ---
-const CAMERA_FOV := 60.0
 
 # --- Catch sequence ---
 const CATCH_SUCK_TIME := 0.25
@@ -422,8 +415,6 @@ const MINIMAP_PAL_ACTIVE_COLOR := Color(0.55, 0.85, 1.0)
 const MINIMAP_PAL_HOSTILE_COLOR := Color(0.9, 0.28, 0.24)
 const MINIMAP_PAL_DOT := 1.8
 const MINIMAP_PAL_ACTIVE_DOT := 3.2
-## Ash edge samples. The wobble is low frequency, so 48 already reads smooth.
-const MINIMAP_ASH_SEGMENTS := 48
 
 # --- Minimap fog of war ---
 ## Metres revealed around the player. A quarter of ISLAND_RADIUS (110), so

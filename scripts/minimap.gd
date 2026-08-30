@@ -149,21 +149,6 @@ func _terrain_at(point: Vector3) -> int:
 	return 0
 
 
-func _colour_at(point: Vector3) -> Color:
-	# A Control has no World3D of its own, so the zones are asked about the
-	# world the player is standing in.
-	if _player == null:
-		return Color(0, 0, 0, 0)
-	var world := _player.get_world_3d()
-	if Zone.is_inside(world, point, Zone.Kind.ASH):
-		return Tuning.MINIMAP_ASH_COLOR
-	if Zone.is_inside(world, point, Zone.Kind.LAND):
-		return Tuning.MINIMAP_LAND_COLOR
-	if Zone.is_inside(world, point, Zone.Kind.SHALLOW):
-		return Tuning.MINIMAP_SHALLOW_COLOR
-	return Color(0, 0, 0, 0)
-
-
 func _draw_altar() -> void:
 	if not is_revealed(Tuning.ALTAR_POS):
 		return

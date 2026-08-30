@@ -539,6 +539,11 @@ func _is_rival(other: Pal) -> bool:
 		and not other.dying
 		and other.visible
 		and other.display_name != display_name
+		# The King is a summoned event, not part of the ecology. Without this
+		# his own demon guard softens or kills him offscreen while the player
+		# walks over, spending the key on a fight that never happens.
+		and other.display_name != Tuning.INFINITE_CUBE_SPECIES
+		and display_name != Tuning.INFINITE_CUBE_SPECIES
 	)
 
 

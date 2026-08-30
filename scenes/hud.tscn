@@ -477,6 +477,7 @@ theme_override_constants/margin_right = 0
 theme_override_constants/margin_bottom = 0
 
 [node name="Map" type="Control" parent="MinimapPanel/MinimapPad"]
+clip_contents = true
 layout_mode = 2
 custom_minimum_size = Vector2(168, 168)
 mouse_filter = 2
