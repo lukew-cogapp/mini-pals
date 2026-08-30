@@ -61,6 +61,7 @@ func _ready() -> void:
 	# The arm's shape cast would otherwise hit our own capsule and pull the
 	# camera into the player's head.
 	_arm.add_excluded_object(get_rid())
+	pivot.rotation.x = Tuning.CAMERA_PITCH_START
 
 
 ## Shake moves the arm, not the pivot, so the arm's own collision cast still

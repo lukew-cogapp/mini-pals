@@ -12,6 +12,9 @@ const PLAYER_TURN_SPEED := 10.0
 const MOUSE_SENSITIVITY := 0.003
 const CAMERA_PITCH_MIN := -1.2
 const CAMERA_PITCH_MAX := 0.4
+## Where the camera starts. Tilted down onto the ground ahead rather than out
+## at the horizon, so what the player can walk into is on screen.
+const CAMERA_PITCH_START := -0.31
 const CAMERA_DISTANCE := 5.0
 
 # --- World ---
