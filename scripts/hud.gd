@@ -2,6 +2,7 @@ extends CanvasLayer
 ## Resource counts, the active pal, and transient messages.
 
 const MESSAGE_TIME := 2.5
+const MESSAGE_QUEUED_TIME := 1.4
 ## Always shown, in this order, so the middle of the bar does not reorder
 ## itself as items come and go.
 const CORE_ITEMS := ["wood", "stone", "cube"]
@@ -28,13 +29,17 @@ var _hurt_tween: Tween
 var _fade_tween: Tween
 var _fading := false
 var _icon_cache := {}
+## Catching a pal flashes the catch, the XP and sometimes a level in the same
+## frame. One label showing the last of them meant the catch was never read,
+## so they queue and take their turn instead.
+var _messages: Array[String] = []
 
 
 func _ready() -> void:
 	# Autoloaded, so the singleton name is how everything else reaches flash().
 	Inventory.changed.connect(_refresh)
 	Party.changed.connect(_refresh)
-	_timer.timeout.connect(func() -> void: _message.text = "")
+	_timer.timeout.connect(_next_message)
 	_message.text = ""
 	_help.visible = false
 	_reticule.visible = false
@@ -93,8 +98,25 @@ func fade_to(alpha: float, secs: float) -> void:
 
 
 func flash(text: String) -> void:
+	if _message.text == "":
+		_show_message(text)
+		return
+	if text != _message.text and not _messages.has(text):
+		_messages.append(text)
+
+
+func _next_message() -> void:
+	if _messages.is_empty():
+		_message.text = ""
+		return
+	_show_message(_messages.pop_front())
+
+
+func _show_message(text: String) -> void:
 	_message.text = text
-	_timer.start(MESSAGE_TIME)
+	# Queued messages get a shorter turn, so a catch and its XP do not leave
+	# the player waiting five seconds to see the world again.
+	_timer.start(MESSAGE_TIME if _messages.is_empty() else MESSAGE_QUEUED_TIME)
 
 
 func set_reticule(on: bool, text := "", locked := false) -> void:
