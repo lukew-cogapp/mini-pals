@@ -26,7 +26,7 @@ Press `/` in game for the same list.
 | Look | Mouse | Right stick |
 | Bite a tree, rock or pal | F | Y |
 | Build menu, at the workbench | B | B |
-| Aim and throw a pal cube (hold) | Q or left click | Right trigger |
+| Aim and throw a pal cube (hold) | Q | Right trigger |
 | Ride a caught pal | E | X |
 | Use altar / interact | R | D-pad up |
 | Swap active pal | Tab, 1, 3 | LB |
