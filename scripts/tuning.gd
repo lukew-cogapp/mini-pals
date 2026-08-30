@@ -58,10 +58,6 @@ const PAL_LEVEL_SCALE_STEP := 0.07
 const PAL_LABEL_HEIGHT := 2.0
 const PAL_LABEL_FONT_SIZE := 40
 const PAL_LABEL_OUTLINE := 10
-## Catch % joins the label only when looked at: wider and longer than punch
-## reach, so the number appears before the player commits to a throw.
-const CATCH_LABEL_FACING_DOT := 0.85
-const CATCH_LABEL_DISTANCE := 15.0
 
 # --- Player health ---
 const PLAYER_MAX_HP := 10.0
@@ -106,6 +102,8 @@ const PAL_BUFF_CAPS := {&"speed": 0.5, &"gather": 3.0}
 # --- Catching ---
 ## Horizontal lob pace; lower reads floatier and arcs higher.
 const CUBE_LOB_SPEED := 8.0
+const CUBE_AIM_ASSIST_RADIUS := 0.8
+const CUBE_AIM_ASSIST_GROWTH := 0.18
 const CUBE_LOB_TIME_MIN := 0.35  # Point-blank throws still get a visible arc.
 const CUBE_LOB_TIME_MAX := 1.4  # Long throws stay a lob, not a mortar shot.
 const CUBE_GRAVITY := 10.0
@@ -208,7 +206,7 @@ const CUBE_SPAWN_SIDE := 1.4
 
 ## Where the throw is aimed. The cube leaves the shoulder but converges here,
 ## so the side offset is visual and does not send it wide.
-const CUBE_AIM_DISTANCE := 16.0
+const CUBE_AIM_DISTANCE := 30.0
 
 ## A handful to start with, so the first thing a player does can be to throw
 ## one rather than gather for a workbench they have not found yet.

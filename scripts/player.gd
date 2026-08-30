@@ -6,6 +6,7 @@ const CUBE_SCENE := preload("res://scenes/pal_cube.tscn")
 
 @onready var pivot: Node3D = $CameraPivot
 @onready var body: Node3D = $Body
+@onready var _camera: Camera3D = $CameraPivot/SpringArm3D/Camera3D
 @onready var _anim: AnimationPlayer = _find_anim(body)
 
 var mount: Pal = null  ## The pal we are riding, if any.
@@ -15,6 +16,9 @@ var _spawn := Vector3.ZERO
 var _since_hit := 1000.0  ## Long ago, so regen is armed from the start.
 var _invuln := 0.0
 var _dead := false
+var _aiming_throw := false
+var _throw_target := Vector3.ZERO
+var _throw_aim := Vector3.FORWARD
 
 ## Breadcrumbs of where we have walked, so a following pal has a path to
 ## take rather than homing on us every frame.
@@ -64,9 +68,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			Tuning.CAMERA_PITCH_MAX,
 		)
 	elif event.is_action_pressed("ui_cancel"):
+		_cancel_throw_aim()
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event.is_action_pressed("throw"):
-		_throw_cube()
+		_begin_throw_aim()
+	elif event.is_action_released("throw"):
+		_release_throw_aim()
 	elif event.is_action_pressed("ride"):
 		_toggle_ride()
 	elif event.is_action_pressed("cycle_pal") or event.is_action_pressed("pal_next"):
@@ -81,6 +88,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	_tick_health(delta)
+	if _aiming_throw:
+		_update_throw_aim()
 	if mount:
 		_ride(delta)
 		return
@@ -182,6 +191,7 @@ func damage(amount: float, from_position: Vector3) -> bool:
 
 func _die() -> void:
 	_dead = true
+	_cancel_throw_aim()
 	if mount:
 		_dismount(true)
 	velocity = Vector3.ZERO
@@ -211,41 +221,123 @@ func _respawn() -> void:
 
 ## --- Catching -------------------------------------------------------------
 
-func _throw_cube() -> void:
-	if not Inventory.remove("cube", 1):
+func _begin_throw_aim() -> void:
+	if Inventory.count("cube") <= 0:
 		Hud.flash("No pal cubes. Punch trees and rocks, then craft at the workbench.")
 		return
+	if Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_aiming_throw = true
+	_update_throw_aim()
+
+
+func _release_throw_aim() -> void:
+	if not _aiming_throw:
+		return
+	_update_throw_aim()
+	var target: Vector3 = _throw_target
+	var aim: Vector3 = _throw_aim
+	_cancel_throw_aim()
+	_throw_cube(target, aim)
+
+
+func _cancel_throw_aim() -> void:
+	if not _aiming_throw:
+		return
+	_aiming_throw = false
+	Hud.set_reticule(false)
+
+
+func _update_throw_aim() -> void:
+	var info: Dictionary = _current_throw_aim()
+	_throw_target = info.target
+	_throw_aim = info.aim
+	var pal := info.pal as Pal
+	var text := ""
+	if pal:
+		text = "%s %d%%" % [pal.display_name, roundi(pal.catch_chance() * 100.0)]
+	Hud.set_reticule(true, text, pal != null)
+
+
+func _throw_cube(target: Variant = null, aim: Variant = null) -> bool:
+	if not Inventory.remove("cube", 1):
+		Hud.flash("No pal cubes. Punch trees and rocks, then craft at the workbench.")
+		return false
 	Audio.play("throw", global_position)
 	var cube := CUBE_SCENE.instantiate()
 	get_parent().add_child(cube)
-	# Cameras look along -Z, so this is where the crosshair points, and the
-	# pivot sits on the camera's centre ray, so the aim ray starts there.
-	var aim := -pivot.global_transform.basis.z
-	var target := _aim_target(pivot.global_position, aim)
+	if target == null or aim == null:
+		var info: Dictionary = _current_throw_aim()
+		target = info.target
+		aim = info.aim
+	var aim_dir := (aim as Vector3).normalized()
 	# Thrown from the shoulder so the cat's body does not hide it; the lob
 	# converges on the aim point, so the offset cannot cause a miss.
 	var from := (
 		global_position
 		+ Vector3.UP * Tuning.CUBE_SPAWN_HEIGHT
-		+ aim * Tuning.CUBE_SPAWN_FORWARD
+		+ aim_dir * Tuning.CUBE_SPAWN_FORWARD
 		+ pivot.global_transform.basis.x * Tuning.CUBE_SPAWN_SIDE
 	)
-	cube.throw(from, _lob_velocity(from, target))
+	cube.throw(from, _lob_velocity(from, target as Vector3))
 	cube.resolved.connect(_on_cube_resolved)
+	return true
 
 
-## Where the crosshair ray lands: the first pal or obstacle it crosses.
-## With nothing in the way, a ground point at max range, so the throw is
-## always a lob that comes down, never a line drive into the sky.
-func _aim_target(origin: Vector3, aim: Vector3) -> Vector3:
+## Where the screen-centre reticule lands: the first pal or obstacle the
+## active camera sees. With nothing in the way, aim at the ground at max range.
+func _current_throw_aim() -> Dictionary:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		cam = _camera
+	var centre := get_viewport().get_visible_rect().size * 0.5
+	var origin := cam.project_ray_origin(centre)
+	var aim := cam.project_ray_normal(centre).normalized()
+	var exclude := [get_rid()]
+	if mount:
+		exclude.append(mount.get_rid())
+	var pal := _pal_under_reticule(origin, aim)
+	if pal:
+		return {
+			"origin": origin,
+			"aim": aim,
+			"target": pal.get_node("Collision").global_position,
+			"pal": pal,
+		}
 	var ray := PhysicsRayQueryParameters3D.create(
-		origin, origin + aim * Tuning.CUBE_AIM_DISTANCE, 0b101, [get_rid()])
+		origin, origin + aim * Tuning.CUBE_AIM_DISTANCE, 0b101, exclude)
 	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
 	if hit:
-		return hit.position
+		pal = hit.collider as Pal
+		var target: Vector3 = hit.position
+		if pal and pal.has_node("Collision"):
+			target = pal.get_node("Collision").global_position
+		return {"origin": origin, "aim": aim, "target": target, "pal": pal}
 	var target := origin + aim * Tuning.CUBE_AIM_DISTANCE
 	target.y = minf(target.y, Tuning.CUBE_HALF_SIZE)
-	return target
+	return {"origin": origin, "aim": aim, "target": target, "pal": null}
+
+
+func _pal_under_reticule(origin: Vector3, aim: Vector3) -> Pal:
+	var best: Pal = null
+	var best_along := Tuning.CUBE_AIM_DISTANCE
+	for node in get_tree().get_nodes_in_group("pal"):
+		var pal := node as Pal
+		if pal == null or pal == mount or pal.caught or pal.dying or not pal.visible:
+			continue
+		var centre: Vector3 = pal.get_node("Collision").global_position \
+			if pal.has_node("Collision") else pal.global_position
+		var to_pal := centre - origin
+		var along := to_pal.dot(aim)
+		if along < 0.0 or along > Tuning.CUBE_AIM_DISTANCE:
+			continue
+		var off_ray := (to_pal - aim * along).length()
+		var lock_radius: float = Tuning.CUBE_AIM_ASSIST_RADIUS \
+			+ along * Tuning.CUBE_AIM_ASSIST_GROWTH
+		if off_ray <= lock_radius and along < best_along:
+			best = pal
+			best_along = along
+	return best
 
 
 ## Ballistic launch velocity through `target` under the cube's gravity.

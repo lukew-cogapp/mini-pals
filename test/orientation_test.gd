@@ -93,48 +93,81 @@ func _test_turn_maths() -> void:
 
 
 ## A cube lobbed with the crosshair on a pal must hit it at each distance.
-func _test_cube_hits(target: Node3D) -> void:
+func _test_cube_hits(_target: Node3D) -> void:
 	_player.global_position = Vector3(0, 1, 0)
 	_player.velocity = Vector3.ZERO
 	var pivot: Node3D = _player.get_node("CameraPivot")
 	for i in 30:
 		await physics_frame  # Settle onto the ground; throws sample position.
-	for d in [3.0, 5.0, 8.0, 11.0, 14.0]:
+	var cases := [
+		["3m ahead", Vector3(0.0, 0.02, -3.0)],
+		["5m ahead", Vector3(0.0, 0.02, -5.0)],
+		["8m ahead", Vector3(0.0, 0.02, -8.0)],
+		["11m ahead", Vector3(0.0, 0.02, -11.0)],
+		["14m ahead", Vector3(0.0, 0.02, -14.0)],
+		["6m ahead right", Vector3(1.6, 0.02, -6.0)],
+		["6m ahead left", Vector3(-1.6, 0.02, -6.0)],
+	]
+	var party := get_root().get_node("Party")
+	for case in cases:
+		party.members.clear()
+		party.active = null
+		var target: Node3D = load("res://scenes/pal_wolf.tscn").instantiate()
+		_world.add_child(target)
+		await process_frame
+		target.set_physics_process(false)
 		# A settled pal rests with its capsule bottom on the ground (root y=0),
 		# so its centre is the collider's local offset above that.
-		target.global_position = Vector3(0, 0.02, -d)
+		target.global_position = case[1]
 		await physics_frame
 		var centre: Vector3 = target.get_node("Collision").global_position
 		pivot.look_at(centre, Vector3.UP)  # Crosshair on the pal.
+		await physics_frame
+		var info: Dictionary = _player._current_throw_aim()
+		var reticule_origin: Vector3 = info.origin
+		var reticule_aim: Vector3 = info.aim
+		var to_reticule: Vector3 = centre - reticule_origin
+		var along_reticule: float = to_reticule.dot(reticule_aim)
+		var off_reticule: float = (to_reticule - reticule_aim * along_reticule).length()
+		var lock_radius: float = Tuning.CUBE_AIM_ASSIST_RADIUS \
+			+ along_reticule * Tuning.CUBE_AIM_ASSIST_GROWTH
+		_check("reticule locks %s" % case[0], info.pal == target,
+			"pal=%s off=%.2f lock=%.2f along=%.2f target=%s" % [
+				info.pal,
+				off_reticule,
+				lock_radius,
+				along_reticule,
+				info.target,
+			])
 		var cube: Area3D = load("res://scenes/pal_cube.tscn").instantiate()
 		_world.add_child(cube)
-		# The test wants the geometry, not the capture cinematic.
-		cube.body_entered.disconnect(cube._on_body_entered)
 		var hit := [false]
-		cube.body_entered.connect(func(b: Node3D) -> void:
-			if b == target:
+		cube.resolved.connect(func(pal: Node, _success: bool) -> void:
+			if pal == target:
 				hit[0] = true)
 		# The same maths _throw_cube uses, minus inventory and cinematics.
-		var aim: Vector3 = -pivot.global_transform.basis.z
+		var aim: Vector3 = info.aim
 		var from: Vector3 = (
 			_player.global_position
 			+ Vector3.UP * Tuning.CUBE_SPAWN_HEIGHT
 			+ aim * Tuning.CUBE_SPAWN_FORWARD
 			+ pivot.global_transform.basis.x * Tuning.CUBE_SPAWN_SIDE
 		)
-		var goal: Vector3 = _player._aim_target(pivot.global_position, aim)
+		var goal: Vector3 = info.target
 		cube.throw(from, _player._lob_velocity(from, goal))
 		var closest := INF
-		for i in 150:
+		for i in 240:
 			await physics_frame
 			if hit[0]:
 				break
 			if is_instance_valid(cube):
 				closest = minf(closest, cube.global_position.distance_to(centre))
-		_check("cube hits pal %.0fm ahead" % d, hit[0],
+		_check("cube hits pal %s" % case[0], hit[0],
 			"closest approach %.2fm" % closest)
 		if is_instance_valid(cube):
 			cube.queue_free()
+		if is_instance_valid(target):
+			target.queue_free()
 		await physics_frame
 	pivot.rotation = Vector3.ZERO
 

@@ -151,11 +151,24 @@ Trees and rocks are gatherable (`scripts/resource_node.gd`, groups
 cubes from `Tuning.CUBE_RECIPE`; throwing consumes one from `Inventory`
 (autoload, `scripts/inventory.gd`).
 
-Throws are ballistic lobs: `_aim_target` raycasts the crosshair from the
-CameraPivot along `-basis.z` (pals + world, mask `0b101`), and
-`_lob_velocity` solves the launch velocity through that point under
-`CUBE_GRAVITY`, so the shoulder spawn offset cannot cause a miss.
+Holding the throw key aims: a reticule appears at screen centre showing the
+locked pal's name and catch %, and releasing throws. `_current_throw_aim`
+projects the ray from the active camera through the screen centre, prefers a
+pal within a lock radius that widens with distance
+(`CUBE_AIM_ASSIST_RADIUS` + `CUBE_AIM_ASSIST_GROWTH` per metre), and falls
+back to a world raycast (mask `0b101`), then to the ground at
+`CUBE_AIM_DISTANCE`. That distance is measured from the camera, not the
+player, so it must exceed the intended catch range by the camera's arm
+length. `_lob_velocity` solves the launch velocity through the aim point
+under `CUBE_GRAVITY`, so the shoulder spawn offset cannot cause a miss.
 `CUBE_LOB_SPEED` is the feel knob: lower is floatier and higher-arcing.
+A fast cube can tunnel past a pal between frames, so `pal_cube.gd` also
+raycasts its own step each frame rather than relying on `body_entered`.
+
+Dismounting probes four directions around the mount for a spot clear of
+geometry and inside `SHORE_WALL_RADIUS`, and refuses with a message if none
+is safe. Death dismounts with `force`, which accepts an unsafe spot rather
+than trapping the player on a corpse.
 
 Player health: `player.gd` has `hp` and `damage(amount, from_position)`,
 regen after a no-hit delay, and death -> respawn at the origin spawn with

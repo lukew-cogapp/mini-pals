@@ -10,6 +10,8 @@ const MESSAGE_TIME := 2.5
 @onready var _health_fill: ColorRect = $Health/Fill
 @onready var _health_value: Label = $Health/Value
 @onready var _fade: ColorRect = $Fade
+@onready var _reticule: Control = $Reticule
+@onready var _reticule_label: Label = $Reticule/Label
 
 var _health_width := 0.0
 
@@ -21,6 +23,7 @@ func _ready() -> void:
 	_timer.timeout.connect(func() -> void: _message.text = "")
 	_message.text = ""
 	_help.visible = false
+	_reticule.visible = false
 	_health_width = _health_fill.size.x
 	_refresh()
 
@@ -44,6 +47,16 @@ func fade_to(alpha: float, secs: float) -> void:
 func flash(text: String) -> void:
 	_message.text = text
 	_timer.start(MESSAGE_TIME)
+
+
+func set_reticule(on: bool, text := "", locked := false) -> void:
+	_reticule.visible = on
+	if not on:
+		return
+	_reticule.modulate = Color(1.0, 0.82, 0.35, 1.0) if locked \
+		else Color(1.0, 0.96, 0.86, 0.8)
+	_reticule_label.text = text
+	_reticule_label.visible = text != ""
 
 
 func _refresh() -> void:

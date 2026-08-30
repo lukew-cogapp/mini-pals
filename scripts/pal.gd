@@ -74,27 +74,13 @@ func _make_label(grow: float) -> void:
 	add_child(_label)
 
 
-## The catch % rides the label only while the camera points this way, so the
-## number the cube would roll against is visible before the throw.
 func _update_label() -> void:
 	if _label == null:
 		return
 	if caught or dying:
 		_label.visible = false
 		return
-	var text := "Lv%d %s" % [level, display_name]
-	var cam := get_viewport().get_camera_3d()
-	if cam and _in_camera_cone(cam):
-		text += "  %d%%  +%d XP" % [roundi(catch_chance() * 100.0), xp_worth()]
-	_label.text = text
-
-
-func _in_camera_cone(cam: Camera3D) -> bool:
-	var to := global_position - cam.global_position
-	if to.length() > Tuning.CATCH_LABEL_DISTANCE:
-		return false
-	# Cameras look along -Z regardless of the model-facing conventions.
-	return to.normalized().dot(-cam.global_transform.basis.z) > Tuning.CATCH_LABEL_FACING_DOT
+	_label.text = "Lv%d %s" % [level, display_name]
 
 
 func _find_anim(n: Node) -> AnimationPlayer:

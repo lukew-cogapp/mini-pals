@@ -133,7 +133,7 @@ text = "Q or click"
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
-text = "Throw pal cube"
+text = "Aim / throw pal cube"
 
 [node name="K7" type="Label" parent="Help/Pad/Col/Grid"]
 layout_mode = 2
@@ -215,6 +215,66 @@ text = "Wood 0     Stone 0     Cubes 0"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 24
 theme_override_colors/font_color = Color(1, 0.96, 0.9, 1)
+
+[node name="Reticule" type="Control" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -80.0
+offset_top = -44.0
+offset_right = 80.0
+offset_bottom = 56.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Left" type="ColorRect" parent="Reticule"]
+offset_left = 40.0
+offset_top = 42.0
+offset_right = 68.0
+offset_bottom = 46.0
+color = Color(1, 1, 1, 1)
+
+[node name="Right" type="ColorRect" parent="Reticule"]
+offset_left = 92.0
+offset_top = 42.0
+offset_right = 120.0
+offset_bottom = 46.0
+color = Color(1, 1, 1, 1)
+
+[node name="Top" type="ColorRect" parent="Reticule"]
+offset_left = 78.0
+offset_top = 12.0
+offset_right = 82.0
+offset_bottom = 36.0
+color = Color(1, 1, 1, 1)
+
+[node name="Bottom" type="ColorRect" parent="Reticule"]
+offset_left = 78.0
+offset_top = 52.0
+offset_right = 82.0
+offset_bottom = 76.0
+color = Color(1, 1, 1, 1)
+
+[node name="Dot" type="ColorRect" parent="Reticule"]
+offset_left = 76.0
+offset_top = 40.0
+offset_right = 84.0
+offset_bottom = 48.0
+color = Color(1, 1, 1, 1)
+
+[node name="Label" type="Label" parent="Reticule"]
+offset_top = 76.0
+offset_right = 160.0
+offset_bottom = 102.0
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(1, 0.93, 0.7, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
+theme_override_constants/outline_size = 6
 
 [node name="Message" type="Label" parent="."]
 anchors_preset = 7
