@@ -789,27 +789,48 @@ necessarily breaks the grass at the opening, so the burial assertion exempts
 the first `CAVE_APRON` metres and the sightline assertion exempts eyes inside
 `CAVE_SIGHT_MOUTH_DOT` of straight ahead. Everything else must be buried.
 
-**The hill mesh AND its collider are both carved** (`_carve_mesh`,
-`_hill_shape`, sharing `_inside_cave`). A solid hill collider walls the buried
-chamber off; a capsule at floor height hits `HillBody` before it reaches the
-back. And once the hill material is two-sided the mesh has to lose the same
-triangles, or the doorway is covered by hillside the player walks through. The
-carve must cover the approach cutting as well (negative `along`), or the
-walk-in is sealed by ground you can see straight through. Do NOT add margin
-across: widening there drops hill triangles beside the doorway under intact
-visible grass, and the player falls through it.
+**The cave is cut from the hill by a CSG boolean.** Each hill is a
+`CSGCombiner3D` with `use_collision`, and `_carve_cave` subtracts one
+`CSGBox3D` running from the back wall out through the flank as the approach
+cutting. One description of the cavity: the doorway in the drawn mesh and the
+hole in the collider are the same boolean result and cannot disagree. The old
+approach carved both by hand (`_inside_cave` dropped whole hill triangles;
+slabs replaced them), and every mismatch between the two copies was a hole the
+player fell through. It also could not work at this resolution: 32 segments
+around a ~200 m circumference is over 6 m per triangle against a 9 m cave, so
+the carve tore a ragged star out of the hillside around the mouth.
 
-**The hill material is `CULL_DISABLED`, matching `backface_collision` on its
-shape.** This one was upstream of everything else and cost the most time. The
-winding is correct (measured: 736 of 768 triangles face up, the rest are
-degenerate slivers at the apex), so this is not a fix for an inverted dome. It
-is needed because the cave puts the player inside the hill, and a single-sided
-dome seen from within disappears. While it was single-sided the dome simply
-vanished over the cave and that hole read as the mouth by accident, which is
-why the chamber appeared to float in mid-air, why the roof looked like a slab
-lying on the grass from overhead, and why two rounds of moving boulders up and
-down changed nothing. If geometry near the hill looks like it is floating,
-check that you are not seeing through the hill before touching the geometry.
+**CSG booleans a closed manifold and nothing else.** An open surface through
+`CSGMesh3D` yields a mesh of ZERO faces, and with `use_collision` that is no
+collider either: the hill vanishes from the frame and the physics together,
+with nothing printed. The dome alone is an open bowl, so `_underside` closes
+it with a floor fan at `-HILL_BASE_DEPTH` (below the cave floor, or the base
+plane slices the chamber out of the solid) plus a rim wall. The rim's top must
+be the dome's OWN edge height via `_surface_point`, not zero: a neighbouring
+mound's skirt lifts `HILLS[0]`'s rim to y 0.014, and a rim wall built to a
+flat zero leaves a crack of exactly that size all the way round, the solid is
+open, and the whole hill silently disappears again.
+
+**CSG's front face is wound counter-clockwise seen from outside, the reverse
+of the winding the renderer alone wants.** Wound the render way, the solid is
+inside-out: it booleans fine, it rendered fine (the hill material was
+two-sided at the time), and its collider stops nothing arriving from outside,
+so all four hills looked perfect in every shot while the player walked
+straight through them. Measured: apex normal (0, -1, 0), all 832 triangles
+present in the collision shape, rays hitting only their back sides. The hills
+are wound CCW-from-above throughout and the material is back on normal
+culling, so an inverted solid is now visibly missing rather than silently
+intangible. `test/hill_collider_test.gd` ray-grids every hill against
+`height_at` with no ground plane under it, and fails on the inverted winding.
+
+**Slabs must overlap the hole they floor** (`CAVE_SLAB_OVERLAP`). A slab
+exactly as wide as the cut meets it along a plane, and a body standing on that
+seam is over neither surface; the excess runs under intact hill and does
+nothing. `test/cave_fall_test.gd` drives a real CharacterBody3D down the
+approach at every speed and offset, and ray-grids the cutting from a metre
+above the floor, asserting the HEIGHT each ray hits: the island's flat ground
+at y = 0 is under every point on the map, so "a ray hit something" passes at
+full speed while the player falls four metres.
 
 **Buried slabs must not cast shadows.** They sit metres inside the hill and
 nothing draws them, but their shadow lands on the hillside above and reads as

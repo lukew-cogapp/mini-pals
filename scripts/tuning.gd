@@ -766,6 +766,10 @@ const HILL_SHADE_REFERENCE := 18.0
 ## Sits on the far side of the island from the spawn, so finding it is a
 ## walk rather than something you trip over on the way out of camp.
 const CAVE_POS := Vector3(-46.0, 0.0, -30.0)
+## Which mound in HILLS the cave is dug into. Only that one is carved, so a
+## CAVE_POS moved off this hill would cut a hole in open air and leave the
+## chamber walled in; `terrain_test.gd` asserts the two still agree.
+const CAVE_HILL := 0
 ## Which way the mouth faces, in radians about Y. Pointed back towards the
 ## spawn so the opening is visible on the approach rather than round the
 ## back of the hill.
@@ -848,6 +852,10 @@ const CAVE_SIGHT_MOUTH_DOT := 0.6
 ## above the doorway's grass, and the floor comes out level with the ground
 ## about CAVE_RAMP metres out, which is what makes the cutting work.
 const CAVE_SINK := 5.0
+## How far a mound's solid extends below the ground plane. The dome is closed
+## into a solid so CSG can subtract the cave from it, and the base has to
+## clear the cave floor, which sits CAVE_SINK under the grass.
+const HILL_BASE_DEPTH := CAVE_SINK + 6.0
 ## Length of the approach cutting outside the mouth. Chosen so its outer end
 ## meets the hill surface at the player's feet: at CAVE_SINK 5 the ground
 ## CAVE_RAMP metres out from the mouth is level with the chamber floor, so
@@ -867,10 +875,15 @@ const CAVE_WALL := 1.0
 ## it by 4 m, so the apron is where the opening stops and the hill starts.
 const CAVE_COVER := 2.0
 const CAVE_APRON := 4.0
-## How far past the chamber's own walls the hill collider is opened up. The
-## hill is one trimesh and a triangle is dropped whole or not at all, so a
-## face straddling a wall would otherwise leave a lip across the doorway.
+## How far the CSG cut runs on past the approach cutting's outer end, so the
+## cut's end face lands in open air rather than leaving a skin of hill across
+## the walk-in.
 const CAVE_CARVE_MARGIN := 1.5
+## How far the floor slabs extend past the hole they floor, on every side. A
+## slab exactly as wide as the cut meets it along a plane, and a body standing
+## on that seam is over neither surface. The excess is buried under intact
+## hill and does nothing.
+const CAVE_SLAB_OVERLAP := 1.5
 ## The dark. One low, cold omni light deep in the hollow rather than no
 ## light at all: pitch black reads as a bug, a dim glow reads as a cave.
 const CAVE_LIGHT_ENERGY := 0.85

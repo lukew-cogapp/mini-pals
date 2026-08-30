@@ -2,10 +2,11 @@ class_name Terrain
 extends Node3D
 ## Hand-placed mounds and one cave, sitting on the island's flat ground plane.
 ##
-## The plane stays. Every mound is a dome of its own with its own trimesh
-## collider, so the shore wall, the zones, the swim sink and the seeded
-## scatter all still work against a flat y = 0 world and only the things that
-## actually stand on a slope have to know about one.
+## The plane stays. Every mound is a CSG solid of its own with a collider
+## derived from the same boolean result it renders, so the shore wall, the
+## zones, the swim sink and the seeded scatter all still work against a flat
+## y = 0 world and only the things that actually stand on a slope have to
+## know about one.
 ##
 ## `height_at` is the interface the rest of the game uses. It is arithmetic
 ## on Tuning.HILLS rather than a raycast, because the world is built inside
@@ -57,12 +58,12 @@ func _ready() -> void:
 	_distant_islands()
 
 
-## One mound, as a mesh and a matching trimesh body.
+## One mound, as a closed CSG solid.
 ##
-## The collider is built from the same vertices as the mesh rather than from
-## a primitive, so what the player walks on is exactly what they see. Trimesh
-## is the slowest 3D shape in Godot and static-only, which is fine here: a
-## mound is level geometry and never moves.
+## The dome is closed with `_underside` into a manifold, because CSG booleans
+## a closed manifold and nothing else, and `use_collision` derives the
+## collider from the boolean result, so what the player walks on is exactly
+## what they see, cave cut included.
 func _mound(index: int, hill: Array) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -81,133 +82,130 @@ func _mound(index: int, hill: Array) -> void:
 				_surface_point(centre, r1, a1),
 				_surface_point(centre, r0, a1),
 			]
-			# Two triangles, wound so the dome faces up. The other winding
-			# leaves the hill invisible from anywhere a player stands.
-			for v in [quad[0], quad[2], quad[1]]:
+			# Two triangles, wound counter-clockwise seen from above, which
+			# is the winding CSG treats as facing OUT. It is the reverse of
+			# what the renderer alone would want, and getting it backwards
+			# turns the solid inside-out: the collider stops nothing arriving
+			# from outside, and while the hill material was two-sided that
+			# was invisible on screen, every hill rendering perfectly and
+			# walked straight through. Measured: the inverted brush's apex
+			# normal was (0, -1, 0) and a downward ray passed through the
+			# dome to the base floor. hill_collider_test.gd holds this.
+			for v in [quad[0], quad[1], quad[2]]:
 				_vertex(st, v, hill[3])
-			for v in [quad[0], quad[3], quad[2]]:
+			for v in [quad[0], quad[2], quad[3]]:
 				_vertex(st, v, hill[3])
+
+	_underside(st, centre, radius, hill[3])
 
 	st.generate_normals()
-	var mesh := _carve_mesh(st.commit())
+	var mesh := st.commit()
 
-	var node := MeshInstance3D.new()
-	node.name = "Hill%d" % index
-	node.mesh = mesh
-	node.material_override = _hill_material()
-	add_child(node)
+	# One CSG solid per mound, so the cave can be subtracted out of the hill
+	# it is buried in. `use_collision` builds the collider from the SAME
+	# boolean result, which is the whole reason for the node: the drawn hole
+	# and the walkable hole cannot disagree, because there is only one.
+	var solid := CSGCombiner3D.new()
+	solid.name = "Hill%d" % index
+	solid.use_collision = true
+	solid.material_override = _hill_material()
+	add_child(solid)
 
-	var body := StaticBody3D.new()
-	body.name = "HillBody%d" % index
-	var trimesh := _hill_shape(mesh)
-	var shape := CollisionShape3D.new()
-	shape.shape = trimesh
-	body.add_child(shape)
-	add_child(body)
+	var shell := CSGMesh3D.new()
+	shell.name = "Shell"
+	shell.mesh = mesh
+	solid.add_child(shell)
+
+	if index == Tuning.CAVE_HILL:
+		_carve_cave(solid)
 
 
-## The hill mesh with the cave's doorway and approach cut out of it.
+## The dome's floor and rim wall, which is what makes it a solid.
 ##
-## Carving the collider alone is not enough once the hill material is
-## two-sided. While it was single-sided the dome simply vanished when seen
-## from within, and that hole read as the cave mouth by accident; a two-sided
-## dome draws its inner face instead, so the doorway is covered by hillside
-## the player can walk through. The mesh has to lose the same triangles the
-## shape does.
+## CSG booleans a closed manifold and nothing else. Measured, not assumed: an
+## open surface through CSGMesh3D yields a mesh of ZERO faces, and with
+## `use_collision` on that means no collider either, so the hill silently
+## disappears in both senses at once. The dome alone is an open bowl.
 ##
-## Dropped triangle by triangle rather than subtracted properly. A real CSG
-## cut is not worth it here: the opening is a box, the hill is dense enough
-## that a per-triangle cut follows it closely, and the chamber's own slabs
-## line everything behind the doorway.
-func _carve_mesh(mesh: ArrayMesh) -> ArrayMesh:
-	var faces := mesh.get_faces()
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var kept := 0
-	for i in range(0, faces.size(), 3):
-		var centre := (faces[i] + faces[i + 1] + faces[i + 2]) / 3.0
-		if _inside_cave(centre):
-			continue
-		kept += 1
-		for v in [faces[i], faces[i + 1], faces[i + 2]]:
-			st.set_uv(Vector2(v.x, v.z))
-			st.set_color(Tuning.HILL_SHADE_LOW.lerp(
-				Tuning.HILL_SHADE_HIGH,
-				clampf(v.y / Tuning.HILL_SHADE_REFERENCE, 0.0, 1.0)
-			))
-			st.add_vertex(v)
-	if kept == 0:
-		return mesh
-	st.generate_normals()
-	return st.commit()
+## The base sits HILL_BASE_DEPTH below y = 0 rather than level with it. The
+## cave floor is CAVE_SINK under the grass, so a base at zero would slice
+## through the chamber and leave its lower half outside the solid the cave is
+## subtracted from.
+func _underside(st: SurfaceTool, centre: Vector3, radius: float, top: float) -> void:
+	var base := -Tuning.HILL_BASE_DEPTH
+	var mid := Vector3(centre.x, base, centre.z)
+	for seg in Tuning.HILL_SEGMENTS:
+		var a0 := TAU * seg / Tuning.HILL_SEGMENTS
+		var a1 := TAU * (seg + 1) / Tuning.HILL_SEGMENTS
+		var r0 := Vector3(
+			centre.x + cos(a0) * radius, base, centre.z + sin(a0) * radius
+		)
+		var r1 := Vector3(
+			centre.x + cos(a1) * radius, base, centre.z + sin(a1) * radius
+		)
+		# Floor fan, facing DOWN under CSG's counter-clockwise-out rule, the
+		# opposite hand from the dome above it.
+		for v in [mid, r1, r0]:
+			_vertex(st, v, top)
+		# The rim wall, closing the gap between the dome's edge and the floor
+		# below it. Its top must be the dome's OWN edge height, not zero: a
+		# neighbouring mound's skirt reaches under this rim and lifts it by a
+		# centimetre or so, and a wall built to a flat zero leaves a crack of
+		# exactly that size all the way round. The solid is then open, the
+		# boolean yields nothing, and the hill disappears from the frame and
+		# the physics together. Measured on HILLS[0]: rim at 0.014, not 0.
+		var t0 := _surface_point(Vector3(centre.x, 0.0, centre.z), radius, a0)
+		var t1 := _surface_point(Vector3(centre.x, 0.0, centre.z), radius, a1)
+		for v in [r0, t1, t0]:
+			_vertex(st, v, top)
+		for v in [r0, r1, t1]:
+			_vertex(st, v, top)
 
 
-## The mound's collider, with the cave's footprint left out of it.
+## The cave, subtracted out of the hill it sits in.
 ##
-## A hill is one solid trimesh, so burying the chamber inside it walls the
-## chamber off: a capsule at floor height walking in hits HillBody before it
-## reaches the back, and the cave is only walkable at all while it stands far
-## enough out of the hill to show. That is the same conflict from both ends,
-## and this is what resolves it. Triangles whose centre falls inside the
-## chamber's plan are dropped from the SHAPE only; the drawn mesh keeps them,
-## so the hillside still looks unbroken from outside while the hollow behind
-## it is hollow. The cave's own slabs are what the player then walks on.
-func _hill_shape(mesh: ArrayMesh) -> ConcavePolygonShape3D:
-	var faces := mesh.get_faces()
-	var kept := PackedVector3Array()
-	for i in range(0, faces.size(), 3):
-		var centre := (faces[i] + faces[i + 1] + faces[i + 2]) / 3.0
-		if _inside_cave(centre):
-			continue
-		kept.append(faces[i])
-		kept.append(faces[i + 1])
-		kept.append(faces[i + 2])
-	var shape := ConcavePolygonShape3D.new()
-	shape.set_faces(kept)
-	# A trimesh is one-sided: a downward ray passes straight through a face
-	# whose front is the one it is approaching from, and the hill then reads
-	# as absent to every raycast while still stopping a body. Verified here,
-	# not assumed: without this a ray fired down at the summit reported the
-	# flat GroundBody at y = 0.
-	shape.backface_collision = true
-	return shape
-
-
-## Is a world point inside the volume the chamber occupies?
+## One box in the hill's own CSG solid, sized to the chamber plus its walls
+## and long enough to reach out through the hillside as the approach cutting.
+## Godot's boolean does the rest: the doorway in the drawn mesh and the hole
+## in the collider are the same surface, so they cannot drift apart.
 ##
-## Plan only, plus a generous height band: the hill surface above the cave has
-## to be dropped from the collider whatever its height, or the roof slab and
-## the hill fight over the same space. Widened by CAVE_CARVE_MARGIN so a
-## triangle straddling the wall does not leave a lip in the doorway.
-func _inside_cave(world_point: Vector3) -> bool:
+## This replaced a hand-rolled carve that dropped whole hill triangles whose
+## centre fell inside the chamber. It could not work at this resolution: the
+## cave hill is 32 segments around a ~200 m circumference, so one triangle is
+## over 6 m across against a 9 m cave, and dropping it took out most of the
+## doorway's width along with a ragged star of hillside beside it. Rebuilding
+## the same cavity twice, once to remove and once to replace, is what left
+## holes to fall through; there is now one description of it.
+## The cavity's width, used by the cut that makes the hole and the slabs that
+## floor it. One function so the two cannot be retuned apart, which is the
+## bug that has produced every hole beside this doorway so far.
+func _cut_width() -> float:
+	return Tuning.CAVE_WIDTH + Tuning.CAVE_WALL * 2.0
+
+
+func _carve_cave(solid: CSGCombiner3D) -> void:
+	var cut := CSGBox3D.new()
+	cut.name = "CaveCut"
+	cut.operation = CSGShape3D.OPERATION_SUBTRACTION
+	# Local to the hill, which sits at the origin, so the mouth's world
+	# position is used directly.
 	var mouth := mouth_position()
-	var inward := -Vector3(sin(Tuning.CAVE_FACING), 0.0, cos(Tuning.CAVE_FACING))
-	var across := Vector3(inward.z, 0.0, -inward.x)
-	var offset := world_point - mouth
-	var along := offset.dot(inward)
-	var side := absf(offset.dot(across))
-	var margin := Tuning.CAVE_CARVE_MARGIN
-	# Negative `along` is OUTSIDE the mouth, where the approach cutting runs.
-	# It has to be carved too, or the hill collider stands across the trench
-	# and the walk-in is sealed by ground the player can see straight through.
-	if along < -(Tuning.CAVE_RAMP + margin):
-		return false
-	if along > Tuning.CAVE_DEPTH + Tuning.CAVE_WALL + margin:
-		return false
-	# No margin across, deliberately. Widening here drops hill triangles out
-	# beside the doorway where the visible grass is intact, and the player
-	# then falls through solid-looking ground into the slot beside the
-	# chamber wall.
-	if side > Tuning.CAVE_WIDTH * 0.5 + Tuning.CAVE_WALL:
-		return false
-	# Everything from the floor up to the roof's cover, over the whole
-	# footprint. Outside the mouth that is what makes the approach a cutting
-	# rather than a tunnel under intact ground: the hill there is taller than
-	# the chamber, and leaving its upper triangles in place walls off the
-	# walk-in a couple of metres before the door.
-	return world_point.y < (
-		mouth.y + Tuning.CAVE_HEIGHT + Tuning.CAVE_WALL + Tuning.CAVE_COVER + margin
+	# The cavity runs from the back wall out past the mouth to the far end of
+	# the approach cutting, and the box is centred on the middle of that.
+	var length := Tuning.CAVE_DEPTH + Tuning.CAVE_RAMP + Tuning.CAVE_CARVE_MARGIN
+	cut.size = Vector3(
+		_cut_width(),
+		Tuning.CAVE_HEIGHT + Tuning.CAVE_WALL,
+		length,
 	)
+	var inward := -Vector3(sin(Tuning.CAVE_FACING), 0.0, cos(Tuning.CAVE_FACING))
+	# Centre of the run: half the length in from the cutting's outer end.
+	var mid := mouth - inward * (Tuning.CAVE_RAMP + Tuning.CAVE_CARVE_MARGIN) \
+		+ inward * (length * 0.5)
+	mid.y = mouth.y + cut.size.y * 0.5
+	cut.position = mid
+	cut.rotation.y = Tuning.CAVE_FACING
+	solid.add_child(cut)
 
 
 ## The grass material, with vertex colours switched on so the height tint
@@ -222,14 +220,11 @@ func _hill_material() -> Material:
 		return grass
 	_hill_mat = base.duplicate()
 	_hill_mat.vertex_color_use_as_albedo = true
-	# Two-sided, to match `backface_collision` on the shape. The winding is
-	# correct (verified: 736 of 768 triangles face up, the rest are degenerate
-	# slivers at the apex), so this is not a fix for an inverted dome. It is
-	# needed because the cave puts the player INSIDE the hill: the collider is
-	# carved there, and a single-sided dome seen from within disappears, so
-	# the approach cutting and the mouth read as a hole through to the sky
-	# with the dome's far inner face floating beyond it.
-	_hill_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# Normal culling. The old carved trimesh needed CULL_DISABLED because the
+	# player inside the chamber saw the dome's back faces; the CSG cut gives
+	# the cavity real front faces, so from the chamber and the cutting alike
+	# every visible surface faces the camera. Verified by rendering the mouth
+	# and the chamber with culling on.
 	return _hill_mat
 
 
@@ -320,9 +315,8 @@ func _far_point(radius: float, height: float, r: float, angle: float) -> Vector3
 ## --- The cave --------------------------------------------------------------
 
 ## A mouth of boulders in the side of the biggest hill, with a hollow behind
-## it. Not a carved interior: the hollow is a box of walls, a floor and a
-## roof, which is enough to walk into, stand up in and walk out of, and is
-## four primitive colliders instead of a subtracted mesh nobody can debug.
+## it. The hole itself is `_carve_cave`'s boolean; the slabs here line it
+## with a rock floor, walls and roof, and floor the approach cutting.
 func _cave() -> void:
 	var root := Node3D.new()
 	root.name = "Cave"
@@ -385,8 +379,17 @@ func _hollow(root: Node3D) -> void:
 	var half_w := Tuning.CAVE_WIDTH * 0.5
 	var wall := Tuning.CAVE_WALL
 	var mid := -Tuning.CAVE_DEPTH * 0.5
-	_slab(root, "Floor", Vector3(Tuning.CAVE_WIDTH, wall, Tuning.CAVE_DEPTH),
-		Vector3(0.0, -wall * 0.5, mid))
+	# Wider than the hole it floors, by CAVE_SLAB_OVERLAP on each side. The
+	# CSG cut and a slab of exactly its width meet flush along a plane, and a
+	# body standing on that seam is over neither of them; the overlap runs
+	# under intact hill, where it is buried and does nothing.
+	# Longer than the chamber as well as wider, and pushed back by half the
+	# excess so the extra lands behind the back wall rather than out in the
+	# doorway.
+	var floor_len := Tuning.CAVE_DEPTH + Tuning.CAVE_SLAB_OVERLAP
+	_slab(root, "Floor", Vector3(_cut_width() + Tuning.CAVE_SLAB_OVERLAP * 2.0,
+		wall, floor_len),
+		Vector3(0.0, -wall * 0.5, mid - Tuning.CAVE_SLAB_OVERLAP * 0.5))
 	_slab(root, "Roof", Vector3(Tuning.CAVE_WIDTH + wall * 2.0, wall, Tuning.CAVE_DEPTH),
 		Vector3(0.0, Tuning.CAVE_HEIGHT + wall * 0.5, mid))
 	_slab(root, "Back", Vector3(Tuning.CAVE_WIDTH + wall * 2.0, Tuning.CAVE_HEIGHT, wall),
@@ -410,8 +413,15 @@ func _hollow(root: Node3D) -> void:
 ## Collider only. The hill mesh still draws over this footprint, and the
 ## trench walls are the hill's own surface.
 func _ramp(root: Node3D) -> void:
-	var length := Tuning.CAVE_RAMP
-	var size := Vector3(Tuning.CAVE_WIDTH, Tuning.CAVE_WALL, length)
+	# Overlapping the cut on every side, for the reason given on Floor: a slab
+	# flush with the hole leaves a seam that is over neither surface, and the
+	# cutting's whole width and its outer end are both walked over.
+	var length := (
+		Tuning.CAVE_RAMP + Tuning.CAVE_CARVE_MARGIN + Tuning.CAVE_SLAB_OVERLAP
+	)
+	var size := Vector3(
+		_cut_width() + Tuning.CAVE_SLAB_OVERLAP * 2.0, Tuning.CAVE_WALL, length
+	)
 	# Floor height, running from the door plane out along local +Z.
 	var at := Vector3(0.0, -Tuning.CAVE_WALL * 0.5, length * 0.5)
 	_slab(root, "Ramp", size, at, Vector3.ZERO, false)

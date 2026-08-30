@@ -56,12 +56,12 @@ func _ground_under(x: float, z: float, skip: Array[RID] = []) -> float:
 func test_hills_exist_and_have_relief() -> void:
 	var built := 0
 	for child in _terrain.get_children():
-		if child.name.begins_with("Hill") and child is MeshInstance3D:
+		if child.name.begins_with("Hill") and child is CSGShape3D:
 			built += 1
 	assert_eq(
 		built,
 		Tuning.HILLS.size(),
-		"a mesh per authored hill  meshes=%d hills=%d" % [built, Tuning.HILLS.size()],
+		"a CSG solid per authored hill  solids=%d hills=%d" % [built, Tuning.HILLS.size()],
 	)
 
 	# The point of the whole change: the island must not be flat any more.
