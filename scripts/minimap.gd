@@ -16,6 +16,9 @@ extends Control
 
 ## World metres per fog cell edge, and the grid's origin corner.
 var _fog: PackedByteArray = PackedByteArray()
+## Terrain colour per cell, resolved once when the cell is revealed:
+## 0 nothing, 1 ash, 2 land, 3 shallow.
+var _terrain: PackedByteArray = PackedByteArray()
 var _cells := 0
 var _fog_origin := 0.0
 
@@ -30,6 +33,7 @@ func _ready() -> void:
 	_scale = Tuning.MINIMAP_SIZE / Tuning.MINIMAP_WORLD_SPAN
 	_cells = int(ceil(Tuning.MINIMAP_WORLD_SPAN / Tuning.FOG_CELL_SIZE))
 	_fog.resize(_cells * _cells)
+	_terrain.resize(_cells * _cells)
 	_fog_origin = -Tuning.MINIMAP_WORLD_SPAN * 0.5
 
 
@@ -59,7 +63,10 @@ func reveal_around(at: Vector3) -> void:
 			var wx := _fog_origin + (cx + 0.5) * Tuning.FOG_CELL_SIZE
 			var wz := _fog_origin + (cz + 0.5) * Tuning.FOG_CELL_SIZE
 			if Vector2(wx - at.x, wz - at.z).length() <= r:
-				_fog[cz * _cells + cx] = 1
+				var i := cz * _cells + cx
+				if _fog[i] != 1:
+					_fog[i] = 1
+					_terrain[i] = _terrain_at(Vector3(wx, 0.0, wz))
 
 
 ## True once the player has been near `point`. Terrain, markers and pals all
@@ -107,11 +114,12 @@ func _draw_terrain() -> void:
 		for cx in _cells:
 			if _fog[cz * _cells + cx] != 1:
 				continue
+			var kind := _terrain[cz * _cells + cx]
+			if kind == 0:
+				continue
+			var colour := _terrain_colour(kind)
 			var wx := _fog_origin + (cx + 0.5) * Tuning.FOG_CELL_SIZE
 			var wz := _fog_origin + (cz + 0.5) * Tuning.FOG_CELL_SIZE
-			var colour := _colour_at(Vector3(wx, 0.0, wz))
-			if colour.a == 0.0:
-				continue
 			var at := _to_map(Vector3(wx - Tuning.FOG_CELL_SIZE * 0.5, 0.0,
 				wz - Tuning.FOG_CELL_SIZE * 0.5))
 			# One pixel of overlap, or the grid shows as a mesh of hairlines.
@@ -120,6 +128,27 @@ func _draw_terrain() -> void:
 
 ## Asked of the Zone system rather than of a second copy of the island maths,
 ## so the ash blob's noisy edge is the one the world actually uses.
+func _terrain_colour(kind: int) -> Color:
+	match kind:
+		1: return Tuning.MINIMAP_ASH_COLOR
+		2: return Tuning.MINIMAP_LAND_COLOR
+		3: return Tuning.MINIMAP_SHALLOW_COLOR
+	return Color(0, 0, 0, 0)
+
+
+func _terrain_at(point: Vector3) -> int:
+	if _player == null:
+		return 0
+	var world := _player.get_world_3d()
+	if Zone.is_inside(world, point, Zone.Kind.ASH):
+		return 1
+	if Zone.is_inside(world, point, Zone.Kind.LAND):
+		return 2
+	if Zone.is_inside(world, point, Zone.Kind.SHALLOW):
+		return 3
+	return 0
+
+
 func _colour_at(point: Vector3) -> Color:
 	# A Control has no World3D of its own, so the zones are asked about the
 	# world the player is standing in.
