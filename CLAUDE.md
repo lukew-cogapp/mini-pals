@@ -6,10 +6,10 @@ Palworld-style loop: walk a world, find creatures, catch one, it follows you.
 Build order, each step playable on its own:
 
 1. ~~Character controller on a ground plane~~ done
-2. Creature that wanders (idle -> wander -> flee state machine)
-3. Throwable ball, hit detection, capture roll
-4. Caught creature follows the player
-5. Inventory UI
+2. ~~Creature that wanders (idle -> wander -> flee)~~ done
+3. ~~Throwable sphere, hit detection, capture roll~~ done
+4. ~~Caught creature follows the player~~ done, and can be ridden
+5. Gathering, inventory, workbench crafting (in progress)
 6. Bigger terrain, several creature types
 
 ## Layout
@@ -58,6 +58,16 @@ such scripts are the script not freeing nodes, not a real fault.
 
 **Hot reload:** `.gd` yes, `.tscn` no. F8 stop, F5 play.
 
+**Area3D needs its mask to match the target's layer.** Pals sit on layer 4, so
+the catch sphere needs `collision_mask = 4`; the default mask of 1 silently
+detects nothing. No error, the sphere just sails through.
+
+**Two CharacterBody3Ds cannot occupy each other.** Riding puts the player
+inside the mount, and the mount's `move_and_slide` then jams against the rider:
+the tell is `get_slide_collision_count()` pegged at `max_slides` every frame
+while `velocity` looks correct and position never changes. Disable the rider's
+collider while mounted.
+
 ## Assets
 
 `assets/monsters/` is Quaternius Ultimate Monsters, **CC0 1.0** (public domain,
@@ -71,11 +81,17 @@ glTF geometry is embedded, so there are no `.bin` sidecars. Godot imports
 
 ## Working notes
 
-Trees and rocks are **visual only, no collision** — you walk through them.
-Deliberate while prototyping.
+Trees and rocks have collision. Rocks under `Tuning.STEP_HEIGHT` are stepped
+over, trees block. Step-up is a home-rolled probe in `player.gd`; Godot has no
+built-in stair stepping and the proposal for it is still open.
 
 Scatter is seeded (`Tuning.SCATTER_SEED`), so the world is identical each run.
 Change the seed for a new layout.
+
+Every bug this project has hit was invisible on inspection and only showed up
+in a headless test: a sphere flying over the target's head, a mount jammed at
+max_slides, a model facing backwards, a collision mask that matched nothing.
+Write the check, run it, read the numbers. Do not reason about whether it works.
 
 The owner can see the game and I cannot. I can verify a scene loads, spawns the
 right node count, and runs without errors; I cannot tell whether the jump feels
