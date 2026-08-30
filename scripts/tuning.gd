@@ -207,3 +207,7 @@ const CUBE_SPAWN_SIDE := 1.4
 ## Where the throw is aimed. The cube leaves the shoulder but converges here,
 ## so the side offset is visual and does not send it wide.
 const CUBE_AIM_DISTANCE := 16.0
+
+## A handful to start with, so the first thing a player does can be to throw
+## one rather than gather for a workbench they have not found yet.
+const STARTING_CUBES := 5

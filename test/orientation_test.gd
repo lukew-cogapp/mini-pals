@@ -92,18 +92,20 @@ func _test_turn_maths() -> void:
 			await physics_frame
 
 
-## A cube thrown along the aim must hit a pal ahead at each distance.
+## A cube lobbed with the crosshair on a pal must hit it at each distance.
 func _test_cube_hits(target: Node3D) -> void:
 	_player.global_position = Vector3(0, 1, 0)
 	_player.velocity = Vector3.ZERO
 	var pivot: Node3D = _player.get_node("CameraPivot")
-	pivot.rotation = Vector3.ZERO  # Aim along world -Z.
 	for i in 30:
 		await physics_frame  # Settle onto the ground; throws sample position.
-	for d in [3.0, 5.0, 8.0, 12.0]:
-		# A settled pal rests with its capsule bottom on the ground (root y=0).
+	for d in [3.0, 5.0, 8.0, 11.0, 14.0]:
+		# A settled pal rests with its capsule bottom on the ground (root y=0),
+		# so its centre is the collider's local offset above that.
 		target.global_position = Vector3(0, 0.02, -d)
 		await physics_frame
+		var centre: Vector3 = target.get_node("Collision").global_position
+		pivot.look_at(centre, Vector3.UP)  # Crosshair on the pal.
 		var cube: Area3D = load("res://scenes/pal_cube.tscn").instantiate()
 		_world.add_child(cube)
 		# The test wants the geometry, not the capture cinematic.
@@ -112,24 +114,29 @@ func _test_cube_hits(target: Node3D) -> void:
 		cube.body_entered.connect(func(b: Node3D) -> void:
 			if b == target:
 				hit[0] = true)
-		var aim := -pivot.global_transform.basis.z
-		cube.throw(
-			_player.global_position + Vector3.UP * Tuning.CUBE_SPAWN_HEIGHT
-			+ aim * Tuning.CUBE_SPAWN_FORWARD,
-			aim,
+		# The same maths _throw_cube uses, minus inventory and cinematics.
+		var aim: Vector3 = -pivot.global_transform.basis.z
+		var from: Vector3 = (
+			_player.global_position
+			+ Vector3.UP * Tuning.CUBE_SPAWN_HEIGHT
+			+ aim * Tuning.CUBE_SPAWN_FORWARD
+			+ pivot.global_transform.basis.x * Tuning.CUBE_SPAWN_SIDE
 		)
+		var goal: Vector3 = _player._aim_target(pivot.global_position, aim)
+		cube.throw(from, _player._lob_velocity(from, goal))
 		var closest := INF
-		for i in 90:
+		for i in 150:
 			await physics_frame
 			if hit[0]:
 				break
 			if is_instance_valid(cube):
-				closest = minf(closest, cube.global_position.distance_to(target.global_position))
+				closest = minf(closest, cube.global_position.distance_to(centre))
 		_check("cube hits pal %.0fm ahead" % d, hit[0],
 			"closest approach %.2fm" % closest)
 		if is_instance_valid(cube):
 			cube.queue_free()
 		await physics_frame
+	pivot.rotation = Vector3.ZERO
 
 
 func _test_punch_facing() -> void:

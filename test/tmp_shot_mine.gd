@@ -93,7 +93,9 @@ func _shoot_rig_and_throw() -> void:
 
 	get_root().get_node("Inventory").add("cube", 1)
 	_player._throw_cube()
-	for i in 12:
+	# Early in flight: the aim follows the camera's downward pitch, so the
+	# cube lands within a dozen frames.
+	for i in 6:
 		await physics_frame
 	await _capture("19_rig_throw")
 	_cam.current = true

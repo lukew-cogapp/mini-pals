@@ -190,20 +190,50 @@ func _throw_cube() -> void:
 	Audio.play("throw", global_position)
 	var cube := CUBE_SCENE.instantiate()
 	get_parent().add_child(cube)
-	# Cameras look along -Z, so this is where the crosshair points.
+	# Cameras look along -Z, so this is where the crosshair points, and the
+	# pivot sits on the camera's centre ray, so the aim ray starts there.
 	var aim := -pivot.global_transform.basis.z
-	# Thrown from the shoulder so the cat's body does not hide it, but aimed
-	# from the eyeline, or the side offset makes it fly a parallel line.
+	var target := _aim_target(pivot.global_position, aim)
+	# Thrown from the shoulder so the cat's body does not hide it; the lob
+	# converges on the aim point, so the offset cannot cause a miss.
 	var from := (
 		global_position
 		+ Vector3.UP * Tuning.CUBE_SPAWN_HEIGHT
 		+ aim * Tuning.CUBE_SPAWN_FORWARD
 		+ pivot.global_transform.basis.x * Tuning.CUBE_SPAWN_SIDE
 	)
-	var eye := global_position + Vector3.UP * Tuning.CUBE_SPAWN_HEIGHT
-	var target := eye + aim * Tuning.CUBE_AIM_DISTANCE
-	cube.throw(from, (target - from).normalized())
+	cube.throw(from, _lob_velocity(from, target))
 	cube.resolved.connect(_on_cube_resolved)
+
+
+## Where the crosshair ray lands: the first pal or obstacle it crosses.
+## With nothing in the way, a ground point at max range, so the throw is
+## always a lob that comes down, never a line drive into the sky.
+func _aim_target(origin: Vector3, aim: Vector3) -> Vector3:
+	var ray := PhysicsRayQueryParameters3D.create(
+		origin, origin + aim * Tuning.CUBE_AIM_DISTANCE, 0b101, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+	if hit:
+		return hit.position
+	var target := origin + aim * Tuning.CUBE_AIM_DISTANCE
+	target.y = minf(target.y, Tuning.CUBE_HALF_SIZE)
+	return target
+
+
+## Ballistic launch velocity through `target` under the cube's gravity.
+## Horizontal pace is the design knob; the arc height follows from it.
+func _lob_velocity(from: Vector3, target: Vector3) -> Vector3:
+	var flat := target - from
+	var rise := flat.y
+	flat.y = 0.0
+	var t := clampf(
+		flat.length() / Tuning.CUBE_LOB_SPEED,
+		Tuning.CUBE_LOB_TIME_MIN,
+		Tuning.CUBE_LOB_TIME_MAX,
+	)
+	var vel := flat / t
+	vel.y = rise / t + 0.5 * Tuning.CUBE_GRAVITY * t
+	return vel
 
 
 func _on_cube_resolved(pal: Node, success: bool) -> void:

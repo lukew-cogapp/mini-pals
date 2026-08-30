@@ -19,10 +19,9 @@ func _ready() -> void:
 		body_entered.connect(_on_body_entered)
 
 
-func throw(from: Vector3, direction: Vector3) -> void:
+func throw(from: Vector3, velocity: Vector3) -> void:
 	global_position = from
-	_velocity = direction.normalized() * Tuning.CUBE_THROW_SPEED
-	_velocity.y += Tuning.CUBE_THROW_LIFT
+	_velocity = velocity
 
 
 func _physics_process(delta: float) -> void:
