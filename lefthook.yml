@@ -1,0 +1,41 @@
+# Fast checks only. The full suite takes minutes and belongs in CI; a commit
+# hook that slow gets bypassed, and a bypassed hook catches nothing.
+pre-commit:
+  parallel: false
+  commands:
+    compile:
+      # Every script and scene, not just what the main scene reaches, and
+      # regardless of what is staged: renaming a constant in one file breaks
+      # its readers, not itself. Catches the class of bug that ships when a
+      # rename misses a use in a body.
+      run: |
+        perl -e 'alarm 120; exec @ARGV' \
+          env HOME=/private/tmp godot --headless --path . \
+          -s test/compile_check.gd < /dev/null > /tmp/mini-pals-compile.txt 2>&1
+        # Check the errors BEFORE the summary: Godot hands back a partially
+        # compiled script rather than null, so a parse error still loads and
+        # still reports FAILURES=0.
+        if /usr/bin/grep -qE 'FAILED_TO_LOAD|SCRIPT ERROR|Parse Error' /tmp/mini-pals-compile.txt; then
+          echo "Something does not compile:"
+          /usr/bin/grep -E 'FAILED_TO_LOAD|SCRIPT ERROR|Parse Error' /tmp/mini-pals-compile.txt | head -20
+          exit 1
+        fi
+        if ! /usr/bin/grep -q '^FAILURES=0' /tmp/mini-pals-compile.txt; then
+          echo "The compile check did not finish. See /tmp/mini-pals-compile.txt"
+          exit 1
+        fi
+        if /usr/bin/grep -qE 'SHADOWED|CONFUSABLE|INTEGER_DIVISION|INT_AS_ENUM|UNUSED_' /tmp/mini-pals-compile.txt; then
+          echo "Parser warnings:"
+          /usr/bin/grep -E 'SHADOWED|CONFUSABLE|INTEGER_DIVISION|INT_AS_ENUM|UNUSED_' /tmp/mini-pals-compile.txt | head -20
+          exit 1
+        fi
+
+    no-prints:
+      # print() in gameplay code goes to a console no player opens. On the web
+      # build that console is the only place a message would appear at all.
+      glob: "scripts/*.gd"
+      run: |
+        if /usr/bin/grep -n '^[[:space:]]*print(' {staged_files} 2>/dev/null; then
+          echo "Use Hud.flash for anything the player should see."
+          exit 1
+        fi
