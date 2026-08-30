@@ -1,53 +1,55 @@
 # Tasks
 
-## Done
-
-- [x] Godot 4.7 project scaffold, third-person controller
-- [x] Ground texture + 160 seeded trees/rocks for motion cues
-- [x] Fix player facing backwards (`atan2(-x, -z)`)
-- [x] Quaternius Ultimate Monsters, 50 rigged CC0 creatures
-- [x] Collision on trees/rocks; step over rocks, trees block
-- [x] Wolf pal: wander, flee, catch, follow, ride
-- [x] Player is a cat dragon (Cat body + wings), walk/idle animation
-- [x] Flip Quaternius models 180 deg: they face +Z, Godot forward is -Z
-- [x] Camera FOV 60, window 1600x900 maximised
-- [x] Xbox pad bindings on every action
-- [x] Gathering, inventory, workbench, build menu (agent-built)
+Kept current as work lands. Newest changes at the top of each section.
 
 ## Next
 
 - [ ] Rename spheres to **pal cubes**: box mesh, rename scene/script/vars
-- [ ] Verify the crafting system end to end myself (agent-built, unverified by me)
-- [ ] On-screen controls hint: list has grown past what anyone can guess
-- [ ] Adopt a real test suite; every bug so far was invisible without one
+- [ ] Verify the agent-built crafting system myself, gather/craft/menu untested
+- [ ] Adopt **GUT** for tests (researched, recommended over GdUnit4)
+      `godot --headless -d -s addons/gut/gut_cmdln.gd -gdir=res://test -ginclude_subdirs -gexit`
+      First tests: facing maths, step-up over rock vs tree, inventory/crafting
+- [ ] Seed `catch_sphere.gd`'s `randf()` via an injected RNG so catches are testable
+- [ ] On-screen controls hint, the list has grown past guessing
 
-## Ride improvements (researched, not yet applied)
+## Done
 
-Current implementation works. Research says these are the idiomatic upgrades:
+- [x] Blue cat: recoloured atlas via `scripts/tools/recolour_texture.py`, wings
+      left purple
+- [x] Confirm facing convention: Quaternius heads point +Z, Godot forward is -Z,
+      so the 180 degree model flip is correct (measured, not assumed)
+- [x] Flip Quaternius models, cat and wolf
+- [x] Cat dragon player: Cat body, wings, walk/idle animation
+- [x] Xbox pad bindings on all ten actions
+- [x] Camera FOV 60, window 1600x900 maximised
+- [x] Gathering, inventory, workbench, build menu (agent-built)
+- [x] Wolf pal: wander, flee, catch, follow, ride
+- [x] Collision on trees and rocks, step over rocks, trees block
+- [x] Quaternius Ultimate Monsters, 50 rigged CC0 creatures
+- [x] Ground texture and 160 seeded trees/rocks for motion cues
+- [x] Fix player facing backwards, `atan2(-x, -z)`
+- [x] Godot 4.7 scaffold, third-person controller
 
-- [ ] `reparent()` rider to the Seat marker instead of assigning `global_position`
-      each frame, which lags one physics frame
-- [ ] Invert control: pal always drives its own `move_and_slide()`, rider only
-      feeds it an input vector
-- [ ] `set_deferred("disabled", ...)` on the rider collider, safe from signal
-      callbacks
-- [ ] Enable `physics/common/physics_interpolation`, and
-      `reset_physics_interpolation()` on mount/dismount snaps
-- [ ] Shape-test dismount spots, refuse dismount when all are blocked
+## Ride improvements (researched, not applied)
 
-## Step-up improvements (researched, not yet applied)
+Works as is. Research says these are the idiomatic upgrades:
 
-Current implementation works. Research says:
+- [ ] `reparent()` rider to the Seat marker instead of per-frame `global_position`
+- [ ] Invert control: pal drives its own `move_and_slide()`, rider feeds input
+- [ ] `set_deferred("disabled", ...)` on the rider collider
+- [ ] Enable `physics/common/physics_interpolation`, reset on mount/dismount
+- [ ] Shape-test dismount spots, refuse when all blocked
 
-- [ ] Move step-up to BEFORE `move_and_slide()` (avoids a one-frame hitch)
-- [ ] Check the landing normal against `floor_max_angle` so steep faces are
-      rejected
-- [ ] Add a step-DOWN pass, or walking off a rock leaves you briefly airborne
+## Step-up improvements (researched, not applied)
+
+- [ ] Move step-up BEFORE `move_and_slide()`, avoids a one-frame hitch
+- [ ] Check landing normal against `floor_max_angle`, reject steep faces
+- [ ] Add a step-DOWN pass, else walking off a rock leaves you airborne
 - [ ] Probe by `velocity * delta` rather than a fixed distance
 
 ## Ideas, unscheduled
 
 - [ ] Tree colour variation, they are all identical
-- [ ] More pal species; several have `_Evolved` variants
+- [ ] More pal species, several have `_Evolved` variants
 - [ ] Sound
 - [ ] Export to itch.io so Aubrey can share a link
