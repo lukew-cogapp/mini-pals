@@ -1,0 +1,18 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+; Distant land. Deliberately NOT the grass and sand of the island underfoot:
+; land seen across water reads bluer, flatter and lower in contrast, and a
+; small copy of the island the player is standing on reads as a prop rather
+; than as distance.
+;
+; Unshaded, so the sun cannot pick out a lit face and give away that these
+; are 40 m domes rather than headlands miles off. Roughness is irrelevant
+; while unshaded and is left at 1 to say so.
+
+[resource]
+shading_mode = 0
+; Dark and cool. The world's fog is warm and dense enough to erase a
+; mid-tone at 300 m, so the albedo has to sit well below the haze it is seen
+; through: a paler blue-grey rendered as a smudge you had to look for.
+albedo_color = Color(0.18, 0.21, 0.31, 1)
+roughness = 1.0
