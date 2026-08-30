@@ -2,8 +2,8 @@ extends Node3D
 ## Scatters trees and rocks so the ground has landmarks to move past.
 ## Seeded, so the world is the same every run.
 
-@export var tree_scene: PackedScene
-@export var rock_scene: PackedScene
+@export var tree_scenes: Array[PackedScene] = []
+@export var rock_scenes: Array[PackedScene] = []
 @export var pal_scene: PackedScene
 @export var pal_scene_b: PackedScene
 @export var demon_scene: PackedScene
@@ -14,8 +14,8 @@ extends Node3D
 func _ready() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = Tuning.SCATTER_SEED
-	_scatter(tree_scene, Tuning.TREE_COUNT, Tuning.TREE_SCALE_MIN, Tuning.TREE_SCALE_MAX, rng)
-	_scatter(rock_scene, Tuning.ROCK_COUNT, Tuning.ROCK_SCALE_MIN, Tuning.ROCK_SCALE_MAX, rng)
+	_scatter(tree_scenes, Tuning.TREE_COUNT, Tuning.TREE_SCALE_MIN, Tuning.TREE_SCALE_MAX, rng)
+	_scatter(rock_scenes, Tuning.ROCK_COUNT, Tuning.ROCK_SCALE_MIN, Tuning.ROCK_SCALE_MAX, rng)
 	_scatter_shore(palm_scene, Tuning.PALM_COUNT, 0.82, 0.97, 0.8, 1.3, rng)
 	_scatter_shore(shell_scene, Tuning.SHELL_COUNT, 1.0, 1.07, 0.6, 1.4, rng)
 	_scatter_pals(rng)
@@ -55,9 +55,13 @@ func _scatter_demons(rng: RandomNumberGenerator) -> void:
 
 
 func _scatter(
-	scene: PackedScene, count: int, scale_min: float, scale_max: float, rng: RandomNumberGenerator
+	scenes: Array[PackedScene],
+	count: int,
+	scale_min: float,
+	scale_max: float,
+	rng: RandomNumberGenerator,
 ) -> void:
-	if scene == null:
+	if scenes.is_empty():
 		return
 	for i in count:
 		var pos := Vector3.ZERO
@@ -69,7 +73,7 @@ func _scatter(
 				and pos.distance_to(Tuning.ALTAR_POS) > Tuning.ALTAR_CLEAR_RADIUS
 			):
 				break
-		var item := scene.instantiate() as Node3D
+		var item := scenes[rng.randi() % scenes.size()].instantiate() as Node3D
 		item.position = pos
 		item.rotation.y = rng.randf() * TAU
 		item.scale = Vector3.ONE * rng.randf_range(scale_min, scale_max)

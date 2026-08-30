@@ -178,8 +178,8 @@ func _test_punch_facing() -> void:
 	var pivot: Node3D = _player.get_node("CameraPivot")
 	pivot.rotation = Vector3.ZERO  # Look along world -Z.
 
-	var ahead: StaticBody3D = load("res://scenes/models/tree.tscn").instantiate()
-	var behind: StaticBody3D = load("res://scenes/models/tree.tscn").instantiate()
+	var ahead: StaticBody3D = load("res://scenes/models/commontree_1.tscn").instantiate()
+	var behind: StaticBody3D = load("res://scenes/models/commontree_1.tscn").instantiate()
 	_world.add_child(ahead)
 	_world.add_child(behind)
 	ahead.global_position = Vector3(0, 0, -2)

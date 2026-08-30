@@ -1,10 +1,16 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1"]
 [ext_resource type="Material" path="res://materials/ground.tres" id="2"]
 [ext_resource type="Script" path="res://scripts/scenery.gd" id="3"]
-[ext_resource type="PackedScene" path="res://scenes/models/tree.tscn" id="4"]
-[ext_resource type="PackedScene" path="res://scenes/models/rock.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/models/commontree_1.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/models/commontree_3.tscn" id="17"]
+[ext_resource type="PackedScene" path="res://scenes/models/commontree_5.tscn" id="18"]
+[ext_resource type="PackedScene" path="res://scenes/models/pine_1.tscn" id="19"]
+[ext_resource type="PackedScene" path="res://scenes/models/pine_5.tscn" id="20"]
+[ext_resource type="PackedScene" path="res://scenes/models/rock_medium_1.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/models/rock_medium_2.tscn" id="21"]
+[ext_resource type="PackedScene" path="res://scenes/models/rock_medium_3.tscn" id="22"]
 [ext_resource type="PackedScene" path="res://scenes/pal_wolf.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://scenes/workbench.tscn" id="7"]
 [ext_resource type="PackedScene" path="res://scenes/build_menu.tscn" id="8"]
@@ -68,8 +74,8 @@ water = ExtResource("16")
 
 [node name="Scenery" type="Node3D" parent="."]
 script = ExtResource("3")
-tree_scene = ExtResource("4")
-rock_scene = ExtResource("5")
+tree_scenes = [ExtResource("4"), ExtResource("17"), ExtResource("18"), ExtResource("19"), ExtResource("20")]
+rock_scenes = [ExtResource("5"), ExtResource("21"), ExtResource("22")]
 pal_scene = ExtResource("6")
 palm_scene = ExtResource("12")
 shell_scene = ExtResource("13")

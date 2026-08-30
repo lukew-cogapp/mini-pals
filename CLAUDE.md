@@ -27,6 +27,7 @@ materials/*.tres           shared StandardMaterial3D resources
 scenes/models/*.tscn       visuals only, swappable for real .glb
 scenes/*.tscn              things with logic: player, world
 assets/monsters/           Quaternius CC0 pack, 50 rigged monsters
+assets/nature/             Quaternius CC0 nature kit, trees and rocks
 ```
 
 Two conventions the owner asked for, worth keeping:
@@ -124,6 +125,21 @@ commercial use fine, no attribution needed). Licence kept beside the files.
 
 glTF geometry is embedded, so there are no `.bin` sidecars. Godot imports
 `.gltf` natively; each gets a generated `.import`.
+
+`assets/nature/` is Quaternius Stylized Nature MegaKit, **CC0 1.0**, 68
+unrigged models: trees, rocks, bushes, grass, mushrooms, flowers. Unlike the
+monster pack these carry `.bin` sidecars and external `.png` textures, and
+the download splits those textures into a `Textures/` folder the `glTF/`
+folder does not duplicate: copy both or the import fails on a missing
+`Rocks_Diffuse.png`. Single mesh, no rig, no root rotation, and radially
+symmetric, so `face_forward.py` does not apply.
+
+Trees and rocks each have several variants wrapped as their own scenes
+(`scenes/models/commontree_*.tscn`, `pine_*.tscn`, `rock_medium_*.tscn`);
+`scenery.gd` picks one per instance from an exported array. Kit trees stand
+~7m and rocks ~2m at scale 1, well above the primitives they replaced, so
+`TREE_SCALE_*` and `ROCK_SCALE_*` are correspondingly smaller. Tree collision
+is a cylinder on the trunk only, so the canopy is walked under.
 
 ## Working notes
 

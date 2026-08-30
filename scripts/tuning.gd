@@ -22,10 +22,12 @@ const SCATTER_SEED := 20260830
 const TREE_COUNT := 90
 const ROCK_COUNT := 70
 const SCATTER_CLEAR_RADIUS := 6.0
-const TREE_SCALE_MIN := 0.7
-const TREE_SCALE_MAX := 1.6
-const ROCK_SCALE_MIN := 0.5
-const ROCK_SCALE_MAX := 1.8
+## Kit trees stand ~7m and rocks ~2m at scale 1, so these are smaller than
+## the primitives they replaced to keep the same spread of sizes on screen.
+const TREE_SCALE_MIN := 0.45
+const TREE_SCALE_MAX := 1.0
+const ROCK_SCALE_MIN := 0.25
+const ROCK_SCALE_MAX := 0.9
 
 # --- Stepping over low obstacles ---
 const STEP_HEIGHT := 0.45
