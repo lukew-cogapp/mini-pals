@@ -29,8 +29,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_throw_cube()
 	elif event.is_action_pressed("ride"):
 		_toggle_ride()
-	elif event.is_action_pressed("cycle_pal"):
-		Party.cycle(global_position)
+	elif event.is_action_pressed("cycle_pal") or event.is_action_pressed("pal_next"):
+		Party.cycle(global_position, 1)
+	elif event.is_action_pressed("pal_prev"):
+		Party.cycle(global_position, -1)
 	elif event.is_action_pressed("punch"):
 		_punch()
 	elif event is InputEventMouseButton and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
@@ -115,7 +117,9 @@ func _throw_cube() -> void:
 	Audio.play("throw", global_position)
 	var cube := CUBE_SCENE.instantiate()
 	get_parent().add_child(cube)
-	var aim := -pivot.global_transform.basis.z
+	# CameraPivot is rotated 180 so the camera sits behind a +Z-facing cat,
+	# which also flips its basis: +Z is now the way we are looking.
+	var aim := pivot.global_transform.basis.z
 	cube.throw(
 		global_position + Vector3.UP * Tuning.CUBE_SPAWN_HEIGHT
 		+ aim * Tuning.CUBE_SPAWN_FORWARD,

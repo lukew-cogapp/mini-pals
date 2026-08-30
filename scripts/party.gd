@@ -18,18 +18,22 @@ func store(pal: Pal) -> void:
 	changed.emit()
 
 
-## Cycle to the next member, or put the current one away if it is the only one.
-func cycle(near: Vector3) -> void:
+## Step through the party. A single member toggles out and away instead.
+func cycle(near := Vector3.ZERO, step := 1) -> void:
 	if members.is_empty():
 		return
-	var i := members.find(active) if active else -1
-	var next: Pal = members[(i + 1) % members.size()]
+	if members.size() == 1:
+		if active:
+			recall()
+		else:
+			_activate(members[0], near)
+			changed.emit()
+		return
+	var i := members.find(active)
+	var next: Pal = members[posmod(i + step, members.size())]
 	if active:
 		active.stow()
-	if next == active and members.size() == 1:
-		active = null
-	else:
-		_activate(next, near)
+	_activate(next, near)
 	changed.emit()
 
 

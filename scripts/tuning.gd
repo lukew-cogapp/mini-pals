@@ -41,12 +41,12 @@ const PAL_FLEE_DISTANCE := 6.0
 const PAL_TURN_SPEED := 6.0
 const PAL_FOLLOW_DISTANCE := 3.0
 const PAL_FOLLOW_SPEED := 6.0
-const PAL_COUNT := 6
+const PAL_COUNT := 8
 
 # --- Catching ---
 const CUBE_THROW_SPEED := 20.0
-const CUBE_THROW_LIFT := 3.0
-const CUBE_GRAVITY := 11.0
+const CUBE_THROW_LIFT := 1.2
+const CUBE_GRAVITY := 9.0
 const CUBE_HALF_SIZE := 0.275
 const CUBE_CATCH_CHANCE := 0.55
 const CUBE_LIFETIME := 6.0
@@ -81,4 +81,4 @@ const CATCH_BURST_TIME := 0.35
 
 ## Clear of the cat's own body, or the cube is thrown from inside it.
 const CUBE_SPAWN_FORWARD := 1.5
-const CUBE_SPAWN_HEIGHT := 1.5
+const CUBE_SPAWN_HEIGHT := 1.0

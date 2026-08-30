@@ -5,6 +5,7 @@ extends Node3D
 @export var tree_scene: PackedScene
 @export var rock_scene: PackedScene
 @export var pal_scene: PackedScene
+@export var pal_scene_b: PackedScene
 
 func _ready() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -19,7 +20,9 @@ func _scatter_pals(rng: RandomNumberGenerator) -> void:
 		return
 	var half := Tuning.GROUND_SIZE * 0.35
 	for i in Tuning.PAL_COUNT:
-		var pal := pal_scene.instantiate() as Node3D
+		# Alternate species so both are findable near spawn.
+		var source := pal_scene if (i % 2 == 0 or pal_scene_b == null) else pal_scene_b
+		var pal := source.instantiate() as Node3D
 		pal.position = Vector3(rng.randf_range(-half, half), 0.0, rng.randf_range(-half, half))
 		pal.rotation.y = rng.randf() * TAU
 		add_child(pal)
