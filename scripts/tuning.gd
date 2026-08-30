@@ -149,6 +149,12 @@ const CUBE_LOB_TIME_MIN := 0.35  # Point-blank throws still get a visible arc.
 const CUBE_LOB_TIME_MAX := 1.4  # Long throws stay a lob, not a mortar shot.
 const CUBE_GRAVITY := 10.0
 const CUBE_HALF_SIZE := 0.4
+## A cube that lands beside a pal still catches it. The flight sweep is a
+## sphere rather than a ray, so a near miss in the air counts, and a cube
+## that reaches the ground looks around before giving up. Without this, a
+## throw that visibly lands at a pal's feet reads as a bug.
+const CUBE_HIT_RADIUS := 0.55
+const CUBE_LANDING_GRAB := 1.9
 const CUBE_CATCH_CHANCE := 0.55
 ## Level scales the chance rather than subtracting from it. A subtraction
 ## large enough to make a level 10 boss hard also sank the whole curve below

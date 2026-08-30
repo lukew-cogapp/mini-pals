@@ -41,9 +41,14 @@ func _physics_process(delta: float) -> void:
 	rotate_x(-delta * 6.0)
 	rotate_z(delta * 3.5)
 
-	# Landing on the ground without hitting anything is a miss.
 	if global_position.y <= Tuning.CUBE_HALF_SIZE:
-		_miss()
+		# Landed. A cube that comes down at a pal's feet reads as a hit to
+		# the player, so grab the nearest one before calling it a miss.
+		var landed := _pal_within(global_position, Tuning.CUBE_LANDING_GRAB)
+		if landed:
+			_hit_pal(landed)
+		else:
+			_miss()
 		return
 	_life -= delta
 	if _life <= 0.0:
@@ -64,11 +69,42 @@ func _hit_pal(pal: Pal) -> void:
 	_capture(pal)
 
 
+## The cube's path this frame, swept as a sphere rather than a ray: a throw
+## that passes a hand's width from a pal should still catch it.
 func _sweep_pal(from: Vector3, to: Vector3) -> Pal:
-	var ray := PhysicsRayQueryParameters3D.create(from, to, collision_mask)
-	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
-	if hit:
-		return hit.collider as Pal
+	var ball := SphereShape3D.new()
+	ball.radius = Tuning.CUBE_HIT_RADIUS
+	var params := PhysicsShapeQueryParameters3D.new()
+	params.shape = ball
+	params.collision_mask = collision_mask
+	params.transform = Transform3D(Basis.IDENTITY, from)
+	params.motion = to - from
+	var space := get_world_3d().direct_space_state
+	# A shape cast reports when along the motion it touched, not what it
+	# touched, so the hit itself comes from a query at that point.
+	var travel := space.cast_motion(params)
+	if travel.is_empty() or travel[0] >= 1.0:
+		return _pal_within(to, Tuning.CUBE_HIT_RADIUS)
+	params.transform = Transform3D(Basis.IDENTITY, from + (to - from) * travel[0])
+	return _first_pal(space.intersect_shape(params, 4))
+
+
+## The nearest catchable pal within `radius` of a point, or null.
+func _pal_within(point: Vector3, radius: float) -> Pal:
+	var ball := SphereShape3D.new()
+	ball.radius = radius
+	var params := PhysicsShapeQueryParameters3D.new()
+	params.shape = ball
+	params.collision_mask = collision_mask
+	params.transform = Transform3D(Basis.IDENTITY, point)
+	return _first_pal(get_world_3d().direct_space_state.intersect_shape(params, 8))
+
+
+func _first_pal(hits: Array[Dictionary]) -> Pal:
+	for hit in hits:
+		var pal := hit.collider as Pal
+		if pal and not pal.caught and not pal.dying:
+			return pal
 	return null
 
 

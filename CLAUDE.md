@@ -332,6 +332,13 @@ button in the game always moves something. `_animate` yields while
 A cube that lands on nothing bursts and plays `cube_miss` before freeing,
 rather than blinking out: it cost wood and stone.
 
+A cube catches on a near miss, not just a direct hit. Two places, because
+a lob rarely arrives dead on: the flight sweep is a sphere of
+`CUBE_HIT_RADIUS` rather than a ray, and a cube reaching the ground grabs
+the nearest pal within `CUBE_LANDING_GRAB` before counting as a miss. The
+sweep uses `cast_motion` for the fraction of travel, then a shape query at
+that point for what was touched, since `cast_motion` reports only when.
+
 Player health: `player.gd` has `hp` and `damage(amount, from_position)`,
 regen after a no-hit delay, and death -> respawn at the origin spawn with
 inventory and party kept and all pal aggro cleared. HUD shows a bar top-left.
