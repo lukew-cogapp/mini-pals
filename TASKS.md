@@ -4,6 +4,9 @@ Kept current as work lands. Newest changes at the top of each section.
 
 ## Next
 
+- [ ] Feedback when gathering and throwing: prints go to the console, nothing
+      on screen except the HUD numbers moving
+
 - [ ] Wings for the cat dragon: PrismMesh slabs read as flat blades stuck
       through the body. Needs a real wing mesh, not a primitive
 
@@ -18,6 +21,9 @@ Kept current as work lands. Newest changes at the top of each section.
 
 - [x] Rename spheres to **pal cubes**: box mesh, scene/script/vars renamed
 
+- [x] Proper workbench: legs, plank top, tool rack, anvil, no longer a crate
+- [x] Pal cubes: renamed from spheres, now a tumbling red box
+- [x] Build menu verified visually, affordable and greyed-out states
 - [x] Resource HUD along the bottom: wood, stone, cubes
 - [x] Fix facing for real: models face +Z, so `atan2(x, z)`, verified by
       screenshot from ahead of travel
