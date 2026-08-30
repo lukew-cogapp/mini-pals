@@ -5,7 +5,7 @@
 [ext_resource type="StyleBox" path="res://ui/button.tres" id="3"]
 [ext_resource type="StyleBox" path="res://ui/button_hover.tres" id="4"]
 [ext_resource type="StyleBox" path="res://ui/button_focus.tres" id="10"]
-[ext_resource type="PackedScene" path="res://assets/monsters/Blob/Dog.gltf" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/models/player_model.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/models/pine_1.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://scenes/models/commontree_1.tscn" id="7"]
 [ext_resource type="PackedScene" path="res://scenes/models/rock_medium_1.tscn" id="8"]
@@ -106,7 +106,7 @@ transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 6.4, 0, -8.2)
 [node name="Turntable" type="Node3D" parent="."]
 transform = Transform3D(-0.94, 0, -0.342, 0, 1, 0, 0.342, 0, -0.94, 0, 0, -1.4)
 
-[node name="Dog" parent="Turntable" instance=ExtResource("5")]
+[node name="Cat" parent="Turntable" instance=ExtResource("5")]
 
 [node name="UI" type="CanvasLayer" parent="."]
 
