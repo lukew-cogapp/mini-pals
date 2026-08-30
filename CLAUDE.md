@@ -14,8 +14,9 @@ Build order, each step playable on its own:
 7. ~~Player health, combat, XP, species drops~~ done
 8. ~~Endgame altar, key recipe, boss fight~~ done
 
-Current direction: polish feedback, adopt a real test runner, and make the
-game easier to share.
+Current direction: the loop is complete and the game ships to
+https://lukew-cogapp.github.io/mini-pals/ on a `v*` tag. What is left is
+feel, which only playing settles, and nobody has opened the live build.
 
 ## Layout
 
@@ -28,6 +29,9 @@ scenes/models/*.tscn       visuals only, swappable for real .glb
 scenes/*.tscn              things with logic: player, world
 assets/monsters/           Quaternius CC0 pack, 50 rigged monsters
 assets/nature/             Quaternius CC0 nature kit, trees and rocks
+assets/platformer/         Quaternius CC0 pack, the cube and pickups
+addons/gut/                vendored test framework, do not restyle
+test/*_test.gd             GUT suites; run them with test/run.sh
 ```
 
 Two conventions the owner asked for, worth keeping:
@@ -78,10 +82,11 @@ non-visual check passed while the ash blob was completely absent from the
 frame. If a generated mesh does not appear, flip the winding before doubting
 anything else.
 
-**Emission drowns albedo on a big flat surface.** `emission_energy_multiplier`
-at 0.35 rendered the ash pure white in daylight; the albedo texture is only
-visible below about 0.1. The ash sits at 0.05. Raise it and the biome turns
-into a snowfield, which happened three times here.
+**Additive emission drowns albedo on a big flat surface.** `emission_operator`
+defaults to ADD, which lays the emission colour over the albedo rather than
+masking it, and the ash rendered as a snowfield. It now uses MULTIPLY with a
+crack-shaped emission texture, so the glow is confined to the cracks. See the
+comments in `ash.tres` before touching the energy.
 
 **`ground.tres` is triplanar, and that is what keeps the hills and the flat
 ground tiling alike.** A hill is SurfaceTool with world-unit UVs, so a 30 m
@@ -95,9 +100,9 @@ material needs the same flag.
 
 **Ground `uv1_scale` is world-units-per-tile, and both extremes read as flat.**
 UVs are set in world units, so 60 tiled sixty times per metre (sub-pixel, and
-the original bug) and 0.018 tiled once per 55 m (one smear). Grass is 0.25,
-sand 0.33, ash 0.5. Judge it from `08_world` and `22_biome_ground`, not from
-the number.
+the original bug) and 0.018 tiled once per 55 m (one smear). Judge it from
+`08_world` and `22_biome_ground`, not from the number: the values live in the
+`.tres` files and drift.
 
 **`.tscn` sub-resources must be declared before the node that uses them.**
 A `SubResource("2")` referenced above its own `[sub_resource]` block fails with
@@ -322,7 +327,7 @@ war is a boolean grid (`FOG_CELL_SIZE` metres per cell) revealed within
 `FOG_REVEAL_RADIUS` of the player and never re-hidden; terrain, the altar
 marker and pals all gate on the same `is_revealed`, so nothing leaks through
 by being drawn a different way. Fresh fog each run, deliberately: there is no
-save system. M (action `minimap`, gamepad D-pad down) toggles the map only;
+save system. M (action `minimap`, gamepad Back) toggles the map only;
 the objectives stay. `test/minimap_test.gd` asserts the heading against
 `facing()` and the sign of a world offset on screen, because a mirrored map
 looks perfectly correct in a screenshot.
@@ -552,16 +557,17 @@ anything joins the tree. `_respawn_rng` is randomized, NOT seeded from
 `SCATTER_SEED`, so the refill differs run to run while the initial layout
 stays identical. `test/respawn_test.gd` covers pacing and placement.
 
-Species jobs, one each, so choosing which pal is out matters: Cactoro chops
-trees, Wolf fetches stone and adds speed, Mudwader is the only way into
-water, Glimmerfin adds gather, Demon adds punch damage
+Species jobs, so choosing which pal is out matters: Cactoro chops trees, Wolf
+fetches stone and adds speed, Mudwader adds speed and is the only way into
+water, Glimmerfin adds gather, Grottolo adds stone and is `cave_only` so the
+cave is worth finding, Demon adds punch damage
 (`buff_kind = &"damage"`, capped at `DEMON_DAMAGE_BUFF_CAP` so no catch
 becomes a one-hit kill), and the Mushroom King makes throws free
 (`Party.infinite_cubes()`, checked in `_begin_throw_aim` and `_throw_cube`;
 the HUD shows `INFINITE_CUBE_TEXT` rather than a stock count that would read
 as a broken zero). `test/pal_skills_test.gd` covers the last two.
 
-Middle click (action `pal_attack`, pad button 5) sends the active pal at
+Middle click or T (action `pal_attack`, pad button 5) sends the active pal at
 whatever the reticule is over. The target comes from `_current_throw_aim`,
 the same raycast the throw uses, since `locked_pal` only exists while the
 throw key is held. `Pal.command_attack` reuses `State.DEFEND` rather than
