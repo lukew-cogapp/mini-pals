@@ -5,11 +5,19 @@ extends SceneTree
 ##   godot --path . -s test/screenshot.gd --quit-after 400
 
 const OUT := "res://test/shots/"
+## The generated ground materials, whose noise must finish before any shot.
+const GROUND_MATERIALS := [
+	"res://materials/ground.tres",
+	"res://materials/ash.tres",
+	"res://materials/sand.tres",
+	"res://materials/water.tres",
+]
 
 var _world: Node3D
 var _player: CharacterBody3D
 var _cam: Camera3D
 var _shots: Array[Dictionary] = []
+var _textures_ready := false
 
 
 func _init() -> void:
@@ -49,15 +57,20 @@ func _init() -> void:
 	# Wide shot of the world itself.
 	await _shoot("08_world", Vector3(10, 6, 12), Vector3(0, 0, 0))
 
-	# The demon biome, from high enough to see green centre and scorched
-	# ring in one frame. No player angle reaches this far out.
-	var ring := Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MAX
-	await _shoot_free("21_biome", Vector3(0, 95, ring * 1.5), Vector3(0, 0, ring * 0.4))
+	# The demon biome from above. Framed on the blob rather than the whole
+	# island: the world's fog is dense enough that a shot from far enough out
+	# to see all 220 m washes the ground to one orange haze.
+	var altar_flat := Vector3(Tuning.ALTAR_POS.x, 0, Tuning.ALTAR_POS.z)
 	await _shoot_free(
-		"22_biome_ground",
-		Vector3(ring * 0.75, 8, ring * 0.75),
-		Vector3(ring * 0.62, 0, ring * 0.62),
+		"21_biome",
+		altar_flat + Vector3(0, 78, Tuning.ASH_RADIUS * 1.5),
+		altar_flat,
 	)
+	# Standing on the ash at eye height, looking down at it across the blob.
+	# Aimed away from the altar: standing next to it fills half the frame with
+	# its plinth and shows none of the ground this shot exists to check.
+	var eye := altar_flat + Vector3(Tuning.ASH_RADIUS * 0.45, 1.7, Tuning.ASH_RADIUS * 0.1)
+	await _shoot_free("22_biome_ground", eye, eye + Vector3(-14, -5.5, -3))
 
 	# A wolf, for comparison.
 	var pal = get_nodes_in_group("pal")[0]
@@ -167,6 +180,19 @@ func _shoot_ui() -> void:
 		await _capture("13_help")
 		hud._help.visible = false
 
+	# The item list carrying every drop at once, which is the case that used
+	# to run off the end of the bottom bar.
+	inv.add("wood", 42)
+	inv.add("stone", 17)
+	inv.add("pelt", 5)
+	inv.add("cactus_fruit", 3)
+	inv.add("demon_horn", 8)
+	inv.add("altar_key", 1)
+	await process_frame
+	_cam.global_position = bench.global_position + Vector3(2.5, 2.0, 3.5)
+	_cam.look_at(bench.global_position + Vector3(0, 0.5, 0), Vector3.UP)
+	await _capture("23_items")
+
 
 func _hold(action: String, frames: int) -> void:
 	Input.action_press(action)
@@ -189,6 +215,29 @@ func _shoot(name: String, offset: Vector3, look_at: Vector3, recentre := true) -
 
 
 ## World-space camera, for anything too far out for a player-relative shot.
+## NoiseTexture2D builds its image on a worker thread, so a material can be
+## assigned and drawn before its noise exists. Two frames is enough for a
+## camera move but not for that, and a shot taken early renders the ground as
+## untextured albedo, which is exactly the flat colour these shots exist to
+## catch. Waited once: the images are cached after the first shot.
+func _await_textures() -> void:
+	if _textures_ready:
+		return
+	for mat_path in GROUND_MATERIALS:
+		var mat: StandardMaterial3D = load(mat_path)
+		for prop in ["albedo_texture", "emission_texture", "roughness_texture", "normal_texture"]:
+			var tex := mat.get(prop) as NoiseTexture2D
+			if tex == null:
+				continue
+			var waited := 0
+			while tex.get_image() == null and waited < 600:
+				await process_frame
+				waited += 1
+			if tex.get_image() == null:
+				printerr("noise texture never generated: ", mat_path, " ", prop)
+	_textures_ready = true
+
+
 func _shoot_free(name: String, at: Vector3, look: Vector3) -> void:
 	_cam.global_position = at
 	_cam.look_at(look, Vector3.UP)
@@ -205,6 +254,7 @@ func _capture(name: String) -> void:
 	# Two frames so the camera move and any animation are actually drawn.
 	await process_frame
 	await process_frame
+	await _await_textures()
 	var img := get_root().get_texture().get_image()
 	var path := OUT + name + ".png"
 	var err := img.save_png(path)

@@ -1,5 +1,41 @@
-[gd_resource type="StandardMaterial3D" format=3]
+[gd_resource type="StandardMaterial3D" load_steps=6 format=3]
+
+; Beach. Ripples along the shore plus damp patches, so the rim is not the
+; single flat cream it was with albedo_color alone.
+
+[sub_resource type="FastNoiseLite" id="sand_noise"]
+noise_type = 1
+frequency = 0.05
+fractal_octaves = 4
+fractal_gain = 0.6
+
+[sub_resource type="Gradient" id="sand_ramp"]
+; Damp grey-tan up to dry bleached sand.
+offsets = PackedFloat32Array(0, 0.4, 0.7, 1)
+colors = PackedColorArray(0.62, 0.55, 0.42, 1, 0.78, 0.7, 0.53, 1, 0.87, 0.79, 0.6, 1, 0.93, 0.87, 0.72, 1)
+
+[sub_resource type="NoiseTexture2D" id="sand_tex"]
+width = 512
+height = 512
+seamless = true
+color_ramp = SubResource("sand_ramp")
+noise = SubResource("sand_noise")
+
+[sub_resource type="FastNoiseLite" id="grain_noise"]
+noise_type = 3
+frequency = 0.15
+fractal_octaves = 2
+
+[sub_resource type="NoiseTexture2D" id="grain_tex"]
+width = 256
+height = 256
+seamless = true
+noise = SubResource("grain_noise")
 
 [resource]
-albedo_color = Color(0.84, 0.76, 0.55, 1)
+albedo_color = Color(1, 1, 1, 1)
+albedo_texture = SubResource("sand_tex")
 roughness = 0.98
+roughness_texture = SubResource("grain_tex")
+; One tile per 3 m, so the ripples read as ripples when walked past.
+uv1_scale = Vector3(0.33, 0.33, 1)

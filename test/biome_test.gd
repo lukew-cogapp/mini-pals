@@ -1,6 +1,6 @@
 extends SceneTree
-## Asserts the demon biome is a distinct place: dead trees only inside the
-## annulus, living scenery only outside it, and everything solid.
+## Asserts the demon biome is a distinct place: dead trees only on the
+## scorched blob, living scenery only off it, and everything solid.
 
 var failures := 0
 
@@ -26,8 +26,10 @@ func run() -> void:
 	await process_frame
 
 	var scenery: Node = world.get_node("Scenery")
-	var inner := Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MIN
-	var outer := Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MAX
+	var island: Node3D = world.get_node("Island")
+	var space := island.get_world_3d()
+	var zone_script = load("res://scripts/zone.gd")
+	var ASH = zone_script.Kind.ASH
 
 	var dead: Array[Node3D] = []
 	var living: Array[Node3D] = []
@@ -49,24 +51,24 @@ func run() -> void:
 	check(living.size() == Tuning.TREE_COUNT, "living tree count == TREE_COUNT")
 	check(rocks.size() == Tuning.ROCK_COUNT, "rock count == ROCK_COUNT")
 
-	var worst_in := 0.0
+	# Membership is the zone's answer, not a radius: the blob's edge is a
+	# noise curve, and the zone is the one thing that defines it.
 	var bad_dead := 0
+	var far_dead := 0.0
 	for n in dead:
-		var d := n.position.length()
-		if d < inner or d > outer:
+		if not zone_script.is_inside(space, n.position, ASH):
 			bad_dead += 1
-			worst_in = max(worst_in, absf(d - clampf(d, inner, outer)))
-	print("dead tree radii: min=%.2f max=%.2f (annulus %.1f..%.1f)" % [
-		_min_r(dead), _max_r(dead), inner, outer])
-	check(bad_dead == 0, "all dead trees inside the demon annulus (off by %d)" % bad_dead)
+		far_dead = max(far_dead, n.position.distance_to(Tuning.ALTAR_POS))
+	print("dead trees: %d, furthest %.2f m from the altar (nominal r=%.1f)" % [
+		dead.size(), far_dead, Tuning.ASH_RADIUS])
+	check(bad_dead == 0, "all dead trees on the scorched blob (off by %d)" % bad_dead)
 
 	var bad_living := 0
 	for n in living + rocks:
-		var d := n.position.length()
-		if d >= inner and d <= outer:
+		if zone_script.is_inside(space, n.position, ASH):
 			bad_living += 1
-	print("living scenery in ring: %d" % bad_living)
-	check(bad_living == 0, "no living trees or rocks inside the annulus")
+	print("living scenery on the blob: %d" % bad_living)
+	check(bad_living == 0, "no living trees or rocks on the scorched blob")
 
 	var no_shape := 0
 	for n in dead + living + rocks:
@@ -79,44 +81,66 @@ func run() -> void:
 	check(no_shape == 0, "every scattered node has a non-null collision shape")
 
 	var ash: Node = world.get_node("Island/Ash")
-	check(ash != null, "Island has an Ash disc")
-	# Read the real vertex radii: a solid disc would silently paint the whole
-	# island, which is exactly the bug this ring replaced.
+	check(ash != null, "Island has an Ash blob")
+	# Read the real vertices. The mesh is the thing the player sees, so its
+	# own numbers decide, not the constants it was built from.
 	var verts: PackedVector3Array = (ash as MeshInstance3D).mesh.get_faces()
-	var ash_in := INF
-	var ash_out := 0.0
+	var centre := Vector3(Tuning.ALTAR_POS.x, 0.0, Tuning.ALTAR_POS.z)
+	var from_altar_max := 0.0
+	var from_altar_min := INF
+	var from_origin_max := 0.0
 	for v in verts:
-		var r := Vector3(v.x, 0.0, v.z).length()
-		ash_in = min(ash_in, r)
-		ash_out = max(ash_out, r)
-	print("ash ring %.2f..%.2f  island=%.2f  altar dist=%.2f" % [
-		ash_in, ash_out, Tuning.ISLAND_RADIUS, Tuning.ALTAR_POS.length()])
-	check(ash_out < Tuning.ISLAND_RADIUS, "ash does not reach the beach")
-	check(ash_in > Tuning.SCATTER_CLEAR_RADIUS * 2.0, "ash leaves the island centre green")
-	check(ash_in <= inner and ash_out >= outer, "ash covers the whole demon annulus")
+		var flat := Vector3(v.x, 0.0, v.z)
+		var d := flat.distance_to(centre)
+		from_altar_max = max(from_altar_max, d)
+		# Skip the fan's own centre vertex, which is always at distance zero.
+		if d > 0.001:
+			from_altar_min = min(from_altar_min, d)
+		from_origin_max = max(from_origin_max, flat.length())
+	print("blob edge %.2f..%.2f from the altar; furthest point %.2f from origin (island %.1f)" % [
+		from_altar_min, from_altar_max, from_origin_max, Tuning.ISLAND_RADIUS])
+
+	check(from_altar_max < Tuning.ASH_MAX_RADIUS + 0.01, "blob stays inside its bounding circle")
+	check(
+		from_origin_max < Tuning.ISLAND_RADIUS - Tuning.BEACH_WIDTH,
+		"blob stays on the grass and never reaches the beach",
+	)
+
+	# The edge must not be a circle. That was the complaint.
+	check(
+		from_altar_max - from_altar_min > Tuning.ASH_RADIUS * 0.1,
+		"blob edge is irregular, not a circle (spread %.2f m)" % (from_altar_max - from_altar_min),
+	)
+
+	# The spawn is on the far side of the island, so it must stay green.
+	check(
+		not zone_script.is_inside(space, Vector3.ZERO, ASH),
+		"island spawn is not on scorched ground",
+	)
+
+	# Area, as a fraction of the island. The old annulus covered 59%, which is
+	# what made it read as a target painted on the map.
+	var area := 0.0
+	for i in range(0, verts.size(), 3):
+		var a := verts[i]
+		var b := verts[i + 1]
+		var c := verts[i + 2]
+		area += absf((b.x - a.x) * (c.z - a.z) - (c.x - a.x) * (b.z - a.z)) * 0.5
+	var island_area := PI * Tuning.ISLAND_RADIUS * Tuning.ISLAND_RADIUS
+	var pct := area / island_area * 100.0
+	print("blob area %.1f m2 = %.1f%% of the island" % [area, pct])
+	check(pct > 5.0 and pct < 20.0, "blob covers a corner of the island, not most of it")
+
 	check(
 		Tuning.ALTAR_POS.length() < Tuning.ISLAND_RADIUS - Tuning.BEACH_WIDTH,
 		"altar is inside the grass",
 	)
 
 	check(
-		Tuning.ISLAND_RADIUS * Tuning.PALM_BAND.x > ash_out,
+		Tuning.ISLAND_RADIUS * Tuning.PALM_BAND.x > from_origin_max,
 		"palms start beyond the ash, so none stands on scorched ground",
 	)
 
 	print("FAILURES=%d" % failures)
 	quit(1 if failures else 0)
 
-
-func _min_r(a: Array[Node3D]) -> float:
-	var m := INF
-	for n in a:
-		m = min(m, n.position.length())
-	return m
-
-
-func _max_r(a: Array[Node3D]) -> float:
-	var m := 0.0
-	for n in a:
-		m = max(m, n.position.length())
-	return m

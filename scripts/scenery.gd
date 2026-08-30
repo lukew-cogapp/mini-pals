@@ -46,18 +46,15 @@ func _scatter_pals(rng: RandomNumberGenerator) -> void:
 		add_child(pal)
 
 
-## Demons live in an annulus at the rim; the middle stays safe for pottering.
+## Demons live on the scorched blob; the rest of the island stays safe for
+## pottering.
 func _scatter_demons(rng: RandomNumberGenerator) -> void:
 	if demon_scene == null:
 		return
 	for i in Tuning.DEMON_COUNT:
 		var demon := demon_scene.instantiate() as Pal
 		demon.level = rng.randi_range(demon.level_min, demon.level_max)
-		demon.position = _on_island(
-			rng,
-			Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MIN,
-			Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MAX,
-		)
+		demon.position = _in_ash(rng, 0.0)
 		demon.rotation.y = rng.randf() * TAU
 		add_child(demon)
 
@@ -98,16 +95,32 @@ func _place_altar() -> void:
 	add_child(altar)
 
 
-## True inside the demon annulus. Living scenery stays out of it, so the
-## scorched ground reads as its own place rather than the same island
-## recoloured.
+## True on the scorched blob. Living scenery stays off it, so the burnt
+## ground reads as its own place rather than the same island recoloured.
 func _in_demon_ring(pos: Vector3) -> bool:
 	return Zone.is_inside(get_world_3d(), pos, Zone.Kind.ASH)
 
 
-## Dead trees, in the demon annulus only. Unlike _scatter this needs no
-## retry loop: the ring never reaches the spawn, and the altar clearing is
-## the one thing to dodge.
+## A point on the scorched blob, inset from its edge by `inset` metres.
+##
+## The blob's edge is a noise curve, not a radius, so there is no closed form
+## to sample from. Rejection sampling in its bounding circle asks the zone
+## itself whether each candidate is inside, which keeps scatter and the drawn
+## mesh agreeing by construction. Falls back to the altar, which is the one
+## point guaranteed inside, so a spawn always gets a position.
+func _in_ash(rng: RandomNumberGenerator, inset: float) -> Vector3:
+	var centre := Vector3(Tuning.ALTAR_POS.x, 0.0, Tuning.ALTAR_POS.z)
+	for _attempt in 64:
+		var pos := centre + _on_island(rng, 0.0, Tuning.ASH_MAX_RADIUS)
+		if not _in_demon_ring(pos):
+			continue
+		if inset > 0.0 and pos.distance_to(Tuning.ALTAR_POS) <= inset:
+			continue
+		return pos
+	return centre
+
+
+## Dead trees, on the scorched blob only, keeping the altar's clearing free.
 func _scatter_biome(
 	scenes: Array[PackedScene],
 	count: int,
@@ -118,17 +131,8 @@ func _scatter_biome(
 	if scenes.is_empty():
 		return
 	for i in count:
-		var pos := Vector3.ZERO
-		for _attempt in 12:
-			pos = _on_island(
-				rng,
-				Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MIN,
-				Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MAX,
-			)
-			if pos.distance_to(Tuning.ALTAR_POS) > Tuning.ALTAR_CLEAR_RADIUS:
-				break
 		var item := scenes[rng.randi() % scenes.size()].instantiate() as Node3D
-		item.position = pos
+		item.position = _in_ash(rng, Tuning.ALTAR_CLEAR_RADIUS)
 		item.rotation.y = rng.randf() * TAU
 		item.scale = Vector3.ONE * rng.randf_range(scale_min, scale_max)
 		add_child(item)

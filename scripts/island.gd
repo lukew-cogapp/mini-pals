@@ -12,30 +12,43 @@ extends Node3D
 
 func _ready() -> void:
 	_disc("Grass", Tuning.ISLAND_RADIUS, 0.0, grass, 64)
-	_ash_ring()
+	_zones()
+	_ash_blob()
 	_disc("Beach", Tuning.ISLAND_RADIUS + Tuning.BEACH_WIDTH, -0.35, sand, 64)
 	_disc("Water", Tuning.WATER_RADIUS, Tuning.WATER_LEVEL, water, 48)
 	_ground_body()
 	_shore_wall()
-	_zones()
 
 
 ## Zones for the discs just built, in the same pass and from the same
 ## numbers, so the island and the regions describing it cannot drift apart.
+##
+## Runs before _ash_blob because the blob's mesh is built from the ash
+## zone's own edge curve rather than from a second copy of the maths.
 func _zones() -> void:
 	# Walkable ground stops at the shore wall, not at the painted sand.
 	_zone("LandZone", Zone.Kind.LAND, Tuning.SHORE_WALL_RADIUS, 0.0)
-	_zone(
-		"AshZone",
-		Zone.Kind.ASH,
-		Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MAX,
-		Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MIN,
-	)
+	_ash_zone()
 	# Everything from the shore wall out to the far edge of the water disc.
 	_zone("DeepZone", Zone.Kind.DEEP, Tuning.WATER_RADIUS, Tuning.SHORE_WALL_RADIUS)
 
 
-func _zone(name: String, kind: Zone.Kind, radius: float, hole: float) -> void:
+## The scorched blob, as a zone. Its cylinder is the bounding circle of the
+## widest the noisy edge can reach; the zone trims queries back to the real
+## edge itself.
+func _ash_zone() -> void:
+	var zone := _zone("AshZone", Zone.Kind.ASH, Tuning.ASH_MAX_RADIUS, 0.0)
+	zone.position = Tuning.ALTAR_POS
+	var noise := FastNoiseLite.new()
+	noise.seed = Tuning.ASH_EDGE_SEED
+	noise.frequency = Tuning.ASH_EDGE_FREQUENCY
+	noise.fractal_octaves = Tuning.ASH_EDGE_OCTAVES
+	zone.edge_noise = noise
+	zone.edge_radius = Tuning.ASH_RADIUS
+	zone.edge_wobble = Tuning.ASH_EDGE_WOBBLE
+
+
+func _zone(name: String, kind: Zone.Kind, radius: float, hole: float) -> Zone:
 	var zone := Zone.new()
 	zone.name = name
 	zone.kind = kind
@@ -48,6 +61,12 @@ func _zone(name: String, kind: Zone.Kind, radius: float, hole: float) -> void:
 	shape.shape = cyl
 	zone.add_child(shape)
 	add_child(zone)
+	return zone
+
+
+## The ash zone built by _zones, for the scatter code and the mesh builder.
+func ash_zone() -> Zone:
+	return get_node_or_null("AshZone") as Zone
 
 
 func _disc(name: String, radius: float, y: float, mat: Material, segments: int) -> void:
@@ -65,27 +84,30 @@ func _disc(name: String, radius: float, y: float, mat: Material, segments: int) 
 	add_child(node)
 
 
-## The demon annulus, scorched. A ring rather than a disc: _disc draws a
-## solid cylinder, which would paint the safe middle of the island brown
-## too. Built as a triangle strip lifted just above the grass.
-func _ash_ring() -> void:
-	var inner := Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MIN * Tuning.ASH_INNER
-	var outer := Tuning.ISLAND_RADIUS * Tuning.DEMON_RING_MAX * Tuning.ASH_OUTER
+## The scorched ground, as one blob centred on the altar. A triangle fan
+## from that centre out to the zone's noisy edge, so the drawn shape and the
+## shape the zone answers point queries with are the same curve.
+func _ash_blob() -> void:
+	var zone := ash_zone()
+	if zone == null:
+		return
 	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
-	var segments := 96
-	for i in segments + 1:
-		var angle := TAU * i / segments
-		var c := cos(angle)
-		var s := sin(angle)
-		# Flat and face up; generate_normals rejects a triangle strip.
-		st.set_normal(Vector3.UP)
-		# UVs in world units, so the noise tiles at the same scale as grass.
-		st.set_uv(Vector2(c * inner, s * inner))
-		st.add_vertex(Vector3(c * inner, 0.0, s * inner))
-		st.set_normal(Vector3.UP)
-		st.set_uv(Vector2(c * outer, s * outer))
-		st.add_vertex(Vector3(c * outer, 0.0, s * outer))
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var segments := 192
+	var centre := Vector3(Tuning.ALTAR_POS.x, 0.0, Tuning.ALTAR_POS.z)
+	for i in segments:
+		var a0 := TAU * i / segments
+		var a1 := TAU * (i + 1) / segments
+		var p0 := centre + _edge_point(zone, a0)
+		var p1 := centre + _edge_point(zone, a1)
+		# Godot culls back faces, and +Z runs "down" the screen when looking
+		# from above, so this order is the one that leaves the fan facing up.
+		# The other winding renders nothing at all from a camera overhead.
+		for v in [centre, p0, p1]:
+			st.set_normal(Vector3.UP)
+			# UVs in world units, so the ash tiles at the same scale as grass.
+			st.set_uv(Vector2(v.x, v.z))
+			st.add_vertex(v)
 	var node := MeshInstance3D.new()
 	node.name = "Ash"
 	node.mesh = st.commit()
@@ -93,6 +115,11 @@ func _ash_ring() -> void:
 	if ash:
 		node.material_override = ash
 	add_child(node)
+
+
+func _edge_point(zone: Zone, angle: float) -> Vector3:
+	var r := zone.edge_radius_at(angle)
+	return Vector3(cos(angle) * r, 0.0, sin(angle) * r)
 
 
 ## One flat collider under the island. The beach sits lower than the grass but

@@ -70,6 +70,25 @@ walking wolf (20). Run both after touching anything orientation-adjacent,
 and LOOK at the images. Never infer facing from vertex counts or bone
 positions; both gave the wrong answer here. Render it and look.
 
+**SurfaceTool winding: build a ground fan as `centre, p0, p1`.** Godot culls
+back faces, and looking down from above +Z runs *down* the screen, so the
+other winding renders NOTHING and the mesh is invisible while `get_faces()`,
+the AABB, the normals and the material all still read as correct. Every
+non-visual check passed while the ash blob was completely absent from the
+frame. If a generated mesh does not appear, flip the winding before doubting
+anything else.
+
+**Emission drowns albedo on a big flat surface.** `emission_energy_multiplier`
+at 0.35 rendered the ash pure white in daylight; the albedo texture is only
+visible below about 0.1. The ash sits at 0.05. Raise it and the biome turns
+into a snowfield, which happened three times here.
+
+**Ground `uv1_scale` is world-units-per-tile, and both extremes read as flat.**
+UVs are set in world units, so 60 tiled sixty times per metre (sub-pixel, and
+the original bug) and 0.018 tiled once per 55 m (one smear). Grass is 0.25,
+sand 0.33, ash 0.5. Judge it from `08_world` and `22_biome_ground`, not from
+the number.
+
 **`.tscn` sub-resources must be declared before the node that uses them.**
 A `SubResource("2")` referenced above its own `[sub_resource]` block fails with
 `Condition "!int_resources.has(id)" is true` and a parse error on the *using*
@@ -157,25 +176,43 @@ Regions are `Zone` nodes (`scripts/zone.gd`, `class_name Zone extends Area3D`,
 group `zone`), not radii from the origin. `island.gd` builds LAND, ASH and DEEP
 in the same pass as the discs they describe, so the two cannot drift apart, and
 callers ask `Zone.is_inside(world, point, kind)` or `Zone.zone_at(world, point)`.
-Membership is a physics point query on the zone's own shape, so a second island
-just adds its own zones and no maths changes. Zones sit alone on layer 7
-(`Zone.LAYER`); a query with any other mask finds nothing.
+Membership is `Zone.contains`, answered from the zone's own numbers, so a
+second island just adds its own zones and no maths changes. Zones sit alone on
+layer 7 (`Zone.LAYER`), which is what a point query would use, but the query
+is deliberately NOT a point query: an Area3D is invisible to
+`intersect_point` until a physics frame has run, and the world is generated
+and scattered inside `_ready`, before the first one. The old point-query
+version silently reported "not in ash" for everything during scatter, so the
+living-scenery rejection never actually ran. Keep membership arithmetic.
 
-Physics shapes cannot express a ring, and a fan of boxes approximating one is
-wrong by ~1cm at the seams, which is enough to move a scattered tree across the
-demon-ring boundary and reshuffle the whole seeded layout. So ASH is a cylinder
-with an exact `hole_radius` instead. Keep it that way.
+Physics shapes cannot express a ring or a wobbly edge, and a fan of boxes
+approximating one is wrong by ~1cm at the seams, which is enough to move a
+scattered tree across a boundary and reshuffle the whole seeded layout. So a
+zone's shape is always a plain cylinder and anything subtler is arithmetic on
+top: `hole_radius` for a ring, and `edge_noise` / `edge_radius_at` for the ash
+blob's irregular edge. `island.gd` builds the ash mesh by calling
+`edge_radius_at` itself, so the drawn edge and the queried edge are one curve
+rather than two that have to be kept in step. Scatter places demons and dead
+trees by rejection sampling in the bounding circle and asking the zone, which
+keeps placement agreeing with both for free.
 
 `_scatter`'s `SCATTER_CLEAR_RADIUS` and `ALTAR_CLEAR_RADIUS` checks stay radius
 maths on purpose: they are clearings around a point, not regions of the map.
 
 Endgame: player level 4 unlocks the Altar Key recipe at the workbench
 (3 pelt + 3 cactus fruit + 3 demon horn). One stone altar stands at
-`Tuning.ALTAR_POS`, out in the demon ring; R (action `interact`, gamepad
+`Tuning.ALTAR_POS`, at the centre of the scorched blob; R (action `interact`, gamepad
 D-pad up) with a key summons the Mushroom King (`scenes/pal_boss.tscn`),
 one alive at a time. The fight darkens the world, gives every pal a glow
 light, and loops procedural music; `scripts/altar.gd` restores all of it
 when the boss is caught or dies. Catching it is the win condition.
+
+HUD layout: level and XP bar bottom-left, active pal bottom-right, carried
+items as an icon list in the top-left under the health bar
+(`scripts/hud.gd` `_refresh_items`, icons in `ui/icons/*.svg` mapped by
+`Tuning.ITEM_ICONS`). Everything used to be one concatenated label on the
+bottom bar, which grew sideways with each new drop. Rows are built once and
+reused because `Inventory.changed` fires on every punch.
 
 Trees and rocks are gatherable (`scripts/resource_node.gd`, groups
 `tree`/`rock`/`resource_node`): punch (F) yields wood/stone, deplete after
@@ -218,7 +255,7 @@ Pals fight back: punching one puts it in `State.ATTACK` (chase + hit on a
 cooldown) for `PAL_AGGRO_TIME`. If it cannot land a hit for
 `PAL_NO_HIT_GIVE_UP_TIME`, it gives up; a successful `Player.damage()` or
 another player hit on the pal resets that timer. Species with `aggressive = true` (the Demon,
-`scenes/pal_demon.tscn`, spawned in an annulus at the map rim) attack on sight
+`scenes/pal_demon.tscn`, spawned on the scorched blob) attack on sight
 inside `PAL_AGGRO_RADIUS`; after giving up they wait for the player to leave
 and re-enter that radius before reacquiring. A caught pal never attacks the player.
 

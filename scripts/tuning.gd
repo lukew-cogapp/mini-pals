@@ -98,18 +98,27 @@ const FOLLOWER_LEASH := 16.0
 
 # --- Demons ---
 const DEMON_COUNT := 12
-## Fractions of half the ground size: an annulus at the rim, so the
-## middle of the map stays safe to potter about in.
-const DEMON_RING_MIN := 0.55
-const DEMON_RING_MAX := 0.9
-## Scorched ground over the demon annulus, as fractions of the ring it
-## marks. Slightly wider than the ring at both ends, so demons and dead
-## trees near the edges still stand on ash rather than half off it.
-const ASH_INNER := 0.94
-const ASH_OUTER := 1.03
-## Above the grass disc by less than the step height, so the seam does not
-## z-fight and nothing has to be climbed at the biome edge.
-const ASH_LIFT := 0.02
+## The scorched blob is one place on the island rather than a band around
+## it, so it is described from its own centre out: ALTAR_POS with a wobbly
+## radius. About 12% of the island's area, leaving most of the map green.
+const ASH_RADIUS := 38.0
+## How far the edge radius swings either side of ASH_RADIUS, as a fraction
+## of it. Without this the blob is a circle, which reads as painted-on as
+## the ring it replaced did.
+const ASH_EDGE_WOBBLE := 0.22
+## Noise driving that wobble. Sampled by angle around the blob, so the
+## frequency is in turns: about five lobes around the full circle.
+const ASH_EDGE_FREQUENCY := 0.75
+const ASH_EDGE_OCTAVES := 3
+const ASH_EDGE_SEED := 7
+## Demons and dead trees are placed by rejection sampling in the blob's
+## bounding circle, so the sampler needs the widest the edge can reach.
+const ASH_MAX_RADIUS := ASH_RADIUS * (1.0 + ASH_EDGE_WOBBLE)
+## Above the grass disc by less than the step height, so nothing has to be
+## climbed at the biome edge. 2 cm was inside the depth buffer's precision at
+## the distance the biome is seen from, and the grass won often enough that
+## the blob did not read as scorched at all.
+const ASH_LIFT := 0.12
 const DEAD_TREE_COUNT := 70
 const DEAD_TREE_SCALE_MIN := 0.3
 const DEAD_TREE_SCALE_MAX := 0.7
@@ -199,9 +208,10 @@ const RECIPES := [
 	{"label": "Pal Cube", "item": "cube", "costs": CUBE_RECIPE, "min_level": 1},
 	{"label": "Altar Key", "item": "altar_key", "costs": KEY_RECIPE, "min_level": KEY_UNLOCK_LEVEL},
 ]
-## Out in the demon annulus, so reaching the altar is a journey; kept
-## inside the island's grass (ISLAND_RADIUS minus the beach).
-const ALTAR_POS := Vector3(64.0, 0.0, -64.0)
+## The scorched blob is centred here, so the altar sits at the heart of the
+## demon ground. Far enough out that reaching it is a journey, near enough
+## that the blob's widest edge still lands on grass rather than the beach.
+const ALTAR_POS := Vector3(40.0, 0.0, -40.0)
 const ALTAR_CLEAR_RADIUS := 8.0
 const ALTAR_RANGE := 5.0
 const BOSS_LEVEL := 10
@@ -223,6 +233,23 @@ const FIGHT_GLOW_ENERGY := 1.4
 const FIGHT_GLOW_RANGE := 6.0
 const FIGHT_GLOW_HEIGHT := 1.0
 const FIGHT_GLOW_COLOR := Color(1.0, 0.55, 0.25)
+
+# --- Inventory readout ---
+## Icon per item for the top-left resource list. An item with no icon here
+## still gets a row, just without a picture, so a new drop is never invisible.
+const ITEM_ICONS := {
+	"wood": "res://ui/icons/wood.svg",
+	"stone": "res://ui/icons/stone.svg",
+	"cube": "res://ui/icons/cube.svg",
+	"pelt": "res://ui/icons/pelt.svg",
+	"cactus_fruit": "res://ui/icons/cactus_fruit.svg",
+	"demon_horn": "res://ui/icons/demon_horn.svg",
+	"altar_key": "res://ui/icons/altar_key.svg",
+}
+## Rows are built once and reused, so the list needs a ceiling. Well above the
+## seven items that exist; extra items past it are not shown.
+const ITEM_ROWS_MAX := 14
+const ITEM_ICON_SIZE := 22
 
 # --- Island ---
 const ISLAND_RADIUS := 110.0

@@ -1,7 +1,46 @@
-[gd_resource type="StandardMaterial3D" format=3]
+[gd_resource type="StandardMaterial3D" load_steps=6 format=3]
+
+; Sea. The disc is 800 m across and dead flat, so without texture it is one
+; slab of blue to the horizon. Broad noise gives depth variation, and a normal
+; map breaks the specular into something that reads as a surface.
+
+[sub_resource type="FastNoiseLite" id="depth_noise"]
+noise_type = 1
+frequency = 0.03
+fractal_octaves = 3
+
+[sub_resource type="Gradient" id="depth_ramp"]
+; Deep navy through to a shallow teal, so the water has somewhere to go.
+offsets = PackedFloat32Array(0, 0.45, 0.8, 1)
+colors = PackedColorArray(0.06, 0.19, 0.31, 1, 0.11, 0.31, 0.45, 1, 0.17, 0.43, 0.56, 1, 0.24, 0.53, 0.62, 1)
+
+[sub_resource type="NoiseTexture2D" id="depth_tex"]
+width = 512
+height = 512
+seamless = true
+color_ramp = SubResource("depth_ramp")
+noise = SubResource("depth_noise")
+
+[sub_resource type="FastNoiseLite" id="wave_noise"]
+noise_type = 3
+frequency = 0.06
+fractal_octaves = 3
+
+[sub_resource type="NoiseTexture2D" id="wave_tex"]
+width = 512
+height = 512
+seamless = true
+as_normal_map = true
+bump_strength = 3.0
+noise = SubResource("wave_noise")
 
 [resource]
 transparency = 1
-albedo_color = Color(0.16, 0.38, 0.52, 0.82)
+albedo_color = Color(1, 1, 1, 0.86)
+albedo_texture = SubResource("depth_tex")
 metallic = 0.35
 roughness = 0.12
+normal_enabled = true
+normal_scale = 0.8
+normal_texture = SubResource("wave_tex")
+uv1_scale = Vector3(0.01, 0.01, 1)

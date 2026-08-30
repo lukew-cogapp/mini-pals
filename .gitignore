@@ -15,3 +15,6 @@ test/shots/
 /test/probe_*.gd.uid
 /test/tmp_*.gd
 /test/tmp_*.gd.uid
+
+# Agent worktrees, not part of the game.
+.claude/worktrees/

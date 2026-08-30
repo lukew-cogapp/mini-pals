@@ -1,18 +1,45 @@
-[gd_resource type="StandardMaterial3D" load_steps=3 format=3]
+[gd_resource type="StandardMaterial3D" load_steps=8 format=3]
 
-[sub_resource type="FastNoiseLite" id="1"]
-noise_type = 3
-frequency = 0.04
-fractal_octaves = 4
+; Grass. Two noise scales feed two textures: a coarse one for patches of
+; lighter and darker turf metres across, and a fine one for roughness break-up
+; so the sun does not sheet evenly off the whole island.
 
-[sub_resource type="NoiseTexture2D" id="2"]
+[sub_resource type="FastNoiseLite" id="patch_noise"]
+noise_type = 1
+frequency = 0.03
+fractal_octaves = 5
+fractal_lacunarity = 2.1
+
+[sub_resource type="Gradient" id="patch_ramp"]
+; Deep shaded green up to a lighter sunlit green. Kept well clear of yellow:
+; a bright ramp washes the whole island out to one sandy tone from above.
+offsets = PackedFloat32Array(0, 0.3, 0.55, 0.8, 1)
+colors = PackedColorArray(0.16, 0.28, 0.12, 1, 0.22, 0.38, 0.15, 1, 0.3, 0.47, 0.19, 1, 0.38, 0.54, 0.24, 1, 0.47, 0.6, 0.3, 1)
+
+[sub_resource type="NoiseTexture2D" id="patch_tex"]
 width = 512
 height = 512
 seamless = true
-noise = SubResource("1")
+color_ramp = SubResource("patch_ramp")
+noise = SubResource("patch_noise")
+
+[sub_resource type="FastNoiseLite" id="rough_noise"]
+noise_type = 3
+frequency = 0.12
+fractal_octaves = 4
+
+[sub_resource type="NoiseTexture2D" id="rough_tex"]
+width = 256
+height = 256
+seamless = true
+noise = SubResource("rough_noise")
 
 [resource]
-albedo_color = Color(0.42, 0.62, 0.34, 1)
-albedo_texture = SubResource("2")
-uv1_scale = Vector3(60, 60, 1)
-roughness = 0.95
+albedo_color = Color(1, 1, 1, 1)
+albedo_texture = SubResource("patch_tex")
+roughness = 1.0
+roughness_texture = SubResource("rough_tex")
+; One tile per 4 m. The old value of 60 tiled 60 times per metre and averaged
+; to flat colour; 0.018 (one tile per 55 m) went too far the other way and was
+; just as flat to a player standing in it.
+uv1_scale = Vector3(0.25, 0.25, 1)
