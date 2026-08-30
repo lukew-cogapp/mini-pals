@@ -128,6 +128,12 @@ cache and clears it. Give a parallel agent its own git worktree instead.
 timeout: No such file or directory`, and in a pipeline that reads as the
 command producing no output, which is easy to misread as a hang.
 
+**GUT needs an import before it will run.** A fresh checkout fails with
+`Some GUT class_names have not been imported`, naming `GutTest` and friends,
+because the addon's `class_name` registrations live in `.godot/`, which is
+gitignored. `godot --headless --path . --import` once fixes it. CI does this
+already; a person cloning the repo has to.
+
 **Hot reload:** `.gd` yes, `.tscn` no. F8 stop, F5 play.
 
 **A `-s` script cannot name an autoload at all.** Naming `Inventory`, `Party`

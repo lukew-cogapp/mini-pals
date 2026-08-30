@@ -39,3 +39,8 @@ jobs:
       # FAILURES=0, so run.sh treats errors and parser warnings as failures too.
       - name: Run the suites
         run: ./test/run.sh
+
+      # GUT runs three of the same suites ported to its idiom. It fails on an
+      # engine error structurally, rather than by grepping for one.
+      - name: Run the GUT suites
+        run: ./test/run_gut.sh
