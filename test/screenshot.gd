@@ -89,6 +89,15 @@ func _shoot_ui() -> void:
 	await _capture("12_build_menu_broke")
 	menu._close()
 
+	# Help overlay, and a party message.
+	var hud = get_root().get_node_or_null("Hud")
+	if hud:
+		hud._help.visible = true
+		hud.flash("Caught Wolf!")
+		await process_frame
+		await _capture("13_help")
+		hud._help.visible = false
+
 
 func _hold(action: String, frames: int) -> void:
 	Input.action_press(action)

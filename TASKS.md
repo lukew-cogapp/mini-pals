@@ -1,49 +1,42 @@
 # Tasks
 
-Kept current as work lands. Newest changes at the top of each section.
+No TodoWrite tool in this session, so this file is the task list. Kept current
+as work lands.
+
+## In progress
+
+Nothing in flight.
 
 ## Next
 
-- [ ] Feedback when gathering and throwing: prints go to the console, nothing
-      on screen except the HUD numbers moving
-
-- [ ] Wings for the cat dragon: PrismMesh slabs read as flat blades stuck
-      through the body. Needs a real wing mesh, not a primitive
-
-- [ ] Verify the agent-built crafting system myself, gather/craft/menu untested
+- [ ] Gather and throw feedback in the world, not just HUD numbers moving
 - [ ] Adopt **GUT** for tests (researched, recommended over GdUnit4)
       `godot --headless -d -s addons/gut/gut_cmdln.gd -gdir=res://test -ginclude_subdirs -gexit`
       First tests: facing maths, step-up over rock vs tree, inventory/crafting
 - [ ] Seed `pal_cube.gd`'s `randf()` via an injected RNG so catches are testable
-- [ ] On-screen controls hint, the list has grown past guessing
+- [ ] Wings for the cat dragon: primitives read as blades through the body,
+      needs a real wing mesh
 
 ## Done
 
-- [x] Rename spheres to **pal cubes**: box mesh, scene/script/vars renamed
-
-- [x] Proper workbench: legs, plank top, tool rack, anvil, no longer a crate
-- [x] Pal cubes: renamed from spheres, now a tumbling red box
-- [x] Build menu verified visually, affordable and greyed-out states
-- [x] Resource HUD along the bottom: wood, stone, cubes
-- [x] Fix facing for real: models face +Z, so `atan2(x, z)`, verified by
-      screenshot from ahead of travel
-- [x] Sunset lighting: warm low sun, orange horizon, light fog
-- [x] Screenshot harness `test/screenshot.gd`, 9 angles including walk and jump
-- [x] Revert the wrong 180 degree model flip, models were already correct
-- [x] Blue cat: recoloured atlas via `scripts/tools/recolour_texture.py`, wings
-      left purple
-- [x] Confirm facing convention: Quaternius heads point +Z, Godot forward is -Z,
-      so the 180 degree model flip is correct (measured, not assumed)
-- [x] Flip Quaternius models, cat and wolf
-- [x] Cat dragon player: Cat body, wings, walk/idle animation
-- [x] Xbox pad bindings on all ten actions
-- [x] Camera FOV 60, window 1600x900 maximised
-- [x] Gathering, inventory, workbench, build menu (agent-built)
+- [x] Overlay styling: shared styles in `ui/`, amber on dark, matching HUD,
+      build menu and help
+- [x] Party system: caught pals are stored, Tab cycles, one out at a time
+- [x] Q throws a pal cube, and `/` toggles a controls overlay
+- [x] HUD messages on catch, escape, and empty pockets
+- [x] Proper workbench: legs, plank top, tool rack, anvil
+- [x] Pal cubes: renamed from spheres, tumbling red box
+- [x] Build menu verified visually, affordable and greyed states
+- [x] Resource HUD along the bottom
+- [x] Facing: models face +Z so `atan2(x, z)`, verified by screenshot
+- [x] Sunset lighting, warm low sun and light fog
+- [x] Screenshot harness, 12 angles including UI
+- [x] Blue cat via recoloured atlas
+- [x] Gathering, inventory, workbench, build menu
 - [x] Wolf pal: wander, flee, catch, follow, ride
-- [x] Collision on trees and rocks, step over rocks, trees block
+- [x] Collision: step over rocks, trees block
 - [x] Quaternius Ultimate Monsters, 50 rigged CC0 creatures
-- [x] Ground texture and 160 seeded trees/rocks for motion cues
-- [x] Fix player facing backwards, `atan2(-x, -z)`
+- [x] Ground texture and 160 seeded trees/rocks
 - [x] Godot 4.7 scaffold, third-person controller
 
 ## Ride improvements (researched, not applied)

@@ -153,4 +153,22 @@ func _enter_flee() -> void:
 ## Called by the pal cube on a successful catch.
 func on_caught() -> void:
 	caught = true
+	Party.store(self)
+
+
+## Stored pals stay in the tree but out of sight, so their home position and
+## wander state survive being put away.
+func stow() -> void:
+	state = State.IDLE
+	velocity = Vector3.ZERO
+	visible = false
+	set_physics_process(false)
+	$Collision.set_deferred("disabled", true)
+
+
+func summon(at: Vector3) -> void:
+	global_position = at
+	visible = true
+	set_physics_process(true)
+	$Collision.set_deferred("disabled", false)
 	state = State.FOLLOW

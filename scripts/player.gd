@@ -29,6 +29,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_throw_cube()
 	elif event.is_action_pressed("ride"):
 		_toggle_ride()
+	elif event.is_action_pressed("cycle_pal"):
+		Party.cycle(global_position)
 	elif event.is_action_pressed("punch"):
 		_punch()
 	elif event is InputEventMouseButton and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
@@ -108,7 +110,7 @@ func _try_step_up(direction: Vector3) -> void:
 
 func _throw_cube() -> void:
 	if not Inventory.remove("cube", 1):
-		print("Out of pal cubes. Craft more at the workbench.")
+		Hud.flash("No pal cubes. Punch trees and rocks, then craft at the workbench.")
 		return
 	var cube := CUBE_SCENE.instantiate()
 	get_parent().add_child(cube)
@@ -119,9 +121,9 @@ func _throw_cube() -> void:
 
 func _on_cube_resolved(pal: Node, success: bool) -> void:
 	if pal and success:
-		print("Caught %s!" % pal.display_name)
+		Hud.flash("Caught %s!" % pal.display_name)
 	elif pal:
-		print("%s broke free!" % pal.display_name)
+		Hud.flash("%s broke free!" % pal.display_name)
 
 
 ## --- Gathering ------------------------------------------------------------
