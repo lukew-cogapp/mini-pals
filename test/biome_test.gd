@@ -34,21 +34,28 @@ func run() -> void:
 	var dead: Array[Node3D] = []
 	var living: Array[Node3D] = []
 	var rocks: Array[Node3D] = []
+	var palms: Array[Node3D] = []
 	for child in scenery.get_children():
 		if not child is Node3D:
 			continue
 		var n: Node3D = child
 		if n.is_in_group("tree"):
-			if n.scene_file_path.contains("deadtree"):
+			# Palms share the tree group (they are bitten for wood too) but
+			# are shore dressing, scattered by their own band and count.
+			if n.scene_file_path.contains("palm"):
+				palms.append(n)
+			elif n.scene_file_path.contains("deadtree"):
 				dead.append(n)
 			else:
 				living.append(n)
 		elif n.is_in_group("rock"):
 			rocks.append(n)
 
-	print("counts: dead=%d living_trees=%d rocks=%d" % [dead.size(), living.size(), rocks.size()])
+	print("counts: dead=%d living_trees=%d rocks=%d palms=%d" % [
+		dead.size(), living.size(), rocks.size(), palms.size()])
 	check(dead.size() == Tuning.DEAD_TREE_COUNT, "dead tree count == DEAD_TREE_COUNT")
 	check(living.size() == Tuning.TREE_COUNT, "living tree count == TREE_COUNT")
+	check(palms.size() == Tuning.PALM_COUNT, "palm count == PALM_COUNT")
 	check(rocks.size() == Tuning.ROCK_COUNT, "rock count == ROCK_COUNT")
 
 	# Membership is the zone's answer, not a radius: the blob's edge is a
