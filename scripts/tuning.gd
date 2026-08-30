@@ -16,3 +16,13 @@ const CAMERA_DISTANCE := 5.0
 
 # --- World ---
 const GROUND_SIZE := 120.0
+
+# --- Scenery scatter ---
+const SCATTER_SEED := 20260830
+const TREE_COUNT := 90
+const ROCK_COUNT := 70
+const SCATTER_CLEAR_RADIUS := 6.0
+const TREE_SCALE_MIN := 0.7
+const TREE_SCALE_MAX := 1.6
+const ROCK_SCALE_MIN := 0.5
+const ROCK_SCALE_MAX := 1.8
