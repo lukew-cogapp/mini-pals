@@ -26,3 +26,7 @@ const TREE_SCALE_MIN := 0.7
 const TREE_SCALE_MAX := 1.6
 const ROCK_SCALE_MIN := 0.5
 const ROCK_SCALE_MAX := 1.8
+
+# --- Stepping over low obstacles ---
+const STEP_HEIGHT := 0.45
+const STEP_FORWARD_PROBE := 0.35

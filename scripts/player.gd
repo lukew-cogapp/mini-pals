@@ -49,3 +49,40 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, 0.0, speed)
 
 	move_and_slide()
+	_try_step_up(direction)
+
+
+## CharacterBody3D stops dead at any lip, however small. When we collide with
+## something low enough to be a step, lift over it instead of being stopped.
+func _try_step_up(direction: Vector3) -> void:
+	if direction == Vector3.ZERO or not is_on_floor():
+		return
+	# Only interested in walls we ran into, not the floor underfoot.
+	var blocked := false
+	for i in get_slide_collision_count():
+		var c := get_slide_collision(i)
+		if absf(c.get_normal().y) < 0.5:
+			blocked = true
+			break
+	if not blocked:
+		return
+
+	var probe := direction * Tuning.STEP_FORWARD_PROBE
+	var up := Vector3.UP * Tuning.STEP_HEIGHT
+	var params := PhysicsTestMotionParameters3D.new()
+	params.recovery_as_collision = true
+	var result := PhysicsTestMotionResult3D.new()
+
+	# Is the space above the obstacle clear to move into?
+	params.from = global_transform.translated(up)
+	params.motion = probe
+	if PhysicsServer3D.body_test_motion(get_rid(), params, result):
+		return
+
+	# Is there ground under that space to stand on?
+	params.from = global_transform.translated(up + probe)
+	params.motion = Vector3.DOWN * Tuning.STEP_HEIGHT
+	if not PhysicsServer3D.body_test_motion(get_rid(), params, result):
+		return
+
+	global_position += up + probe + Vector3.DOWN * result.get_travel().length()
