@@ -351,10 +351,10 @@ const FISH_COUNT := 14
 const AMPHIBIAN_COUNT := 6
 const AMPHIBIAN_BAND := Vector2(0.95, 1.03)
 
-## Swim feel. A ridden swimmer off the land sits lower and moves slower, so
-## leaving the beach reads as entering water without a buoyancy sim.
+## Swim feel. A ridden swimmer off the land sits lower and moves faster: the
+## water is its element, so reaching it is the reward for catching one.
 const SWIM_SINK := 0.55
-const SWIM_SPEED_FACTOR := 0.6
+const SWIM_SPEED_FACTOR := 1.45
 
 ## The deep water disc is drawn over the shallow one, so the shallow ring
 ## needs lifting clear of it or the two z-fight.
