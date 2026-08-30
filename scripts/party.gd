@@ -32,6 +32,11 @@ func grant_xp(amount: int) -> void:
 func store(pal: Pal) -> void:
 	if pal in members:
 		return
+	# A freed pal can still sit in members: a caught pal that dies or is freed
+	# elsewhere does not remove itself, and reading display_name off it throws.
+	for i in range(members.size() - 1, -1, -1):
+		if not is_instance_valid(members[i]):
+			members.remove_at(i)
 	# A second catch of a species feeds the kept pal a level instead of
 	# adding a duplicate nobody would use. Species is keyed by display_name.
 	for kept in members:
