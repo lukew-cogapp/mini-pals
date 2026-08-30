@@ -92,8 +92,7 @@ comments in `ash.tres` before touching the energy.
 ground tiling alike.** A hill is SurfaceTool with world-unit UVs, so a 30 m
 mound spans UV 0..30; the island disc is a CylinderMesh, whose UVs are
 normalised 0..1 across the whole primitive, so 220 m of island spanned a
-quarter of a tile and read as flat colour beside a visibly mottled hill, a
-factor of about 55. `uv1_triplanar` projects by world position and fixes the
+quarter of a tile and read as flat colour beside a visibly mottled hill. `uv1_triplanar` projects by world position and fixes the
 disc, the beach and the shallows together. Anything else built from a
 primitive and given this material inherits the fix; anything given a new
 material needs the same flag.
@@ -164,52 +163,27 @@ This no longer constrains the tests, which are all GUT now and load at
 runtime, so they name `Inventory`, `Party`, `Hud` and `Tuning` directly. It
 still constrains `screenshot.gd` and the other `-s` tools.
 
-**GUT is the harness.** 9.7.1 is vendored at `addons/gut` and needs no editor
-plugin enabled to run headless. `test/run.sh` runs every `*_test.gd` under
-`test/`, and takes one filename to narrow it
-(`test/run.sh catch_chance_test.gd`). It earns its place by failing on an
-engine error: a `SCRIPT ERROR` inside a test aborts that function, and the
-hand-rolled `_check` harness this replaced then printed `FAILURES=0` and
-exited 0. Only a grep for `SCRIPT ERROR` caught that; GUT counts it as a
-failed test.
+**GUT is the harness**, 9.7.1 vendored at `addons/gut`, no editor plugin
+needed. **Run tests only through `test/run.sh`**, and read its header before
+changing it: the flags that must not move, the wall-clock timeout, the
+summary-line check and the guard against a suite that is not `extends
+GutTest` all live there, enforced rather than merely written down. A suite
+that lacks that line is skipped and the run still exits 0, which is why the
+guard exists; watch the script count in the summary for the same reason.
 
-Two flags in `run.sh` that are not optional. **Never add `-d`**: it attaches
-the debugger, and an error drops the run into an interactive `debug>` prompt
-that waits forever. And `-gprefix= -gsuffix=_test.gd`, because GUT looks for
-`test_*.gd` while this project names suites `*_test.gd`; without them it finds
-nothing, says "Nothing was run" and exits 0.
+Two things `run.sh` cannot enforce for you:
 
 `add_child_autofree` frees at the end of the *test* that called it, not the
 script, so a `before_all` fixture needs an explicit `after_all` calling
 `free`. Not `queue_free`, which has not run when GUT counts unfreed children.
 
-`screenshot.gd`, `start_shot.gd`, `prompt_shot.gd` and `compile_check.gd` are
-still `extends SceneTree`. They are renderers and tools, not tests, and the
-`_test.gd` suffix filter leaves them alone.
+Its log path is not worktree-scoped, so two agents running it at once clobber
+each other's results, and one has already read another's as its own. Set an
+isolated `TMPDIR` when anything else might be running.
 
-**A suite that is not `extends GutTest` is skipped, not failed.** GUT prints a
-warning nobody reads and exits 0. Eight suites written after the migration sat
-dead for hours that way, three of them mine. `run.sh` now greps for the line
-and refuses to start if any suite lacks it, so the failure is loud. Check the
-script count in the summary too: a suite that stops being discovered shows up
-there and nowhere else.
-
-**`run.sh`'s log path is not worktree-scoped.** Two agents running it at once
-clobber each other's log, and one has already read another's results as its
-own. Set an isolated `TMPDIR` when anything else might be running.
-
-**Wrap every test run in a wall-clock timeout.** A test awaiting something
-that never fires hangs forever, and no GDScript harness bounds it. This
-already burned 15 minutes on a test whose first assertion had failed. There
-is no `timeout` binary here, so use Perl, and redirect rather than piping,
-since a pipe hides the failing line:
-
-    perl -e 'alarm 120; exec @ARGV' \
-      godot --headless --path . -s test/screenshot.gd < /dev/null > out.txt
-
-`test/run.sh` does this already. Check its summary line is PRESENT, not just
-that the count is zero: an absent line means the run died or matched no
-script, and neither is the same as passing.
+`screenshot.gd`, `start_shot.gd`, `prompt_shot.gd`, `cave_shots.gd` and
+`compile_check.gd` stay `extends SceneTree`. They are renderers and tools, not
+tests, and the `_test.gd` suffix filter leaves them alone.
 
 **A pal drives itself; do not tick it by hand as well.** `_physics_process`
 runs the state machine and calls `move_and_slide()` every physics frame, so a
@@ -391,7 +365,7 @@ accepts an unsafe spot rather than trapping the player on a corpse.
 
 `scenes/start_screen.tscn` is the main scene; Play swaps in `world.tscn`. Its
 backdrop is a small 3D set of its own, not the real world, which loads in
-roughly 216 ms against world.tscn's 276 ms. The title reads
+roughly measurably faster than world.tscn. The title reads
 `application/config/name` at runtime, so renaming the game is one edit in
 `project.godot`. The `Hud` autoload exists before any world does and draws
 over the title, so the start screen hides it and restores it in `_exit_tree`.
@@ -506,29 +480,16 @@ different `display_name`. The player always outranks a rival:
 `_tick_attack` drops the brawl the frame `_wants_attack` turns true.
 
 **Anything wild fights back when a pal hits it**, temperament regardless.
-The gate in `take_rival_hit` used to read `aggressive and ...`, which never
-fired: demons are the only aggressive species and `_is_rival` excludes their
-own kind, so a demon mauling a wolf got no answer at all. Retaliation sets
-`_rival` and enters ATTACK but touches neither `_aggro` nor the flee gate, and
-`_wants_attack` is false for anything not aggressive, so a retaliating wolf
-always takes the `_tick_rival` branch of `_tick_attack` and never turns on the
-player. Once its rival is gone it goes back to fleeing them as before. The
-test for this takes the rival away before asserting, because while one is
-alive `_tick_attack` never looks at the player and a leaked player-aggro would
-be invisible.
+Retaliation sets `_rival` and enters ATTACK but touches neither `_aggro` nor
+the flee gate, and `_wants_attack` is false for anything not aggressive, so a
+retaliating wolf takes the `_tick_rival` branch and never turns on the player.
+Once its rival is gone it flees them as before.
 
-**Wild fights kill.** They used to clamp at a `RIVAL_MIN_TARGET_HP` of 1, and
-that clamp is what the maimed-rival exclusion in `_is_rival` was guarding: a
-winner that kept picking a loser no further hit could reach locked the pair
-up for good. Both are gone. A loser dies, `dying` and the `pal` group already
-exclude it, and the population is held up by respawning instead.
-`RIVAL_FIGHT_TIME` stays, because it bounds the one non-progress case
-lethality does not touch: a chase that never closes to `RIVAL_ATTACK_RANGE`.
-It does NOT bound a mutual brawl, which was measured rather than assumed:
-when it expires each side drops its rival, and the next landed hit re-arms
-retaliation with a fresh timer, so the pair renews. What ends a brawl is one
-of them dying, which at `RIVAL_DAMAGE` on a `RIVAL_ATTACK_COOLDOWN` takes
-about `max_hp * cooldown` seconds.
+**Wild fights kill**, and respawning holds the population up.
+`RIVAL_FIGHT_TIME` bounds only the case lethality does not reach: a chase that
+never closes to `RIVAL_ATTACK_RANGE`. It does NOT bound a mutual brawl,
+because each landed hit re-arms retaliation with a fresh timer. What ends a
+brawl is one of them dying, roughly `max_hp * RIVAL_ATTACK_COOLDOWN` seconds.
 
 Who a death pays is **participation, not the final blow**. Each pal carries a
 `_credit` countdown, reset to `PAL_CREDIT_TIME` by `take_hit` (the player hit
@@ -642,26 +603,15 @@ has locked (`player.locked_pal`, published by `_update_throw_aim`) shows its
 bar regardless of the cone, since that is by definition what is being aimed
 at. Name labels are NOT gated on facing and never have been; only the bar is.
 
-Five `MeshInstance3D` quads built once in `_ready` and rescaled, never
-rebuilt: a translucent drop shadow, a dark backing that also serves as the
-border, a lighter track for the empty part, the coloured fill, and a lighter
-sheen strip pinned to the fill's top edge. `render_priority` 1 to 5 is what
-orders them, since they share an origin and use `no_depth_test`. The fill
-colour is `Pal.bar_colour`, a three-stop ramp lerped through
-`PAL_HEALTH_BAR_MID_COLOUR`: the old single step at 0.35 went green to red
-between two hits.
-
-All five are billboarded, and a billboard is vertex work in the material that
-does not touch the node basis: a child node offset stays in world space and
-swings out of the bar as the camera moves. So every quad is a sibling at the
-same origin, shifted inside its own mesh with `QuadMesh.center_offset` (the
-fill's left edge, the sheen's top edge, the shadow's drop).
-`billboard_keep_scale` is also required, or every bar renders as the default
-1 m square whatever it was scaled to; both of those looked correct until the
-screenshot. Caught and dying pals hide theirs, as the name label already does.
-`test/pal_health_bar_test.gd` covers it; `test/health_bar_shots.gd` renders it
-against grass and ash at full, half and nearly-dead health, which is the only
-way to judge it.
+The bar is five billboarded quads built once in `_ready` and rescaled; the
+construction is commented beside the code. Two traps, because both looked
+correct until the screenshot: **a billboard is vertex work in the material and
+does not touch the node basis**, so a child-node offset stays in world space
+and swings out of the bar as the camera moves (every quad is a sibling at one
+origin, shifted inside its own mesh with `QuadMesh.center_offset`), and
+**`billboard_keep_scale` is required** or every bar renders as a 1 m square
+whatever it was scaled to. `test/health_bar_shots.gd` renders it against grass
+and ash at three health levels, which is the only way to judge it.
 
 Feedback added in the second juice pass, all constants in one `tuning.gd`
 block: a death poof and a grow-in on respawn (`Pal.poof`, `Pal.grow_in`;
@@ -708,9 +658,8 @@ hill they could see through. Anything carved has to be carved in both.
 
 ## The cave
 
-A box chamber buried in one hill, mouth cut out of the flank. It has now been
-reported broken three times and "fixed" twice, so the constraint is written
-down here rather than rediscovered.
+A box chamber buried in one hill, mouth cut out of the flank. The constraints
+below are all load-bearing; each was rediscovered the hard way.
 
 **The geometry does not fit by itself, and cannot be made to.** The chamber
 needs `CAVE_HEIGHT + CAVE_WALL` of hill above its floor plus cover, and a
@@ -725,9 +674,7 @@ bites. Sink far enough and the roof goes under the hill surface at the mouth
 too, and then there is no opening at all: a hill with no cave in it. At the
 shipped 5 the roof still clears the doorway's grass, and the floor comes out
 level with the ground `CAVE_RAMP` metres out, which is what lets the approach
-be a level cutting with no step at either end. The walk-in is NOT a tilted
-ramp; that was tried, the rotation sign was inverted, and the wedge stood
-proud of the hill the whole way.
+be a level cutting with no step at either end. The walk-in is a level cutting, not a tilted ramp.
 
 **The mouth and the roof are the same surface.** A cave you can see into
 necessarily breaks the grass at the opening, so the burial assertion exempts
@@ -777,19 +724,10 @@ below it between ring vertices.
 
 `test/cave_test.gd` measures all of it and `test/cave_shots.gd` orbits it from
 eight compass points at 34 m plus one overhead. Two lessons are baked into the
-test and are worth keeping:
-
-- **Sample slab FACES on a grid, not their eight corners.** A box under a dome
-  is thinnest-covered across the middle of its span. A corner-only check
-  reported 6.6 m of cover while the roof was plainly visible from overhead
-  through 0.5 m.
-- **Sweep the walk-in from open grass, not from the doorway.** A sweep that
-  starts at the door plane cannot tell that the door is buried, because it
-  starts inside a cave that can no longer be reached.
-
-Skipping every `StaticBody3D` in the burial check excluded all nine boulders
-while still reporting green. The slabs' own bodies are named `*Body`, so
-filter on that.
+test. Both are the general lessons in "Assertions that pass while the thing is
+broken" above, learned here first. One cave-specific trap: skipping every
+`StaticBody3D` in the burial check excluded all nine boulders while reporting
+green, so filter on the `*Body` suffix the slabs' own bodies carry.
 
 Every bug this project has hit was invisible on inspection and only showed up
 in a headless test: a cube flying over the target's head, a mount jammed at
