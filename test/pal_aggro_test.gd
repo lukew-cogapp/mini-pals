@@ -103,7 +103,7 @@ func _test_aggressive_pal_does_not_immediately_reacquire() -> void:
 	get_root().add_child(target)
 	target.global_position = Vector3.ZERO
 	var pal = await _spawn_pal(Vector3(0.0, 0.0, 8.0), target)
-	pal.aggressive = true
+	pal.temperament = pal.Temperament.AGGRESSIVE
 	pal._enter_attack()
 
 	for i in 6:

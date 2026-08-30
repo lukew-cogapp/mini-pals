@@ -16,7 +16,7 @@ display_name = "Mushroom King"
 ; without filling the screen.
 model_scale = 0.85
 rideable = false
-aggressive = true
+temperament = 2
 drop_item = "kings_crown"
 drop_item_name = "King's crown"
 

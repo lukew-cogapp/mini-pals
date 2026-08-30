@@ -4,6 +4,7 @@ class_name Pal
 ## player and can be ridden. Punched (or aggressive by species) it hunts the
 ## player instead. A caught pal never attacks the player, but does step in
 ## against whatever is hostile to them, always stopping short of the kill.
+## An aggressive wild pal also brawls with other species, on the same terms.
 
 enum State { WANDER, IDLE, FLEE, FOLLOW, RIDDEN, ATTACK, DEFEND, GATHER }
 
@@ -19,8 +20,14 @@ enum State { WANDER, IDLE, FLEE, FOLLOW, RIDDEN, ATTACK, DEFEND, GATHER }
 ## to be caught from a mount, so one that could walk ashore would break the
 ## gate the mount is there to open.
 @export var water_only := false
-## Hunts the player on sight instead of fleeing. Never flees.
-@export var aggressive := false
+## How this species reacts to the player. One enum rather than a pair of
+## flags, because "aggressive and skittish" is not a thing a pal can be and
+## two booleans would let a scene say it.
+##   SKITTISH   flees when the player closes in. Small creatures.
+##   NEUTRAL    neither flees nor starts anything, but hits back when bitten.
+##   AGGRESSIVE hunts the player on sight, and brawls with other species.
+enum Temperament { SKITTISH, NEUTRAL, AGGRESSIVE }
+@export var temperament: Temperament = Temperament.SKITTISH
 ## Wild spawn level band, so species map to a difficulty gradient.
 @export var level_min := 1
 @export var level_max := 5
@@ -30,6 +37,11 @@ enum State { WANDER, IDLE, FLEE, FOLLOW, RIDDEN, ATTACK, DEFEND, GATHER }
 ## Effect is buff_per_level * level; kinds and caps live in Party and Tuning.
 @export var buff_kind: StringName = &""
 @export var buff_per_level := 0.0
+
+## Reads across the file are all about hunting, so they keep the old name.
+var aggressive: bool:
+	get:
+		return temperament == Temperament.AGGRESSIVE
 
 var state: State = State.IDLE
 var caught := false
@@ -47,6 +59,9 @@ var _attack_cooldown := 0.0
 var _attack_without_hit := 0.0
 var _sight_aggro_suppressed := false
 var _defend_target: Pal = null
+var _rival: Pal = null
+var _rival_scan := 0.0
+var _rival_fight := 0.0
 var _gather_target: Node3D = null
 var _gather_cooldown := 0.0
 var _gather_rest := 0.0
@@ -168,6 +183,8 @@ func _tick_idle(delta: float) -> void:
 	_timer -= delta
 	if _wants_attack():
 		_enter_attack()
+	elif _pick_rival(delta):
+		_enter_attack()
 	elif _threat_near():
 		_enter_flee()
 	elif _timer <= 0.0:
@@ -176,6 +193,9 @@ func _tick_idle(delta: float) -> void:
 
 func _tick_wander(delta: float) -> void:
 	if _wants_attack():
+		_enter_attack()
+		return
+	if _pick_rival(delta):
 		_enter_attack()
 		return
 	if _threat_near():
@@ -350,6 +370,139 @@ func _stop_gathering() -> void:
 	state = State.FOLLOW
 
 
+## --- Wild rivalry ----------------------------------------------------------
+
+## An aggressive wild pal picks fights with other SPECIES, so the map looks
+## inhabited rather than staged. Same species never fight, and the player
+## always outranks a rival: _tick_attack drops the rival the moment they come
+## into range, because they are the point of the game.
+
+## True once a rival is acquired. Scanning is on RIVAL_SCAN_INTERVAL and
+## staggered by instance id, so thirty pals never scan on the same frame.
+func _pick_rival(delta: float) -> bool:
+	if not aggressive or caught or dying:
+		return false
+	_rival_scan -= delta
+	if _rival_scan > 0.0:
+		return false
+	_rival_scan = Tuning.RIVAL_SCAN_INTERVAL * (1.0 + 0.5 * fmod(get_instance_id(), 7) / 7.0)
+	_rival = _find_rival()
+	if _rival == null:
+		return false
+	_rival_fight = Tuning.RIVAL_FIGHT_TIME
+	return true
+
+
+func _find_rival() -> Pal:
+	var best: Pal = null
+	var best_dist := Tuning.RIVAL_RADIUS
+	for node in get_tree().get_nodes_in_group("pal"):
+		var other := node as Pal
+		if other == null or not _is_rival(other):
+			continue
+		var dist := _flat_distance(other.global_position)
+		if dist < best_dist:
+			best = other
+			best_dist = dist
+	return best
+
+
+## A pal worth fighting: wild, alive, out, and of another species. Caught pals
+## are excluded so the party is never mobbed while it follows; a caught pal
+## that wants in on the fight has State.DEFEND for that.
+func _is_rival(other: Pal) -> bool:
+	return (
+		other != self
+		and not other.caught
+		and not other.dying
+		and other.visible
+		and other.display_name != display_name
+		# Already maimed: no further hit would land, so picking it again is how
+		# a winner and a spent loser lock each other up for good.
+		and other.hp > Tuning.RIVAL_MIN_TARGET_HP
+	)
+
+
+## The fight ends when the loser can take no more, when it is caught or
+## killed by something else, or on RIVAL_FIGHT_TIME. Without the timer a
+## winner would swing at a maimed loser for good, since no further hit lands.
+func _rival_valid() -> bool:
+	return (
+		_rival != null
+		and is_instance_valid(_rival)
+		and _is_rival(_rival)
+		and _rival.hp > Tuning.RIVAL_MIN_TARGET_HP
+		and _rival_fight > 0.0
+		and _flat_distance(_rival.global_position) < Tuning.RIVAL_GIVE_UP
+	)
+
+
+func _tick_rival(delta: float) -> void:
+	_attack_cooldown = maxf(_attack_cooldown - delta, 0.0)
+	_rival_fight -= delta
+	if not _rival_valid():
+		_drop_rival()
+		return
+
+	var dist := _flat_distance(_rival.global_position)
+	if dist > Tuning.RIVAL_ATTACK_RANGE:
+		_move_towards(_rival.global_position, Tuning.PAL_CHASE_SPEED, delta)
+		_play("Run" if _anim and _anim.has_animation("Run") else "Walk")
+		return
+
+	velocity.x = 0.0
+	velocity.z = 0.0
+	var dir := _rival.global_position - global_position
+	dir.y = 0.0
+	if dir.length() > 0.01:
+		face(dir.normalized(), delta, Tuning.PAL_TURN_SPEED)
+	if _attack_cooldown <= 0.0:
+		_attack_cooldown = Tuning.RIVAL_ATTACK_COOLDOWN
+		_swing_at_rival(_rival)
+
+
+## Damage from one wild pal to another. Clamped like take_follower_hit, and
+## for the same reason: a world that killed off its own pals would empty
+## itself before the player walked out to find them. The loser is left
+## softened for a cube instead, which is a gift to the player.
+func take_rival_hit(from: Pal) -> void:
+	if caught or dying or hp <= Tuning.RIVAL_MIN_TARGET_HP:
+		return
+	hp = maxi(hp - Tuning.RIVAL_DAMAGE, Tuning.RIVAL_MIN_TARGET_HP)
+	Audio.play("hit", global_position)
+	# The Blob rigs misspell the hit animation; other sets use HitReact.
+	if _anim and _anim.has_animation("HitRecieve"):
+		_anim.play("HitRecieve")
+	elif _anim and _anim.has_animation("HitReact"):
+		_anim.play("HitReact")
+	# Hit back if we are the sort that fights, so a brawl is mutual rather
+	# than one pal beating on a bystander.
+	if aggressive and _rival == null and _is_rival(from):
+		_rival = from
+		_rival_fight = Tuning.RIVAL_FIGHT_TIME
+		_enter_attack()
+
+
+func _swing_at_rival(target: Pal) -> void:
+	if _anim:
+		for anim_name in ["Punch", "Bite_Front"]:
+			if _anim.has_animation(anim_name):
+				_anim.stop()
+				_anim.play(anim_name)
+				break
+	target.take_rival_hit(self)
+
+
+## Back to wandering, with the scan on cooldown so the pal does not reacquire
+## the same maimed rival on the very next frame.
+func _drop_rival() -> void:
+	_rival = null
+	_rival_fight = 0.0
+	_attack_cooldown = 0.0
+	_rival_scan = Tuning.RIVAL_SCAN_INTERVAL
+	_enter_idle()
+
+
 ## --- Follower defence ------------------------------------------------------
 
 ## A hostile worth stepping in against: one already fighting the player, or an
@@ -480,8 +633,9 @@ func _flat_distance(point: Vector3) -> float:
 
 
 func _threat_near() -> bool:
-	# Aggressive species never flee; they get _wants_attack instead.
-	if caught or aggressive or _player == null:
+	# Only a skittish species flees. An aggressive one gets _wants_attack
+	# instead, and a neutral one carries on with whatever it was doing.
+	if caught or temperament != Temperament.SKITTISH or _player == null:
 		return false
 	return _flat_distance(_player.global_position) < Tuning.PAL_FLEE_DISTANCE
 
@@ -541,6 +695,12 @@ func _wants_attack() -> bool:
 
 
 func _tick_attack(delta: float) -> void:
+	# The player outranks any rival: a demon mid-brawl breaks off the moment
+	# they walk into range.
+	if _rival and not _wants_attack():
+		_tick_rival(delta)
+		return
+	_rival = null
 	_attack_cooldown = maxf(_attack_cooldown - delta, 0.0)
 	_attack_without_hit += delta
 	if caught or _player == null:
@@ -607,6 +767,7 @@ func clear_aggro() -> void:
 	_attack_without_hit = 0.0
 	_sight_aggro_suppressed = false
 	_defend_target = null
+	_rival = null
 	_gather_target = null
 	if state == State.ATTACK:
 		_enter_idle()
@@ -619,12 +780,19 @@ func _level_hp() -> int:
 	return v
 
 
+## What one player punch takes off. Player levels sharpen it, so grinding XP
+## speeds up farming too, and a demon out sharpens it again. Both are summed
+## before the truncation, or two half-points would round away to nothing.
+static func player_punch_damage() -> int:
+	var bonus := (Party.player_level - 1) * Tuning.PUNCH_DAMAGE_PER_PLAYER_LEVEL
+	return Tuning.PUNCH_DAMAGE + int(bonus + Party.buff(&"damage"))
+
+
 ## Punched by the player: damage, knockback, and a spell of forced flight.
 func take_hit(from: Vector3) -> void:
 	if caught or dying:
 		return
-	# Player levels sharpen the punch, so grinding XP speeds up farming too.
-	hp -= Tuning.PUNCH_DAMAGE + int((Party.player_level - 1) * Tuning.PUNCH_DAMAGE_PER_PLAYER_LEVEL)
+	hp -= player_punch_damage()
 	Audio.play("hit", global_position)
 	var away := global_position - from
 	away.y = 0.0
@@ -716,6 +884,7 @@ func on_caught() -> void:
 func stow() -> void:
 	state = State.IDLE
 	_defend_target = null
+	_rival = null
 	_gather_target = null
 	velocity = Vector3.ZERO
 	visible = false
@@ -730,5 +899,6 @@ func summon(at: Vector3) -> void:
 	set_physics_process(true)
 	$Collision.set_deferred("disabled", false)
 	_defend_target = null
+	_rival = null
 	_gather_target = null
 	state = State.FOLLOW

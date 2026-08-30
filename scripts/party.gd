@@ -82,6 +82,12 @@ func buff(kind: StringName) -> float:
 	return minf(v, Tuning.PAL_BUFF_CAPS.get(kind, v))
 
 
+## The King's job: throws stop costing a cube while he is out. Read live like
+## buff(), so stowing him puts the player back on their crafted stock.
+func infinite_cubes() -> bool:
+	return active != null and active.display_name == Tuning.INFINITE_CUBE_SPECIES
+
+
 func recall() -> void:
 	if active:
 		active.stow()

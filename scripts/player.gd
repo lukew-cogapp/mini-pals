@@ -254,7 +254,7 @@ func _respawn() -> void:
 ## --- Catching -------------------------------------------------------------
 
 func _begin_throw_aim() -> void:
-	if Inventory.count("cube") <= 0:
+	if not Party.infinite_cubes() and Inventory.count("cube") <= 0:
 		Hud.flash("No pal cubes. Punch trees and rocks, then craft at the workbench.")
 		return
 	if Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
@@ -292,7 +292,7 @@ func _update_throw_aim() -> void:
 
 
 func _throw_cube(target: Variant = null, aim: Variant = null) -> bool:
-	if not Inventory.remove("cube", 1):
+	if not Party.infinite_cubes() and not Inventory.remove("cube", 1):
 		Hud.flash("No pal cubes. Punch trees and rocks, then craft at the workbench.")
 		return false
 	Audio.play("throw", global_position)

@@ -12,11 +12,13 @@ collision_layer = 4
 script = ExtResource("1")
 display_name = "Demon"
 rideable = false
-aggressive = true
+temperament = 2
 level_min = 4
 level_max = 5
 drop_item = "demon_horn"
 drop_item_name = "Demon horn"
+buff_kind = &"damage"
+buff_per_level = 0.4
 
 [node name="Collision" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)

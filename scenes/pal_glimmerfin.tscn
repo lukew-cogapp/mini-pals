@@ -14,6 +14,9 @@ display_name = "Glimmerfin"
 rideable = false
 swimmer = true
 water_only = true
+; NEUTRAL: it is confined to a ring only a mount reaches, so fleeing a rider
+; it cannot escape only makes the gated catch tedious.
+temperament = 1
 level_min = 2
 level_max = 5
 drop_item = "scale"

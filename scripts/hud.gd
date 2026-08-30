@@ -139,7 +139,11 @@ func _refresh() -> void:
 	var frac := clampf(float(Party.xp) / float(Tuning.PLAYER_XP_PER_LEVEL), 0.0, 1.0)
 	_xp_fill.size.x = maxf(0.0, (_xp_bar.size.x - 4.0) * frac)
 
-	_cube_count.text = str(Inventory.count("cube"))
+	# The King makes throws free, so the stock is not what is left to throw.
+	_cube_count.text = (
+		Tuning.INFINITE_CUBE_TEXT if Party.infinite_cubes()
+		else str(Inventory.count("cube"))
+	)
 	_refresh_items()
 
 	if Party.members.is_empty():
@@ -154,11 +158,15 @@ func _refresh() -> void:
 
 
 func _buff_text(pal: Pal) -> String:
+	if Party.infinite_cubes():
+		return " (free cubes)"
 	match pal.buff_kind:
 		&"speed":
 			return " (+%d%% speed)" % roundi(Party.buff(&"speed") * 100.0)
 		&"gather":
 			return " (+%d gather)" % int(Party.buff(&"gather"))
+		&"damage":
+			return " (+%d punch)" % int(Party.buff(&"damage"))
 		_:
 			return ""
 

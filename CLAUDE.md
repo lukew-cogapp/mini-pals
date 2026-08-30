@@ -361,10 +361,38 @@ inventory and party kept and all pal aggro cleared. HUD shows a bar top-left.
 Pals fight back: punching one puts it in `State.ATTACK` (chase + hit on a
 cooldown) for `PAL_AGGRO_TIME`. If it cannot land a hit for
 `PAL_NO_HIT_GIVE_UP_TIME`, it gives up; a successful `Player.damage()` or
-another player hit on the pal resets that timer. Species with `aggressive = true` (the Demon,
-`scenes/pal_demon.tscn`, spawned on the scorched blob) attack on sight
-inside `PAL_AGGRO_RADIUS`; after giving up they wait for the player to leave
-and re-enter that radius before reacquiring. A caught pal never attacks the player.
+another player hit on the pal resets that timer. A caught pal never attacks
+the player.
+
+Temperament is one exported enum on `Pal`, not a pair of flags, so
+"aggressive and skittish" cannot be written down. `SKITTISH` (Wolf, Cactoro)
+flees inside `PAL_FLEE_DISTANCE`; `NEUTRAL` (Mudwader, Glimmerfin) neither
+flees nor starts anything but hits back when bitten; `AGGRESSIVE` (Demon,
+boss) attacks on sight inside `PAL_AGGRO_RADIUS` and, after giving up, waits
+for the player to leave and re-enter that radius before reacquiring. Reads
+across `pal.gd` go through the `aggressive` property, which is the enum by
+another name. `_threat_near` is the single gate on fleeing.
+
+An aggressive wild pal also brawls with other species. `_pick_rival` scans
+on `RIVAL_SCAN_INTERVAL`, staggered per pal by instance id so thirty of them
+never scan on one frame, and a rival is anything wild, alive, out, and of a
+different `display_name`. The player always outranks a rival:
+`_tick_attack` drops the brawl the frame `_wants_attack` turns true. Wild
+fights maim and never kill, clamped at `RIVAL_MIN_TARGET_HP` for the same
+reason `take_follower_hit` clamps: a world that culled its own pals would be
+empty by the time the player walked out to it, and a softened loser is a
+gift. A maimed pal stops being a valid rival, which is what stops a winner
+and a spent loser locking each other up; `RIVAL_FIGHT_TIME` is the backstop.
+`test/species_fight_test.gd` covers all of it, temperament included.
+
+Species jobs, one each, so choosing which pal is out matters: Cactoro chops
+trees, Wolf fetches stone and adds speed, Mudwader is the only way into
+water, Glimmerfin adds gather, Demon adds punch damage
+(`buff_kind = &"damage"`, capped at `DEMON_DAMAGE_BUFF_CAP` so no catch
+becomes a one-hit kill), and the Mushroom King makes throws free
+(`Party.infinite_cubes()`, checked in `_begin_throw_aim` and `_throw_cube`;
+the HUD shows `INFINITE_CUBE_TEXT` rather than a stock count that would read
+as a broken zero). `test/pal_skills_test.gd` covers the last two.
 
 A following pal does fight for you. In `State.DEFEND` it picks the nearest
 hostile (one in `State.ATTACK`, or an aggressive species within

@@ -134,9 +134,45 @@ const XP_PER_PAL_LEVEL := 34
 const XP_KILL_FACTOR := 0.5
 const PUNCH_DAMAGE_PER_PLAYER_LEVEL := 0.5
 
+# --- Species jobs: demon damage, king cubes, wild rivalry ---
+## Cap on the demon's extra punch damage; the per-level rate is on the scene
+## with every other species' buff_per_level. A level 5 demon adds 2 to a base
+## punch of 1, and the cap holds it there: a level 1 pal has 2 hp and the boss
+## has far more, so no catch becomes a one-hit kill.
+const DEMON_DAMAGE_BUFF_CAP := 2.0
+
+## Species whose active-pal job is unlimited throws instead of a buff value.
+## Winning the game ends the crafting grind rather than speeding it up.
+const INFINITE_CUBE_SPECIES := "Mushroom King"
+## Shown in place of the count while that species is out, so the bottom bar
+## does not read "0" and look like a bug.
+const INFINITE_CUBE_TEXT := "∞"
+
+## Wild aggression. An aggressive species picks fights with other species,
+## not just the player, so the world looks inhabited rather than staged.
+## Shorter reach than PAL_AGGRO_RADIUS: the player is the point of the game,
+## and a demon that has already noticed them must not be distracted.
+const RIVAL_RADIUS := 7.0
+const RIVAL_GIVE_UP := 14.0
+## Rivalry is rechecked on this interval rather than every frame, staggered
+## per pal by its instance id, so 30 pals scanning each other stays cheap.
+const RIVAL_SCAN_INTERVAL := 0.75
+const RIVAL_ATTACK_RANGE := 2.0
+const RIVAL_ATTACK_COOLDOWN := 1.5
+const RIVAL_DAMAGE := 1
+## Wild fights maim, they never kill. A world that culled its own pals before
+## the player found them would empty the map, and the loser is left softened
+## for a cube instead, which is the same bargain FOLLOWER_MIN_TARGET_HP makes.
+const RIVAL_MIN_TARGET_HP := 1
+## A fight that cannot progress ends rather than looping forever: once the
+## loser is down to RIVAL_MIN_TARGET_HP no further hit lands, so the winner
+## would otherwise swing at it for good.
+const RIVAL_FIGHT_TIME := 12.0
+
 # --- Active-pal buffs ---
-## speed is a fraction of player speed, gather is bonus items per punch.
-const PAL_BUFF_CAPS := {&"speed": 0.5, &"gather": 3.0}
+## speed is a fraction of player speed, gather is bonus items per punch,
+## damage is extra hitpoints per punch. See the species-jobs block below.
+const PAL_BUFF_CAPS := {&"speed": 0.5, &"gather": 3.0, &"damage": DEMON_DAMAGE_BUFF_CAP}
 
 # --- Catching ---
 ## Horizontal lob pace; lower reads floatier and arcs higher.
