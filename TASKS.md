@@ -23,14 +23,14 @@ Kept current as work lands.
 - [ ] More islands, now that regions are Zones rather than radii
 - [ ] Remaining juice: level-up moment, the win moment, FOV stretch with speed
 - [ ] Gather feedback in the world: sound plays, but no hit effect
-- [ ] **Adopt GUT 9.7.1** (researched and trialled against this project).
-      It turns engine errors into failures, which would have caught all three
-      of this session's false greens, lets tests name autoloads directly, and
-      filters to a single test. Roughly half a day for all 12 suites; files
-      shrink, since `_check` and the report footer both go. **Drop the `-d`
-      from the recorded command**: it attaches the debugger and an error drops
-      the run into an interactive prompt that hangs forever. Use:
-      `perl -e 'alarm 300; exec @ARGV' godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://test -ginclude_subdirs -gexit < /dev/null`
+- [ ] **Finish the GUT migration.** GUT 9.7.1 is vendored in `addons/gut`,
+      `test/run_gut.sh` runs it, and three suites are ported into `test/gut`
+      as proof: `catch_chance_test.gd` (arithmetic), `party_cycle_test.gd`
+      (loads `world.tscn` and drives physics) and `hud_message_test.gd`
+      (names the `Hud` and `Inventory` autoloads, which a `-s` script cannot).
+      The originals are untouched and `test/run.sh` still runs all 16.
+      Remaining: port the other 13, then retire `test/run.sh` and the
+      per-file `_check` helper and move `test/gut/*` back up to `test/`.
       Leave `screenshot.gd` as it is; it is a renderer, not a test
 - [ ] Export smoke test in CI: `--export-release` and fail on any stderr
       error. A broken export is the one failure no gameplay test can catch

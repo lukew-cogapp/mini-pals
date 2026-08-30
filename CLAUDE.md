@@ -137,7 +137,28 @@ Resolve them at runtime instead, with `get_root().get_node("Inventory")`.
 `Tuning.SOME_CONST` looks like an exception but is not: that resolves as a
 script-class constant, and bare `Tuning` fails like the rest. Scripts loaded
 at runtime (a scene's own `.gd`) reference autoloads by name quite happily;
-the limit is only on the `-s` script itself.
+the limit is only on the `-s` script itself. A GUT test is one of those
+runtime scripts, so it names `Inventory`, `Party` and `Hud` directly.
+
+**GUT is the second harness, and the one to write new tests in.** 9.7.1 is
+vendored at `addons/gut` and needs no editor plugin enabled to run headless.
+`test/run_gut.sh` runs everything under `test/gut`, and takes one filename to
+narrow it (`test/run_gut.sh catch_chance_test.gd`). It earns its place by
+failing on an engine error: a `SCRIPT ERROR` inside a test aborts that
+function, and a hand-rolled `_check` harness then prints `FAILURES=0` and
+exits 0. `run.sh` only catches that because it greps the log for
+`SCRIPT ERROR`; GUT counts it as a failed test.
+
+Two flags in `run_gut.sh` that are not optional. **Never add `-d`**: it
+attaches the debugger, and an error drops the run into an interactive
+`debug>` prompt that waits forever. And `-gprefix= -gsuffix=_test.gd`,
+because GUT looks for `test_*.gd` while this project names suites
+`*_test.gd`; without them it finds nothing, says "Nothing was run" and exits
+0. `add_child_autofree` frees at the end of the *test* that called it, so a
+`before_all` fixture needs an explicit `after_all` calling `free`.
+
+`test/run.sh` and the 16 `extends SceneTree` suites in `test/` still run and
+still have to pass. See TASKS.md for what a full migration leaves.
 
 **Wrap every test run in a wall-clock timeout.** A test awaiting something
 that never fires hangs forever, and no GDScript harness bounds it. This
