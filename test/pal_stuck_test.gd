@@ -52,27 +52,40 @@ func test_walled_pal_escapes() -> void:
 	# Straight through the wall, so pushing into it is the only way there.
 	pal._target = Vector3(0.0, 0.0, -20.0)
 
+	# Sampled over the whole run, never on one frame. The escape picks a
+	# random turn and then re-wanders to a random target, so on an unlucky
+	# roll the pal is heading back at the wall on any given late frame while
+	# having escaped perfectly well in between. Asserting where it happens to
+	# be at frame 180 is what made this suite flake under load.
 	var escaped := false
-	var pressed_late := 0.0
-	for i in 180:
+	var eased_off := false
+	var furthest := 0.0
+	for _i in 180:
 		await wait_physics_frames(1)
 		if pal._escape_time > 0.0:
 			escaped = true
-		if i > 120:
-			pressed_late = maxf(pressed_late, -pal.velocity.z)
+		# Only once it has noticed, and only while it is actually moving:
+		# before the escape fires it is jammed at the wall by construction,
+		# and a zero velocity would pass this without meaning anything.
+		if escaped and pal.velocity.length() > 0.1:
+			if -pal.velocity.z < Tuning.PAL_WALK_SPEED * 0.9:
+				eased_off = true
+		furthest = maxf(
+			furthest, Vector2(pal.global_position.x, pal.global_position.z).length()
+		)
 
-	var moved := Vector2(pal.global_position.x, pal.global_position.z).length()
 	assert_true(
 		escaped,
 		"a walled pal notices it is stuck  escape never fired, pos=%s" % pal.global_position,
 	)
 	assert_true(
-		pressed_late < Tuning.PAL_WALK_SPEED * 0.9,
-		"a walled pal stops driving into the wall  late forward push=%.2f" % pressed_late,
+		eased_off,
+		"a walled pal stops driving into the wall  never eased off in 180 frames",
 	)
 	assert_true(
-		moved > 1.0,
-		"a walled pal ends up somewhere else  moved=%.2f pos=%s" % [moved, pal.global_position],
+		furthest > 1.0,
+		"a walled pal gets away from the wall  furthest=%.2f pos=%s"
+		% [furthest, pal.global_position],
 	)
 
 

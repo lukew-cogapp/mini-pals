@@ -83,6 +83,16 @@ at 0.35 rendered the ash pure white in daylight; the albedo texture is only
 visible below about 0.1. The ash sits at 0.05. Raise it and the biome turns
 into a snowfield, which happened three times here.
 
+**`ground.tres` is triplanar, and that is what keeps the hills and the flat
+ground tiling alike.** A hill is SurfaceTool with world-unit UVs, so a 30 m
+mound spans UV 0..30; the island disc is a CylinderMesh, whose UVs are
+normalised 0..1 across the whole primitive, so 220 m of island spanned a
+quarter of a tile and read as flat colour beside a visibly mottled hill, a
+factor of about 55. `uv1_triplanar` projects by world position and fixes the
+disc, the beach and the shallows together. Anything else built from a
+primitive and given this material inherits the fix; anything given a new
+material needs the same flag.
+
 **Ground `uv1_scale` is world-units-per-tile, and both extremes read as flat.**
 UVs are set in world units, so 60 tiled sixty times per metre (sub-pixel, and
 the original bug) and 0.018 tiled once per 55 m (one smear). Grass is 0.25,
@@ -652,6 +662,91 @@ names kept only so headless tests can assert a sound fired.
 `take_follower_hit` deliberately still has NO knockback: it keeps a softened
 target inside cube range, and `juice2_test` guards that so the rival change
 cannot creep into it.
+
+## The cave
+
+A box chamber buried in one hill, mouth cut out of the flank. It has now been
+reported broken three times and "fixed" twice, so the constraint is written
+down here rather than rediscovered.
+
+**The geometry does not fit by itself, and cannot be made to.** The chamber
+needs `CAVE_HEIGHT + CAVE_WALL` of hill above its floor plus cover, and a
+raised-cosine dome does not climb that fast over `CAVE_DEPTH`. Growing the
+hill does not help: the floor is pinned to the hill surface at the mouth, so
+a taller hill raises the mouth and the whole chamber with it. What resolves it
+is `CAVE_SINK`, which drops the floor below the mouth's grade so the roof is
+buried instead of standing proud.
+
+`CAVE_SINK` is bounded on **both** sides and the upper bound is the one that
+bites. Sink far enough and the roof goes under the hill surface at the mouth
+too, and then there is no opening at all: a hill with no cave in it. At the
+shipped 5 the roof still clears the doorway's grass, and the floor comes out
+level with the ground `CAVE_RAMP` metres out, which is what lets the approach
+be a level cutting with no step at either end. The walk-in is NOT a tilted
+ramp; that was tried, the rotation sign was inverted, and the wedge stood
+proud of the hill the whole way.
+
+**The mouth and the roof are the same surface.** A cave you can see into
+necessarily breaks the grass at the opening, so the burial assertion exempts
+the first `CAVE_APRON` metres and the sightline assertion exempts eyes inside
+`CAVE_SIGHT_MOUTH_DOT` of straight ahead. Everything else must be buried.
+
+**The hill mesh AND its collider are both carved** (`_carve_mesh`,
+`_hill_shape`, sharing `_inside_cave`). A solid hill collider walls the buried
+chamber off; a capsule at floor height hits `HillBody` before it reaches the
+back. And once the hill material is two-sided the mesh has to lose the same
+triangles, or the doorway is covered by hillside the player walks through. The
+carve must cover the approach cutting as well (negative `along`), or the
+walk-in is sealed by ground you can see straight through. Do NOT add margin
+across: widening there drops hill triangles beside the doorway under intact
+visible grass, and the player falls through it.
+
+**The hill material is `CULL_DISABLED`, matching `backface_collision` on its
+shape.** This one was upstream of everything else and cost the most time. The
+winding is correct (measured: 736 of 768 triangles face up, the rest are
+degenerate slivers at the apex), so this is not a fix for an inverted dome. It
+is needed because the cave puts the player inside the hill, and a single-sided
+dome seen from within disappears. While it was single-sided the dome simply
+vanished over the cave and that hole read as the mouth by accident, which is
+why the chamber appeared to float in mid-air, why the roof looked like a slab
+lying on the grass from overhead, and why two rounds of moving boulders up and
+down changed nothing. If geometry near the hill looks like it is floating,
+check that you are not seeing through the hill before touching the geometry.
+
+**Buried slabs must not cast shadows.** They sit metres inside the hill and
+nothing draws them, but their shadow lands on the hillside above and reads as
+a flat grey rectangle lying on the grass. A shadow with nothing attached to it
+always reads as broken, and this is what kept showing from open ground after
+the geometry was already correct.
+
+**Mouth boulders are bedded from their own measured AABB**, never from a
+nominal model height times its scale: the rock scene's origin is not at its
+base. Two bounds meet here and they cannot both be met by moving the rock.
+`terrain_test.gd` bounds a decoration's ORIGIN against the ground under the
+origin; `cave_test.gd` bounds its visible UNDERSIDE against the ground under
+the footprint. On a slope, burying a wide rock's lowest corner drives its
+origin metres down and trips the first. So `_bed_boulder` satisfies the origin
+rule (sampling ground under the origin, exactly as the shared assertion does)
+and `CAVE_ROCK_SCALE_MAX` holds the other by keeping rocks too small to
+overhang far. `CAVE_ROCK_FLOAT_TOLERANCE` is not zero on purpose: `height_at`
+is the ideal dome and the drawn hill is a 32-by-12 approximation that sags
+below it between ring vertices.
+
+`test/cave_test.gd` measures all of it and `test/cave_shots.gd` orbits it from
+eight compass points at 34 m plus one overhead. Two lessons are baked into the
+test and are worth keeping:
+
+- **Sample slab FACES on a grid, not their eight corners.** A box under a dome
+  is thinnest-covered across the middle of its span. A corner-only check
+  reported 6.6 m of cover while the roof was plainly visible from overhead
+  through 0.5 m.
+- **Sweep the walk-in from open grass, not from the doorway.** A sweep that
+  starts at the door plane cannot tell that the door is buried, because it
+  starts inside a cave that can no longer be reached.
+
+Skipping every `StaticBody3D` in the burial check excluded all nine boulders
+while still reporting green. The slabs' own bodies are named `*Body`, so
+filter on that.
 
 Every bug this project has hit was invisible on inspection and only showed up
 in a headless test: a cube flying over the target's head, a mount jammed at

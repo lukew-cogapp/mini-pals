@@ -43,3 +43,14 @@ roughness_texture = SubResource("rough_tex")
 ; to flat colour; 0.018 (one tile per 55 m) went too far the other way and was
 ; just as flat to a player standing in it.
 uv1_scale = Vector3(0.25, 0.25, 1)
+; Projected by world position rather than by the mesh's own UVs, so every
+; surface using this material tiles at the same size on screen.
+;
+; Without it the hills and the flat ground disagree by a factor of about 55.
+; A hill is built with SurfaceTool and world-unit UVs, so a 30 m mound spans
+; UV 0..30 and tiles about 7 times; the ground disc is a CylinderMesh, whose
+; UVs are normalised 0..1 across the whole primitive, so 220 m of island
+; spans a quarter of one tile and reads as flat colour beside a visibly
+; mottled hill. Triplanar fixes the disc, the beach and the shallows at once,
+; and leaves one mapping scheme rather than two that can drift apart again.
+uv1_triplanar = true

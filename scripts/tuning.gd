@@ -725,7 +725,7 @@ const PAL_HEALTH_BAR_FACING_DOT := 0.8
 ## the default and none of it read as anything but flat ground. These cover
 ## about 13%, which leaves real flat between them to see them from.
 const HILLS := [
-	[-46.0, -30.0, 26.0, 12.0],
+	[-46.0, -30.0, 32.0, 18.0],
 	[-30.0, 34.0, 18.0, 9.5],
 	[30.0, 44.0, 16.0, 8.5],
 	[-64.0, 14.0, 14.0, 7.5],
@@ -751,6 +751,9 @@ const HILL_SKIRT := 1.06
 ## through `vertex_color_use_as_albedo`. No shader, and it costs nothing.
 const HILL_SHADE_LOW := Color(0.72, 0.78, 0.68)
 const HILL_SHADE_HIGH := Color(1.06, 1.05, 0.94)
+## Height the shade ramp saturates at, for a mesh rebuilt after the cave is
+## cut out of it and no longer knows which mound it came from.
+const HILL_SHADE_REFERENCE := 18.0
 
 ## The cave, dug into the side of the biggest hill. Not a real interior: a
 ## mouth of scaled rocks with a dark hollow behind it, big enough to walk
@@ -765,14 +768,14 @@ const CAVE_POS := Vector3(-46.0, 0.0, -30.0)
 const CAVE_FACING := 0.9
 ## Distance from the hill centre out to the mouth. Two bounds meet here and
 ## the value has to satisfy both. Too far out and the hill is shallower than
-## CAVE_HEIGHT, so the roof stands proud of the grass and the cave reads as a
-## doorway on a lawn. Too far in and the hollow, which runs CAVE_DEPTH back
-## towards the centre, passes under the summit and out the far side, and the
-## mouth ends up inside the hill with no way to walk out.
+## the chamber, so the roof stands proud of the grass. Too far in and the
+## hollow, which runs CAVE_DEPTH back towards the centre, passes under the
+## summit and out the far side with no way to walk out.
 ##
-## At 13 m into the 26 m mound the surface is about 6 m, matching the hollow,
-## and its back wall sits under about 12 m of hill.
-const CAVE_MOUTH_DISTANCE := 13.0
+## At 16 m into the 32 m mound the surface is about 9 m. The floor sits
+## CAVE_SINK below that, which buries the roof everywhere except the apron
+## right at the opening; test/cave_test.gd measures exactly that.
+const CAVE_MOUTH_DISTANCE := 16.0
 ## Inside dimensions. Wide and tall enough that the player's capsule and a
 ## following pal both fit through the opening with room either side.
 const CAVE_WIDTH := 7.0
@@ -781,11 +784,89 @@ const CAVE_HEIGHT := 4.5
 ## Boulders ringing the mouth, and how big each is. The rock model is about
 ## 3 m across at scale 1, so these read as cliff faces rather than pebbles.
 const CAVE_ROCK_COUNT := 9
-const CAVE_ROCK_SCALE_MIN := 1.8
-const CAVE_ROCK_SCALE_MAX := 3.2
-## Floor of the hollow, relative to the hill surface at the mouth. Slightly
-## sunk, so walking in reads as going inside rather than past.
-const CAVE_FLOOR_DROP := 0.3
+const CAVE_ROCK_SCALE_MIN := 1.0
+const CAVE_ROCK_SCALE_MAX := 1.4
+## How far along the cave axis the boulders are spread. The doorway, not the
+## chamber: rocks over the roof read as a wall from open ground.
+const CAVE_ROCK_SPREAD := 4.0
+## The fraction of its own measured height a mouth boulder is sunk past the
+## lowest ground under its footprint, so it reads as bedded in the slope
+## rather than resting on it.
+##
+## Measured from the model's AABB, never from a nominal size: the rock scene's
+## origin is not at its base, and every arithmetic version of this left rocks
+## hanging with sky beneath them. Kept small because terrain_test.gd bounds
+## how far a decoration's ORIGIN may sit below the surface, and these rocks
+## are tall enough that a large fraction of their height breaches that.
+const CAVE_ROCK_BURY := 0.5
+## The most a mouth boulder may stand above the hill. They are surface props
+## and are meant to break the grass, so this is a bound on a wall rather than
+## on any protrusion: nine of them standing five metres clear is what shipped
+## and read as a boulder wall. At 2.6 the tallest rock is about waist height
+## on the slope, which is a rock, and the renders agree.
+const CAVE_ROCK_MAX_PROUD := 2.6
+## How far a boulder's underside may sit above the ground before it reads as
+## floating. Not zero: `height_at` is the ideal dome and the drawn hill is a
+## 32-by-12 approximation of it, so the visible surface sags below the
+## arithmetic between ring vertices by more than this. The bug this guards
+## against was metres, not centimetres.
+const CAVE_ROCK_FLOAT_TOLERANCE := 0.15
+## Where the cave is checked from, in test/cave_test.gd: a ring of eye
+## positions on the real ground. Open ground at this distance is where the
+## broken cave was obvious and a shot at the mouth still looked fine.
+const CAVE_SIGHT_BEARINGS := 8
+const CAVE_SIGHT_DISTANCE := 34.0
+const CAVE_SIGHT_EYE_HEIGHT := 1.7
+## And one eye straight overhead. No hill flank stands between it and the
+## roof, so it is the angle the ring cannot speak for.
+const CAVE_SIGHT_ABOVE := 46.0
+## How finely a slab's faces are sampled when measuring cover and sightlines.
+## Corners alone are not enough: a box under a dome is thinnest-covered across
+## the middle of its span, and a corner-only check passed while the roof was
+## visible from overhead.
+const CAVE_FACE_SAMPLES := 6
+## How far round from straight-ahead an eye still counts as looking into the
+## mouth, as a dot against the cave's outward direction. Inside this cone the
+## chamber is SUPPOSED to be visible; outside it, nothing may show.
+const CAVE_SIGHT_MOUTH_DOT := 0.6
+## How far the floor sits below the hill surface at the mouth.
+##
+## This is the knob that makes the cave fit at all. The chamber needs
+## CAVE_HEIGHT plus a wall plus cover of hill above its floor, and the hill
+## does not climb that fast over CAVE_DEPTH, so a floor level with the
+## doorway puts the roof out through the grass. Dropping the floor buries
+## the roof instead, and the approach cutting walks the player down to it.
+##
+## Bounded on BOTH sides, and the upper bound is the one that bit. Sink far
+## enough and the roof goes under the hill surface at the mouth too, which
+## does not read as a well-hidden cave: it reads as a hill with no cave in
+## it, because there is no longer an opening. At 5 the roof still stands
+## above the doorway's grass, and the floor comes out level with the ground
+## about CAVE_RAMP metres out, which is what makes the cutting work.
+const CAVE_SINK := 5.0
+## Length of the approach cutting outside the mouth. Chosen so its outer end
+## meets the hill surface at the player's feet: at CAVE_SINK 5 the ground
+## CAVE_RAMP metres out from the mouth is level with the chamber floor, so
+## the cutting is a trench that starts at grade and needs no step at either
+## end. Derived, not tuned by eye; test/cave_test.gd walks it.
+const CAVE_RAMP := 6.0
+## Wall, floor and roof thickness for the hollow's slabs.
+const CAVE_WALL := 1.0
+## How much hill must cover the roof for the cave to read as buried, and how
+## far back from the opening that starts being required.
+##
+## The first CAVE_APRON metres are the doorway, where rock is meant to meet
+## air: a cave you cannot see into is not a cave, and the roof and the hill
+## surface are the same surface there, so the opening necessarily breaks it.
+## Measured rather than guessed: with the shipped hill and sink the roof is
+## clear of the grass for the first 1.3 m and has over CAVE_COVER of hill on
+## it by 4 m, so the apron is where the opening stops and the hill starts.
+const CAVE_COVER := 2.0
+const CAVE_APRON := 4.0
+## How far past the chamber's own walls the hill collider is opened up. The
+## hill is one trimesh and a triangle is dropped whole or not at all, so a
+## face straddling a wall would otherwise leave a lip across the doorway.
+const CAVE_CARVE_MARGIN := 1.5
 ## The dark. One low, cold omni light deep in the hollow rather than no
 ## light at all: pitch black reads as a bug, a dim glow reads as a cave.
 const CAVE_LIGHT_ENERGY := 0.85
@@ -844,6 +925,9 @@ const DISTANT_ISLAND_SINK := 2.0
 ## --- Grottolo: the cave species -------------------------------------------
 
 ## Spawns in the cave and nowhere else, so the cave is worth finding.
+## The cave species' display name, so a test can pick them out of the pal
+## group without a radius that also catches whatever respawned on the hill.
+const GROTTOLO_NAME := "Grottolo"
 const GROTTOLO_COUNT := 5
 ## Metres from the cave mouth a Grottolo may be, spawning and wandering
 ## alike, which is what makes the species a reason to go in. Derived from the
