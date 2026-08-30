@@ -12,6 +12,7 @@ collision_layer = 4
 script = ExtResource("1")
 display_name = "Mudwader"
 rideable = true
+model_scale = 0.56
 swimmer = true
 level_min = 2
 level_max = 4
@@ -29,4 +30,4 @@ shape = SubResource("1")
 [node name="Fish" parent="Model" instance=ExtResource("2")]
 
 [node name="Seat" type="Marker3D" parent="Model"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.35, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.6, 0)

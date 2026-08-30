@@ -9,6 +9,9 @@ enum State { WANDER, IDLE, FLEE, FOLLOW, RIDDEN, ATTACK, DEFEND }
 
 @export var display_name := "Wolf"
 @export var rideable := false
+## Art scale for this species, multiplied by level growth. The kit models are
+## not authored to one size: the fish stands twice as tall as the dog.
+@export var model_scale := 1.0
 ## Carries a rider past the shore wall. The wall's collision drops while a
 ## swimmer is ridden, so this flag is what opens the shallows.
 @export var swimmer := false
@@ -67,7 +70,7 @@ func _ready() -> void:
 	max_hp = _level_hp()
 	hp = max_hp
 	# Grow the model only; the collider stays put so cubes still land.
-	var grow := 1.0 + (level - 1) * Tuning.PAL_LEVEL_SCALE_STEP
+	var grow := model_scale * (1.0 + (level - 1) * Tuning.PAL_LEVEL_SCALE_STEP)
 	_model_root.scale = Vector3.ONE * grow
 	# Fish stand on the same flat ground plane as everything else, which sits
 	# above the shallow surface, so unsunk they float clear of the water they
@@ -579,7 +582,7 @@ func gain_level() -> void:
 	level = mini(level + 1, Tuning.PAL_LEVEL_MAX)
 	max_hp = _level_hp()
 	hp = max_hp
-	var grow := 1.0 + (level - 1) * Tuning.PAL_LEVEL_SCALE_STEP
+	var grow := model_scale * (1.0 + (level - 1) * Tuning.PAL_LEVEL_SCALE_STEP)
 	_model_root.scale = Vector3.ONE * grow
 	if _label:
 		_label.text = "Lv%d %s" % [level, display_name]
