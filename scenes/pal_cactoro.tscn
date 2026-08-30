@@ -16,8 +16,6 @@ level_min = 2
 level_max = 4
 drop_item = "cactus_fruit"
 drop_item_name = "Cactus fruit"
-buff_kind = &"gather"
-buff_per_level = 1.0
 
 [node name="Collision" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)

@@ -5,7 +5,7 @@ class_name Pal
 ## player instead. A caught pal never attacks the player, but does step in
 ## against whatever is hostile to them, always stopping short of the kill.
 
-enum State { WANDER, IDLE, FLEE, FOLLOW, RIDDEN, ATTACK, DEFEND }
+enum State { WANDER, IDLE, FLEE, FOLLOW, RIDDEN, ATTACK, DEFEND, GATHER }
 
 @export var display_name := "Wolf"
 @export var rideable := false
@@ -47,6 +47,9 @@ var _attack_cooldown := 0.0
 var _attack_without_hit := 0.0
 var _sight_aggro_suppressed := false
 var _defend_target: Pal = null
+var _gather_target: Node3D = null
+var _gather_cooldown := 0.0
+var _gather_rest := 0.0
 var _rng := RandomNumberGenerator.new()
 var _side := 1.0
 var _player: Node3D:
@@ -152,6 +155,8 @@ func _physics_process(delta: float) -> void:
 			_tick_attack(delta)
 		State.DEFEND:
 			_tick_defend(delta)
+		State.GATHER:
+			_tick_gather(delta)
 
 	move_and_slide()
 
@@ -202,6 +207,14 @@ func _tick_follow(delta: float) -> void:
 		_attack_cooldown = 0.0
 		return
 
+	_gather_rest = maxf(_gather_rest - delta, 0.0)
+	if _gather_rest <= 0.0:
+		_gather_target = _find_gather_target()
+		if _gather_target:
+			state = State.GATHER
+			_gather_cooldown = 0.0
+			return
+
 	# Walk the player's old footsteps rather than their current position, so
 	# the pal trails behind instead of homing in and snapping about.
 	var target: Vector3 = (
@@ -239,6 +252,102 @@ func _tick_follow(delta: float) -> void:
 		_play("Walk")
 	else:
 		_play("Idle")
+
+
+## --- Auto-gathering --------------------------------------------------------
+
+## The resource_node group this species works, or "" for one that does not.
+## Only the pal that is out does it, so a stowed party earns nothing.
+func _gather_group() -> String:
+	if not caught or Party.active != self:
+		return ""
+	return Tuning.PAL_GATHER_GROUPS.get(display_name, "")
+
+
+## The nearest available node of our group within PAL_GATHER_RADIUS of the
+## PLAYER, not of us, so the search area moves with them and a job is never
+## picked that the leash would immediately cancel.
+func _find_gather_target() -> Node3D:
+	var group := _gather_group()
+	if group == "" or _player == null:
+		return null
+	var best: Node3D = null
+	var best_dist := Tuning.PAL_GATHER_RADIUS
+	for node in get_tree().get_nodes_in_group(group):
+		var n := node as Node3D
+		if n == null or not n.has_method("is_available") or not n.is_available():
+			continue
+		var d := n.global_position - _player.global_position
+		d.y = 0.0
+		if d.length() < best_dist:
+			best = n
+			best_dist = d.length()
+	return best
+
+
+## Defending and following both outrank the job: a hostile nearby, or the
+## player walking off, ends it immediately.
+func _gather_target_valid() -> bool:
+	return (
+		_gather_target != null
+		and is_instance_valid(_gather_target)
+		and _gather_target.is_available()
+		and _player != null
+		and _find_defend_target() == null
+		and _flat_distance(_player.global_position) < Tuning.PAL_GATHER_LEASH
+	)
+
+
+func _tick_gather(delta: float) -> void:
+	_gather_cooldown = maxf(_gather_cooldown - delta, 0.0)
+	if not _gather_target_valid():
+		_stop_gathering()
+		return
+
+	var dist := _flat_distance(_gather_target.global_position)
+	if dist > Tuning.PAL_GATHER_RANGE:
+		_move_towards(_gather_target.global_position, Tuning.PAL_GATHER_SPEED, delta)
+		_play("Walk")
+		return
+
+	velocity.x = 0.0
+	velocity.z = 0.0
+	var dir := _gather_target.global_position - global_position
+	dir.y = 0.0
+	if dir.length() > 0.01:
+		face(dir.normalized(), delta, Tuning.PAL_TURN_SPEED)
+	if _gather_cooldown <= 0.0:
+		_gather_cooldown = Tuning.PAL_GATHER_COOLDOWN
+		_bite_node()
+
+
+## One bite. resource_node.punch does the yield, the shake, the depletion and
+## the respawn, so a pal working a tree wears it down exactly as the player
+## does and the world still runs out and comes back on the same timer.
+func _bite_node() -> void:
+	if _anim:
+		for anim_name in ["Bite_Front", "Punch", "Headbutt"]:
+			if _anim.has_animation(anim_name):
+				_anim.stop()
+				_anim.play(anim_name)
+				break
+	_gather_target.punch()
+	if not _gather_target.is_available():
+		# Only on depletion: one message per item would bury the HUD queue,
+		# and the item panel already counts the trickle live.
+		Hud.flash("%s cleared a %s." % [display_name, _gather_target_label()])
+		_stop_gathering()
+
+
+func _gather_target_label() -> String:
+	return "tree" if _gather_target.is_in_group("tree") else "rock"
+
+
+func _stop_gathering() -> void:
+	_gather_target = null
+	_gather_cooldown = 0.0
+	_gather_rest = Tuning.PAL_GATHER_REST
+	state = State.FOLLOW
 
 
 ## --- Follower defence ------------------------------------------------------
@@ -498,6 +607,7 @@ func clear_aggro() -> void:
 	_attack_without_hit = 0.0
 	_sight_aggro_suppressed = false
 	_defend_target = null
+	_gather_target = null
 	if state == State.ATTACK:
 		_enter_idle()
 
@@ -606,6 +716,7 @@ func on_caught() -> void:
 func stow() -> void:
 	state = State.IDLE
 	_defend_target = null
+	_gather_target = null
 	velocity = Vector3.ZERO
 	visible = false
 	set_physics_process(false)
@@ -619,4 +730,5 @@ func summon(at: Vector3) -> void:
 	set_physics_process(true)
 	$Collision.set_deferred("disabled", false)
 	_defend_target = null
+	_gather_target = null
 	state = State.FOLLOW

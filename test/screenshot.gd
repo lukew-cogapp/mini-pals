@@ -87,6 +87,8 @@ func _init() -> void:
 
 	await _shoot_shallows()
 
+	await _shoot_pal_gathering()
+
 	await _shoot_ui()
 
 	print("SHOTS_WRITTEN=", _shots.size())
@@ -264,6 +266,50 @@ func _capture(name: String) -> void:
 		printerr("save failed: ", path, " err=", err)
 	else:
 		_shots.append({"name": name, "path": path})
+
+
+## A Cactoro working a tree, which is the only way to see whether the pal
+## stands at the trunk and swings or clips through the canopy.
+func _shoot_pal_gathering() -> void:
+	var tree: Node3D = null
+	var best := 1e9
+	for node in get_nodes_in_group("tree"):
+		if not node.is_available():
+			continue
+		var d: float = node.global_position.distance_to(_player.global_position)
+		if d < best:
+			best = d
+			tree = node
+
+	if tree == null:
+		printerr("no available tree to shoot a gathering pal at")
+		return
+
+	# The player stands beside the tree, because the search is centred on
+	# them and the leash is measured from them.
+	_player.global_position = tree.global_position + Vector3(7.0, 1.0, 0.0)
+
+	var pal = load("res://scenes/pal_cactoro.tscn").instantiate()
+	_world.add_child(pal)
+	await process_frame
+	pal.global_position = tree.global_position + Vector3(6.0, 0.5, 2.0)
+	pal.caught = true
+	pal.state = pal.State.FOLLOW
+	var party = get_root().get_node("Party")
+	party.active = pal
+
+	# Long enough for it to pick the job and walk in, but stopped short of
+	# the third bite, which would deplete the tree and end the shot.
+	for i in 90:
+		await physics_frame
+		if pal.state == pal.State.GATHER and pal._gather_cooldown > 0.0:
+			break
+
+	await _shoot_at("27_pal_gathering", pal, Vector3(9.0, 5.0, 9.0))
+	await _shoot_at("28_pal_gathering_low", pal, Vector3(-8.0, 2.5, 6.0))
+
+	party.active = null
+	pal.queue_free()
 
 
 ## The shallows: fish out in the water, and the amphibian mount wading in it.

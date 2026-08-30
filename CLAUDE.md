@@ -243,7 +243,22 @@ reused because `Inventory.changed` fires on every punch.
 
 Trees and rocks are gatherable (`scripts/resource_node.gd`, groups
 `tree`/`rock`/`resource_node`): punch (F) yields wood/stone, deplete after
-`Tuning.GATHER_HITS`, respawn in place. The workbench (B nearby) crafts pal
+`Tuning.GATHER_HITS`, respawn in place.
+
+The active pal works them too. `State.GATHER` is entered from `_tick_follow`
+just after the defend check, so a hostile or a walk-off always wins; species
+are mapped to a group by `Tuning.PAL_GATHER_GROUPS` (Cactoro to `tree`,
+Wolf to `rock`, nobody else). The pal picks the nearest available node within
+`PAL_GATHER_RADIUS` of the PLAYER, not of itself, which is what keeps the
+search area moving with them, and `PAL_GATHER_LEASH` (= `FOLLOWER_LEASH`)
+breaks the job off. Each bite is `resource_node.punch()`, so depletion,
+respawn and yield are the shipped ones. Only depletion flashes a message:
+the HUD item panel already counts the trickle, and `Hud.flash` queues, so
+one message per item would bury it. Cactoro lost its passive `gather` buff
+in the swap, leaving Glimmerfin the only species that has one.
+`test/auto_gather_test.gd` covers all of it.
+
+The workbench (B nearby) crafts pal
 cubes from `Tuning.CUBE_RECIPE`; throwing consumes one from `Inventory`
 (autoload, `scripts/inventory.gd`).
 

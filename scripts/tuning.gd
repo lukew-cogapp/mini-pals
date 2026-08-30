@@ -173,6 +173,28 @@ const GATHER_HITS := 3
 const GATHER_RESPAWN_DELAY := 30.0
 const GATHER_PUNCH_SCALE := 0.85
 const GATHER_PUNCH_TIME := 0.08
+# --- Pal auto-gathering ---
+## The active pal works the scenery beside you, by species: PAL_GATHER_GROUPS
+## maps display_name to the resource_node group it will bite. A species not
+## listed here never auto-gathers.
+const PAL_GATHER_GROUPS := {"Cactoro": "tree", "Wolf": "rock"}
+## How far from the PLAYER a node may be and still be worth walking to. Kept
+## under FOLLOWER_LEASH so a pal cannot pick a job it would be yanked off.
+const PAL_GATHER_RADIUS := 10.0
+## Close enough to bite. Trees are wide, so this is looser than the player's
+## own GATHER_RANGE.
+const PAL_GATHER_RANGE := 2.6
+const PAL_GATHER_SPEED := 4.0
+## Slower than the player's swing, so helping never out-earns doing it
+## yourself.
+const PAL_GATHER_COOLDOWN := 1.6
+## Beyond this from the player the pal drops the job and comes back, the
+## same bound follower defence uses.
+const PAL_GATHER_LEASH := FOLLOWER_LEASH
+## A breather after a node depletes before looking for the next one, so the
+## pal does not teleport its attention across the clearing.
+const PAL_GATHER_REST := 1.0
+
 ## The cat rig has no Punch clip, so the swing is Bite_Front. Held long
 ## enough that Walk or Idle does not stomp it on the next frame.
 const BITE_ANIM_TIME := 0.32
