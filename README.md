@@ -24,9 +24,9 @@ Press `/` in game for the same list.
 | Run | Shift | Left stick click |
 | Jump | Space | A |
 | Look | Mouse | Right stick |
-| Punch a tree, rock or pal | F | Y |
+| Bite a tree, rock or pal | F | Y |
 | Build menu, at the workbench | B | B |
-| Throw a pal cube | Q or left click | Right trigger |
+| Aim and throw a pal cube (hold) | Q or left click | Right trigger |
 | Ride a caught pal | E | X |
 | Use altar / interact | R | D-pad up |
 | Swap active pal | Tab, 1, 3 | LB |
@@ -35,20 +35,21 @@ Press `/` in game for the same list.
 
 ## The loop
 
-1. **Gather.** Punch trees for wood and rocks for stone. Three hits empties a
+1. **Gather.** Bite trees for wood and rocks for stone. Three hits empties a
    node; it comes back after a while.
 2. **Craft.** Find the workbench near where you start and press `B`. A pal cube
    costs one wood and one stone.
-3. **Weaken.** Punching a wild pal makes it easier to catch. The chance is
-   shown above its head.
-4. **Catch.** Throw a cube with `Q`. The cube shakes three times before it
-   decides.
+3. **Weaken.** Biting a wild pal makes it easier to catch, and so does a pal
+   of your own: a follower fights alongside you but never lands the killing
+   blow, so the catch stays yours.
+4. **Catch.** Hold `Q` to aim. The reticule names the pal it has locked and
+   shows the odds; let go to throw.
 5. **Keep.** Caught pals join your party, one out at a time. The Wolf can be
    ridden.
 6. **Grow.** Catches and defeats earn XP. Species drops let you craft the
    Altar Key once you reach level 4.
-7. **Win.** Take the key to the altar in the demon ring, summon the Mushroom
-   King, and catch it.
+7. **Win.** Take the key to the altar out in the scorched ground, summon the
+   Mushroom King, and catch it.
 
 ## Species
 
@@ -56,7 +57,7 @@ Press `/` in game for the same list.
 |---|---|---|
 | Wolf | Yes | Flees when you get close |
 | Cactoro | No | Flees when you get close |
-| Demon | No | Attacks on sight, lives at the edge of the map |
+| Demon | No | Attacks on sight, lives on the scorched ground |
 | Mushroom King | No | Summoned boss and win condition |
 
 ## Layout

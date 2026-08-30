@@ -109,7 +109,7 @@ text = "F"
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
-text = "Punch tree or rock"
+text = "Bite tree, rock or pal"
 
 [node name="K5" type="Label" parent="Help/Pad/Col/Grid"]
 layout_mode = 2
