@@ -8,15 +8,28 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# Pages needs these to deploy, and only one deployment at a time.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  export:
+  build:
     runs-on: ubuntu-latest
-    name: Export and publish to itch.io
+    name: Export the web build
     steps:
       - uses: actions/checkout@v7.0.1
         with:
           lfs: false
 
+      # The renderer needs no change: Godot 4.7 forces gl_compatibility on the
+      # web through rendering_method.web, so Forward Plus in project.godot
+      # applies to desktop only. Overriding it here is what breaks the build.
       - name: Export web build
         id: export
         uses: firebelley/godot-export@v8.0.0
@@ -28,8 +41,8 @@ jobs:
           presets_to_export: Web
 
       # A Godot web export can "succeed" and produce nothing playable, and it
-      # prints no error when it does. Fail here rather than shipping a black
-      # screen, and print the size breakdown so it is a number, not a guess.
+      # prints no error when it does. Fail here rather than publishing a black
+      # screen, and print the size so it is a number rather than a guess.
       - name: Check the build exists and report its size
         run: |
           DIR="${{ steps.export.outputs.build_directory }}/Web"
@@ -37,11 +50,19 @@ jobs:
           echo "Total: $(du -sh "$DIR" | cut -f1)"
           du -h "$DIR"/* | sort -rh
 
-      - name: Publish to itch.io
-        uses: yeslayla/butler-publish-itchio-action@v1.2.0
-        env:
-          BUTLER_CREDENTIALS: ${{ secrets.BUTLER_CREDENTIALS }}
-          CHANNEL: html5
-          ITCH_GAME: mini-pals
-          ITCH_USER: ${{ vars.ITCH_USER }}
-          PACKAGE: ${{ steps.export.outputs.build_directory }}/Web
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ steps.export.outputs.build_directory }}/Web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Deploy to GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

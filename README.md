@@ -6,13 +6,26 @@ field, gather materials, craft cubes, and catch the pals wandering around.
 Built by a parent and child together. Most of the art is the free Quaternius
 monster pack; the world, the code and the mistakes are ours.
 
-## Playing it
+## Play it in a browser
+
+**https://lukew-cogapp.github.io/mini-pals/**
+
+No download, no install. Works in Chrome, Edge and Firefox; Safari is
+rougher, since its WebGL 2 support is patchier. A controller needs a button
+pressed before the browser will see it.
+
+## Running it from source
 
 ```
 godot --path .
 ```
 
 Or open the folder in the Godot editor and press F5.
+
+Tests are `./test/run.sh` (GUT, one process, all suites). A pre-commit hook
+compiles every script and scene, so a rename that misses a use is caught
+before it lands rather than the next time someone walks that far into the
+world.
 
 ## Controls
 
@@ -85,5 +98,9 @@ hot-reloads, so you can edit it while the game runs.
 
 ## Credits
 
-Monsters are [Quaternius Ultimate Monsters](https://quaternius.com/packs/ultimatemonsters.html),
-CC0. Everything else is ours.
+Made with the [Godot Engine](https://godotengine.org), MIT.
+
+Art is [Quaternius](https://quaternius.com), CC0: Ultimate Monsters, the
+Stylized Nature MegaKit, and the Ultimate Platformer Pack. Everything else,
+including the sound, is ours: every tone and the boss music are synthesised
+at startup in `scripts/audio.gd`, so the repo carries no audio files.
