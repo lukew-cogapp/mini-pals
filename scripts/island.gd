@@ -160,7 +160,7 @@ func _shallow_wall() -> void:
 
 func _wall_ring(ring_name: String, radius: float, height: float) -> void:
 	var body := StaticBody3D.new()
-	body.name = name
+	body.name = ring_name
 	add_child(body)
 	var segments := 24
 	# Overlapped by 5%, or a walker slips through the gap between two boxes.
