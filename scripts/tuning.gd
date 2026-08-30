@@ -82,6 +82,19 @@ const PAL_AGGRO_RADIUS := 9.0
 const AGGRESSIVE_BONUS_HP := 4
 const AGGRESSIVE_ATTACK_DAMAGE := 2.0
 
+# --- Follower defence ---
+## A caught pal picks fights with whatever is hostile to the player, but
+## never lands the killing blow: catching is the loop, so the target is
+## always left on FOLLOWER_MIN_TARGET_HP for the player to cube.
+const FOLLOWER_DEFEND_RADIUS := 12.0
+const FOLLOWER_DEFEND_DAMAGE := 1
+const FOLLOWER_ATTACK_COOLDOWN := 1.2
+const FOLLOWER_ATTACK_RANGE := 2.0
+const FOLLOWER_CHASE_SPEED := 5.0
+const FOLLOWER_MIN_TARGET_HP := 1
+## Beyond this from the player the follower breaks off, so defending can
+## never strand it on the far side of the map.
+const FOLLOWER_LEASH := 16.0
 
 # --- Demons ---
 const DEMON_COUNT := 12

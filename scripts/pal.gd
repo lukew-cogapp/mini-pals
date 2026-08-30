@@ -2,9 +2,10 @@ extends CharacterBody3D
 class_name Pal
 ## A creature that wanders, flees when approached, and once caught follows the
 ## player and can be ridden. Punched (or aggressive by species) it hunts the
-## player instead; a caught pal never attacks.
+## player instead. A caught pal never attacks the player, but does step in
+## against whatever is hostile to them, always stopping short of the kill.
 
-enum State { WANDER, IDLE, FLEE, FOLLOW, RIDDEN, ATTACK }
+enum State { WANDER, IDLE, FLEE, FOLLOW, RIDDEN, ATTACK, DEFEND }
 
 @export var display_name := "Wolf"
 @export var rideable := false
@@ -35,6 +36,7 @@ var _aggro := 0.0
 var _attack_cooldown := 0.0
 var _attack_without_hit := 0.0
 var _sight_aggro_suppressed := false
+var _defend_target: Pal = null
 var _rng := RandomNumberGenerator.new()
 var _side := 1.0
 var _player: Node3D:
@@ -123,6 +125,8 @@ func _physics_process(delta: float) -> void:
 			_tick_follow(delta)
 		State.ATTACK:
 			_tick_attack(delta)
+		State.DEFEND:
+			_tick_defend(delta)
 
 	move_and_slide()
 
@@ -167,6 +171,12 @@ func _tick_follow(delta: float) -> void:
 	if _player == null:
 		return
 
+	_defend_target = _find_defend_target()
+	if _defend_target:
+		state = State.DEFEND
+		_attack_cooldown = 0.0
+		return
+
 	# Walk the player's old footsteps rather than their current position, so
 	# the pal trails behind instead of homing in and snapping about.
 	var target: Vector3 = (
@@ -204,6 +214,100 @@ func _tick_follow(delta: float) -> void:
 		_play("Walk")
 	else:
 		_play("Idle")
+
+
+## --- Follower defence ------------------------------------------------------
+
+## A hostile worth stepping in against: one already fighting the player, or an
+## aggressive species close enough to be about to. Kept pals are never targets,
+## so a follower cannot pick a fight with the rest of the party.
+func _is_hostile(other: Pal) -> bool:
+	if other == self or other.caught or other.dying or not other.visible:
+		return false
+	if other.state == State.ATTACK:
+		return true
+	return (
+		other.aggressive
+		and other._flat_distance(_player.global_position) < Tuning.PAL_AGGRO_RADIUS
+	)
+
+
+func _find_defend_target() -> Pal:
+	if not caught or _player == null:
+		return null
+	var best: Pal = null
+	var best_dist := Tuning.FOLLOWER_DEFEND_RADIUS
+	for node in get_tree().get_nodes_in_group("pal"):
+		var other := node as Pal
+		if other == null or not _is_hostile(other):
+			continue
+		var dist := _flat_distance(other.global_position)
+		if dist < best_dist:
+			best = other
+			best_dist = dist
+	return best
+
+
+## The target stops being worth fighting once it is dead, caught, calmed, or
+## the player has walked far enough that following matters more.
+func _defend_target_valid() -> bool:
+	return (
+		_defend_target != null
+		and is_instance_valid(_defend_target)
+		and _player != null
+		and _is_hostile(_defend_target)
+		and _flat_distance(_player.global_position) < Tuning.FOLLOWER_LEASH
+	)
+
+
+func _tick_defend(delta: float) -> void:
+	_attack_cooldown = maxf(_attack_cooldown - delta, 0.0)
+	if not _defend_target_valid():
+		_defend_target = null
+		state = State.FOLLOW
+		return
+
+	var dist := _flat_distance(_defend_target.global_position)
+	if dist > Tuning.FOLLOWER_ATTACK_RANGE:
+		_move_towards(_defend_target.global_position, Tuning.FOLLOWER_CHASE_SPEED, delta)
+		_play("Run" if _anim and _anim.has_animation("Run") else "Walk")
+		return
+
+	velocity.x = 0.0
+	velocity.z = 0.0
+	var dir := _defend_target.global_position - global_position
+	dir.y = 0.0
+	if dir.length() > 0.01:
+		face(dir.normalized(), delta, Tuning.PAL_TURN_SPEED)
+	if _attack_cooldown <= 0.0:
+		_attack_cooldown = Tuning.FOLLOWER_ATTACK_COOLDOWN
+		_swing_at(_defend_target)
+
+
+func _swing_at(target: Pal) -> void:
+	if _anim:
+		for anim_name in ["Punch", "Bite_Front"]:
+			if _anim.has_animation(anim_name):
+				_anim.stop()
+				_anim.play(anim_name)
+				break
+	target.take_follower_hit()
+
+
+## Damage from a caught pal. Clamped to leave the target alive on its last
+## hitpoint: a follower that finished a kill would cost the player the catch,
+## which is the whole loop. No knockback and no aggro either, so softening a
+## target up cannot shove it out of cube range or point it at the player.
+func take_follower_hit() -> void:
+	if caught or dying or hp <= Tuning.FOLLOWER_MIN_TARGET_HP:
+		return
+	hp = maxi(hp - Tuning.FOLLOWER_DEFEND_DAMAGE, Tuning.FOLLOWER_MIN_TARGET_HP)
+	Audio.play("hit", global_position)
+	# The Blob rigs misspell the hit animation; other sets use HitReact.
+	if _anim and _anim.has_animation("HitRecieve"):
+		_anim.play("HitRecieve")
+	elif _anim and _anim.has_animation("HitReact"):
+		_anim.play("HitReact")
 
 
 func _move_towards(point: Vector3, speed: float, delta: float) -> void:
@@ -347,6 +451,7 @@ func clear_aggro() -> void:
 	_attack_cooldown = 0.0
 	_attack_without_hit = 0.0
 	_sight_aggro_suppressed = false
+	_defend_target = null
 	if state == State.ATTACK:
 		_enter_idle()
 
@@ -454,6 +559,7 @@ func on_caught() -> void:
 ## wander state survive being put away.
 func stow() -> void:
 	state = State.IDLE
+	_defend_target = null
 	velocity = Vector3.ZERO
 	visible = false
 	set_physics_process(false)
@@ -466,4 +572,5 @@ func summon(at: Vector3) -> void:
 	visible = true
 	set_physics_process(true)
 	$Collision.set_deferred("disabled", false)
+	_defend_target = null
 	state = State.FOLLOW

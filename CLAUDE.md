@@ -196,7 +196,15 @@ cooldown) for `PAL_AGGRO_TIME`. If it cannot land a hit for
 another player hit on the pal resets that timer. Species with `aggressive = true` (the Demon,
 `scenes/pal_demon.tscn`, spawned in an annulus at the map rim) attack on sight
 inside `PAL_AGGRO_RADIUS`; after giving up they wait for the player to leave
-and re-enter that radius before reacquiring. A caught pal never attacks.
+and re-enter that radius before reacquiring. A caught pal never attacks the player.
+
+A following pal does fight for you. In `State.DEFEND` it picks the nearest
+hostile (one in `State.ATTACK`, or an aggressive species within
+`PAL_AGGRO_RADIUS` of the player) inside `FOLLOWER_DEFEND_RADIUS` and hits it
+through `take_follower_hit`, which clamps hp at `FOLLOWER_MIN_TARGET_HP` so a
+follower can never land the kill and cost you the catch. It drops back to
+FOLLOW when the target dies, is caught, calms down, or the player passes
+`FOLLOWER_LEASH` away. `test/pal_combat_test.gd` covers all of it.
 
 Every bug this project has hit was invisible on inspection and only showed up
 in a headless test: a cube flying over the target's head, a mount jammed at
