@@ -36,5 +36,11 @@ shape = SubResource("1")
 
 [node name="Fish" parent="Model" instance=ExtResource("2")]
 
+; On the back, behind the head, from the posed skeleton: in Model-local metres
+; the Head bone sits at (0, 1.88, -0.18), the Torso at (0, 1.26, 0.23) and the
+; Abdomen at (0, 0.97, 0.29). The old (0, 3.6, 0) was set from the mesh AABB
+; and put the rider about a metre clear of the animal, above its own head.
+; See test/seat_probe.gd for the bones, test/seat_shot.gd shots 54 to 57 for
+; the render.
 [node name="Seat" type="Marker3D" parent="Model"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.6, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55, 0.26)

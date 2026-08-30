@@ -46,5 +46,14 @@ shape = SubResource("1")
 
 [node name="Llama" parent="Model" instance=ExtResource("2")]
 
+; On the back, behind the head. Set from the posed SKELETON, which is the only
+; thing here that says where the animal actually is: in Model-local metres the
+; Head bone sits at (0, 2.25, -0.08), the Neck at (0, 2.03, 0.35) and the Torso
+; at (0, 1.73, 0.59). So the seat rides just above the torso and well behind
+; the head, and -Z is forward as everywhere else in this project.
+;
+; Do not set this from the mesh AABB: that is the bind pose and reads about
+; half a metre taller than the idle. See test/seat_probe.gd for the bones and
+; test/seat_shot.gd shots 50 to 53 for the render that confirms it.
 [node name="Seat" type="Marker3D" parent="Model"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0.55)

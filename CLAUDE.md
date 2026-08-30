@@ -226,6 +226,27 @@ the tell is `get_slide_collision_count()` pegged at `max_slides` every frame
 while `velocity` looks correct and position never changes. Disable the rider's
 collider while mounted.
 
+**A Seat goes on the posed skeleton, not on any mesh measurement.** A Seat is a
+Marker3D with no visual, so a wrong one looks correct in the scene file and in
+every number the engine reports. Two measurements were tried here and both gave
+confident wrong answers: a `MeshInstance3D` AABB is the BIND pose and reads
+about half a metre taller than the Alpaking stands, and a sweep over every
+`MeshInstance3D` under a pal picks up the five billboarded health-bar quads and
+reports the HUD as the animal's surface. `get_bone_global_pose` is neither.
+`test/seat_probe.gd` prints every bone in the frame a Seat is written in
+(Model-local, which `model_scale` shrinks), and `test/seat_test.gd` asserts a
+seat sits above the Torso bone and behind the Head. The Llama sat the player on
+its skull and the Mudwader's rider floated 2.3 m up before this.
+
+The Alpaking is worth one warning of its own: it is a winged blob, 13 bones,
+no legs and no tail, and its mesh AABB is WIDER on X (4.3) than long on Z
+(2.2). Nothing about that says which way it faces. Its Head bone is at
+Model-local z -0.08 and its Torso at +0.59, so it faces -Z like everything
+else, and a rider belongs at a larger z than the head. `test/seat_shot.gd`
+renders all three mounts from the side, above and in front, empty and ridden
+(shots 50 to 61), with a green post one metre forward and a white one metre
+back so no shot has to be reasoned about.
+
 ## Assets
 
 `assets/monsters/` is Quaternius Ultimate Monsters, **CC0 1.0** (public domain,
