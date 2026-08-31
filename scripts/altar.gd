@@ -68,7 +68,9 @@ func _end_fight() -> void:
 	if is_instance_valid(_boss):
 		_remove_glow(_boss)
 	_boss = null
-	Audio.stop_music()
+	# Back to the overworld loop rather than to silence: the fight ending is
+	# daylight returning, not the world switching off.
+	Audio.play_music("world_music")
 	_darken(false)
 	_set_pal_glow(false)
 

@@ -60,6 +60,23 @@ func _ready() -> void:
 	_bank["spit"] = _tone(240.0, 620.0, 0.09, "saw", 0.3)
 	# And the wad landing. Lower and wetter than "hit", which is a bite.
 	_bank["splat"] = _tone(420.0, 110.0, 0.13, "sine", 0.34)
+	# C-major pentatonic over a slow root-fifth bass: the overworld loop.
+	# Sixteen beats rather than the boss theme's eight, and half of the
+	# melody left as rests, because this one plays for the whole session and
+	# a busy phrase heard two hundred times becomes a nag. Pentatonic has no
+	# semitone in it, so no interval can sour against the bass however the
+	# loop lands.
+	_bank["world_music"] = _music(
+		[
+			65.41, 65.41, 98.0, 98.0, 87.31, 87.31, 98.0, 98.0,
+			65.41, 65.41, 98.0, 98.0, 110.0, 110.0, 98.0, 98.0,
+		],
+		[
+			392.0, 0.0, 523.25, 0.0, 440.0, 0.0, 0.0, 329.63,
+			392.0, 0.0, 587.33, 0.0, 523.25, 0.0, 440.0, 0.0,
+		],
+		0.5,
+	)
 	# A-minor bass under a sparse melody; loops seamlessly (see _music).
 	_bank["boss_music"] = _music(
 		[55.0, 55.0, 65.41, 55.0, 55.0, 55.0, 98.0, 82.41],
