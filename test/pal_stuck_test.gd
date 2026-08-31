@@ -22,10 +22,20 @@ func after_all() -> void:
 	_ground.free()
 
 
-## A static box the pal cannot walk through, on the pals' own layer so their
-## collider actually meets it.
+## A static box the pal cannot walk through.
+##
+## Deliberately NOT on layer 1, which is what the steering whiskers look at.
+## The whiskers would see this wall and steer along it, and the pal would
+## never become stuck at all, which is the whiskers doing their job but
+## leaves the unstick untested. The unstick exists for what a forward ray
+## cannot see, so the wall here is invisible to the rays and solid to the
+## body, which is exactly that case.
 func _wall(at: Vector3) -> StaticBody3D:
 	var body := StaticBody3D.new()
+	body.collision_layer = 1 << 4
+	# The pal's body has to meet it even though the rays do not, so widen the
+	# pal's own mask where it is spawned rather than putting the wall on the
+	# layer the whiskers read.
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = Vector3(12.0, 4.0, 1.0)
@@ -38,6 +48,10 @@ func _wall(at: Vector3) -> StaticBody3D:
 
 func _spawn_pal(pos: Vector3):
 	var pal = load("res://scenes/pal_wolf.tscn").instantiate()
+	# Sees the test wall (layer 5) as well as the world it normally collides
+	# with. The steering whiskers read layer 1 only, so the wall stops the
+	# body without the rays ever noticing it.
+	pal.collision_mask |= 1 << 4
 	add_child_autofree(pal)
 	await wait_process_frames(1)
 	pal.global_position = pos

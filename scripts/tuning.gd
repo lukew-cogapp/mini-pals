@@ -16,6 +16,18 @@ const CAMERA_PITCH_MAX := 0.4
 ## at the horizon, so what the player can walk into is on screen.
 const CAMERA_PITCH_START := -0.31
 
+# --- Speed FOV ---
+## The lens opens up above this multiple of PLAYER_SPEED, which puts the
+## threshold between a walk and a sprint and well under a ride.
+const FOV_SPEED_THRESHOLD := 1.2
+## Matches player.tscn's authored fov; the widened one is a few degrees more,
+## enough to feel at the edges without bending the middle of the frame.
+const FOV_BASE := 60.0
+const FOV_FAST := 66.0
+## How fast the lens travels between the two. Slow enough to read as the
+## world opening up, fast enough to arrive before a short sprint ends.
+const FOV_LERP := 6.0
+
 
 # --- Scenery scatter ---
 const SCATTER_SEED := 20260830
@@ -39,6 +51,14 @@ const PAL_FLEE_SPEED := 5.5
 const PAL_WANDER_RADIUS := 12.0
 const PAL_IDLE_MIN := 1.5
 const PAL_IDLE_MAX := 4.0
+## How far a pal notices someone standing near it and turns to watch.
+const PAL_WATCH_DISTANCE := 8.0
+## Slower than PAL_TURN_SPEED: an idle pal glances over, it does not snap.
+const PAL_WATCH_TURN_SPEED := 2.5
+## Per-pal idle pacing, rolled once in _ready and multiplied into every idle
+## timer. Twenty pals idling on the same distribution read as a metronome.
+const PAL_IDLE_PACE_MIN := 0.7
+const PAL_IDLE_PACE_MAX := 1.4
 const PAL_FLEE_DISTANCE := 6.0
 const PAL_TURN_SPEED := 6.0
 const PAL_FOLLOW_DISTANCE := 3.0
@@ -145,6 +165,27 @@ const PAL_STUCK_TURN_MIN := 1.2
 const PAL_STUCK_TURN_MAX := 2.2
 const PAL_STUCK_ESCAPE_SPEED := 3.0
 
+# --- Pal obstacle steering ---
+## Two rays either side of the heading, so a pal steers around a trunk rather
+## than walking into it and waiting out PAL_STUCK_TIME. The unstick stays as
+## the fallback for what whiskers cannot see: concave pockets, and anything
+## the pal is already inside.
+##
+## Length is a bit over a second of travel at chase speed, which is far
+## enough to start the turn early and near enough that a whisker does not
+## catch scenery the pal was going to pass anyway.
+const PAL_WHISKER_LENGTH := 2.5
+## Spread either side of the heading. Wide enough that a trunk dead ahead
+## trips at least one whisker, narrow enough that they do not sweep in
+## obstacles beside the path.
+const PAL_WHISKER_ANGLE := 0.4
+## How hard a tripped whisker turns the heading, in radians, scaled by how
+## close the hit is. A hit at arm's length turns the full amount.
+const PAL_WHISKER_TURN := 0.9
+## Chest height for the ray origin. From the origin at the feet every whisker
+## hits the ground on any upward slope, and the pal spins on open hillside.
+const PAL_WHISKER_HEIGHT := 0.5
+
 # --- Player health ---
 const PLAYER_MAX_HP := 10.0
 const PLAYER_REGEN_DELAY := 5.0
@@ -163,6 +204,11 @@ const PAL_ATTACK_COOLDOWN := 1.4
 const PAL_NO_HIT_GIVE_UP_TIME := 5.0
 const PAL_CHASE_GIVE_UP := 20.0
 const PAL_AGGRO_RADIUS := 9.0
+## The beat an aggressive pal spends noticing the player before it charges.
+## Long enough to read as "it saw me" and to leave somewhere to run; short
+## enough that it does not look like the pal has stalled. Only sight-aggro
+## takes it, never retaliation for a punch.
+const PAL_ALERT_TIME := 0.6
 const AGGRESSIVE_BONUS_HP := 4
 const AGGRESSIVE_ATTACK_DAMAGE := 2.0
 
@@ -339,6 +385,9 @@ const GATHER_RANGE := 2.5
 const GATHER_FACING_DOT := 0.3
 const GATHER_HITS := 3
 const GATHER_RESPAWN_DELAY := 30.0
+## How long a depleted tree or rock takes to grow back to full size once its
+## respawn timer is up.
+const GATHER_REGROW_TIME := 0.45
 const GATHER_PUNCH_SCALE := 0.85
 const GATHER_PUNCH_TIME := 0.08
 # --- Pal auto-gathering ---
@@ -577,6 +626,13 @@ const SHAKE_SUMMON := 1.0
 ## once the roll has already been decided.
 const CATCH_SLOWMO_SCALE := 0.25
 const CATCH_SLOWMO_TIME := 0.45
+
+# --- Level-up feedback ---
+## How far the Lv label swells, and for how long. Big enough to catch the eye
+## at the bottom corner, brief enough not to sit in the way of play.
+const LEVEL_PULSE_SCALE := 1.5
+const LEVEL_PULSE_TIME := 0.5
+const LEVEL_PULSE_COLOUR := Color(1.0, 0.85, 0.35)
 
 ## Health bar feedback. The bar slides to its new width, the fill blinks
 ## white, and the whole screen takes a red wash.

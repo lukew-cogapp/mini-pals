@@ -77,6 +77,9 @@ var _hit_stun := 0.0
 var _aggro := 0.0
 var _attack_cooldown := 0.0
 var _attack_without_hit := 0.0
+var _alert_time := 0.0
+## Per-instance idle pacing, rolled once. Some pals dawdle, some fidget.
+var _idle_pace := 1.0
 var _sight_aggro_suppressed := false
 ## Seconds left in which a death here still pays the player, reset by a hit
 ## in either direction. See _die and _credit_player.
@@ -121,6 +124,9 @@ var _bar_check := 0.0
 
 func _ready() -> void:
 	_rng.randomize()
+	_idle_pace = _rng.randf_range(
+		Tuning.PAL_IDLE_PACE_MIN, Tuning.PAL_IDLE_PACE_MAX
+	)
 	_home = global_position
 	max_hp = _level_hp()
 	hp = max_hp
@@ -377,6 +383,12 @@ func _find_anim(n: Node) -> AnimationPlayer:
 const SWIM_CLIPS := {"Walk": "Fast_Flying", "Run": "Fast_Flying", "Idle": "Flying_Idle"}
 
 
+## Run if the rig has one, Walk otherwise. Several rigs have no Run clip at
+## all, and asking for a missing animation leaves the pal frozen.
+func _play_moving() -> void:
+	_play("Run" if _anim and _anim.has_animation("Run") else "Walk")
+
+
 func _play(anim: String) -> void:
 	if _anim == null:
 		return
@@ -425,8 +437,9 @@ func _tick_idle(delta: float) -> void:
 	velocity.z = 0.0
 	_play("Idle")
 	_timer -= delta
+	_watch_player(delta)
 	if _wants_attack():
-		_enter_attack()
+		_enter_attack(true)
 	elif _pick_rival(delta):
 		_enter_attack()
 	elif _threat_near():
@@ -437,7 +450,7 @@ func _tick_idle(delta: float) -> void:
 
 func _tick_wander(delta: float) -> void:
 	if _wants_attack():
-		_enter_attack()
+		_enter_attack(true)
 		return
 	if _pick_rival(delta):
 		_enter_attack()
@@ -458,7 +471,7 @@ func _tick_flee(delta: float) -> void:
 	var away := global_position - _player.global_position
 	away.y = 0.0
 	_move_towards(global_position + away.normalized() * 4.0, speed(Tuning.PAL_FLEE_SPEED), delta)
-	_play("Walk")
+	_play_moving()
 
 
 func _tick_follow(delta: float) -> void:
@@ -532,7 +545,10 @@ func _tick_follow(delta: float) -> void:
 	var moving := Vector2(velocity.x, velocity.z).length()
 	if moving > 0.4:
 		face(Vector3(velocity.x, 0.0, velocity.z).normalized(), delta, Tuning.PAL_TURN_SPEED)
-		_play("Walk")
+		# Catching up runs; ambling alongside walks. Feet sliding over the
+		# ground at three times the cycle's authored pace is the loudest
+		# cheap-game tell a follower has, and it follows you everywhere.
+		_play("Run" if moving > speed(Tuning.PAL_FOLLOW_SPEED) else "Walk")
 	else:
 		_play("Idle")
 
@@ -1039,10 +1055,50 @@ func _move_towards(point: Vector3, speed: float, delta: float) -> void:
 		_stuck_time = 0.0
 		return
 	dir = dir.normalized()
+	dir = _steer_around(dir)
 	_track_progress(dir, speed, delta)
 	velocity.x = dir.x * speed
 	velocity.z = dir.z * speed
 	face(dir, delta, Tuning.PAL_TURN_SPEED)
+
+
+## Bend a heading away from whatever is about to be walked into.
+##
+## Two rays either side of the heading. The nearer hit wins and the heading
+## turns away from it, by an amount scaled to how close it is, so a distant
+## trunk is a drift and a near one is a swerve. Mask 1 is world geometry:
+## pals are on layer 4 and zones on layer 7, so neither steers anything.
+##
+## This does not replace the unstick, which still catches what a forward ray
+## cannot see. It does mean the common case, a trunk on an otherwise clear
+## line, no longer costs PAL_STUCK_TIME of grinding first.
+func _steer_around(dir: Vector3) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	var from := global_position + Vector3.UP * Tuning.PAL_WHISKER_HEIGHT
+	var nearest := INF
+	var turn_sign := 0.0
+	for side in [-1.0, 1.0]:
+		var probe := dir.rotated(Vector3.UP, Tuning.PAL_WHISKER_ANGLE * side)
+		var query := PhysicsRayQueryParameters3D.create(
+			from, from + probe * Tuning.PAL_WHISKER_LENGTH
+		)
+		query.collision_mask = 1
+		query.exclude = [get_rid()]
+		var hit := space.intersect_ray(query)
+		if hit.is_empty():
+			continue
+		var gap: float = from.distance_to(hit["position"])
+		if gap < nearest:
+			nearest = gap
+			# Away from the whisker that hit. Both hitting takes the nearer,
+			# which is the side with less room.
+			turn_sign = -side
+	if turn_sign == 0.0:
+		return dir
+	var closeness := 1.0 - clampf(nearest / Tuning.PAL_WHISKER_LENGTH, 0.0, 1.0)
+	return dir.rotated(
+		Vector3.UP, Tuning.PAL_WHISKER_TURN * closeness * turn_sign
+	).normalized()
 
 
 ## Compare ground covered since the previous call against what was asked for.
@@ -1114,9 +1170,32 @@ func _threat_near() -> bool:
 	return _flat_distance(_player.global_position) < Tuning.PAL_FLEE_DISTANCE
 
 
+## An idling pal turns to watch a player who comes near.
+##
+## Cheap, and it does two things at once: a pal that ignores someone standing
+## a metre away reads as furniture, and a skittish species turning to watch
+## you approach foreshadows the flee, so bolting looks like a decision rather
+## than a distance trigger firing.
+func _watch_player(delta: float) -> void:
+	if _player == null or caught:
+		return
+	var to_player := _player.global_position - global_position
+	to_player.y = 0.0
+	var gap := to_player.length()
+	if gap > Tuning.PAL_WATCH_DISTANCE or gap < 0.01:
+		return
+	face(to_player.normalized(), delta, Tuning.PAL_WATCH_TURN_SPEED)
+
+
 func _enter_idle() -> void:
 	state = State.IDLE
-	_timer = _rng.randf_range(Tuning.PAL_IDLE_MIN, Tuning.PAL_IDLE_MAX)
+	# Jittered per pal, so twenty of them do not idle on one metronome. Only
+	# the timing: speed_factor is tuned per species against the player's walk
+	# and sprint and is measured by ground covered, so varying that would
+	# reopen tuning the project treats as load-bearing.
+	_timer = _rng.randf_range(
+		Tuning.PAL_IDLE_MIN, Tuning.PAL_IDLE_MAX
+	) * _idle_pace
 
 
 func _enter_wander() -> void:
@@ -1159,11 +1238,17 @@ func _enter_flee() -> void:
 	state = State.FLEE
 
 
-func _enter_attack() -> void:
+## `alert` gives the pal a beat to visibly notice the player before it
+## charges. Only sight-aggro passes it: being punched is its own telegraph
+## and a demon that pauses politely after taking a hit reads as broken, not
+## as thoughtful.
+func _enter_attack(alert := false) -> void:
 	if caught:
 		return
 	if state != State.ATTACK:
 		_attack_without_hit = 0.0
+		if alert:
+			_alert_time = Tuning.PAL_ALERT_TIME
 	state = State.ATTACK
 
 
@@ -1193,6 +1278,20 @@ func _tick_attack(delta: float) -> void:
 	_attack_without_hit += delta
 	if caught or _player == null:
 		_enter_idle()
+		return
+	# The notice. Stand, turn to face, then charge. Without it a pal goes
+	# from mooching to full chase speed in one frame the moment the player
+	# crosses PAL_AGGRO_RADIUS, which reads as a tripwire rather than as an
+	# animal seeing you, and leaves no beat to react in.
+	if _alert_time > 0.0:
+		_alert_time -= delta
+		velocity.x = 0.0
+		velocity.z = 0.0
+		var to_player := _player.global_position - global_position
+		to_player.y = 0.0
+		if to_player.length() > 0.01:
+			face(to_player.normalized(), delta, Tuning.PAL_TURN_SPEED)
+		_play("Idle")
 		return
 	if not aggressive:
 		_aggro -= delta
