@@ -95,12 +95,17 @@ func _on_play() -> void:
 
 
 ## Same start, plus a caught Mushroom King, for testing the endgame without
-## playing to it. change_scene_to_file swaps the tree at the end of the frame,
-## so the party is handed its pal once the world it lives in exists.
+## playing to it.
+##
+## The wait is deferred onto Party, NOT awaited here. change_scene_to_file
+## swaps the tree at the end of the frame and frees this node with it, so a
+## coroutine resuming on `await get_tree().process_frame` resumes inside a
+## freed start screen and the call after it never runs. That shipped, and the
+## debug start silently granted nothing. A deferred call belongs to Party,
+## which is an autoload and outlives the swap.
 func _on_debug() -> void:
 	get_tree().change_scene_to_file(WORLD)
-	await get_tree().process_frame
-	Party.debug_start_king()
+	Party.grant_king_when_world_ready.call_deferred()
 
 
 func _on_quit() -> void:

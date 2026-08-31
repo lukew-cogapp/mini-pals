@@ -5,6 +5,9 @@ signal changed
 
 var members: Array[Pal] = []
 var active: Pal = null
+## Whether the opening throw hint has been shown this session. Lives here
+## because it must outlive any single world; see scenery._hint_how_to_throw.
+var seen_throw_hint := false
 
 ## Player progression. XP comes from catches and kills, scaled by pal level;
 ## it lives here with the rest of what catching earns.
@@ -130,9 +133,27 @@ func _activate(pal: Pal, near := Vector3.ZERO) -> void:
 ## The player level goes with him because the bench's key recipe is gated on
 ## it: without that the debug start could not even open the recipe it exists
 ## to test around.
+## Wait for the swapped-in world, then grant the King.
+##
+## The caller is the start screen, which change_scene_to_file frees in the
+## same frame, so the wait cannot live there: a coroutine resuming in a freed
+## node finds get_tree() null and dies where it stands. This is an autoload
+## and outlives the swap.
+func grant_king_when_world_ready() -> void:
+	# current_scene is the new world by the frame after the swap, but wait for
+	# the player's group rather than the scene: _activate summons beside the
+	# player and falls back to the world origin without one.
+	for i in 10:
+		await get_tree().process_frame
+		if get_tree().get_first_node_in_group("player") != null:
+			break
+	debug_start_king()
+
+
 func debug_start_king() -> void:
 	var world := get_tree().current_scene
 	if world == null:
+		push_error("debug_start_king: no current scene, so no King was granted")
 		return
 	var king: Pal = load("res://scenes/pal_boss.tscn").instantiate()
 	king.level = Tuning.DEBUG_KING_LEVEL
