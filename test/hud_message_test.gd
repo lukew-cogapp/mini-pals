@@ -16,6 +16,10 @@ var _world: Node
 ## the test that called it rather than at the end of the script. free, not
 ## queue_free: GUT counts children still parented when the script ends.
 func before_all() -> void:
+	# The world flashes a one-off "how to throw" hint on its first build, and
+	# it would queue ahead of every message asserted below. Marking it seen
+	# is what a player who has already read it does.
+	Party.seen_throw_hint = true
 	_world = load("res://scenes/world.tscn").instantiate()
 	add_child(_world)
 	await wait_process_frames(1)

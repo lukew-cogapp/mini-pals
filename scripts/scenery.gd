@@ -41,6 +41,11 @@ func _sit(item: Node3D) -> void:
 
 
 func _ready() -> void:
+	# The overworld loop. It lived nowhere before, so the only music in the
+	# game was the boss fight and the rest of the session played in silence.
+	# The altar hands it back when the fight ends.
+	Audio.play_music("world_music")
+	_hint_how_to_throw()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = Tuning.SCATTER_SEED
 	_scatter(tree_scenes, Tuning.TREE_COUNT, Tuning.TREE_SCALE_MIN, Tuning.TREE_SCALE_MAX, rng)
@@ -418,3 +423,26 @@ func _is_clear(pos: Vector3) -> bool:
 		if item != null and pos.distance_to(item.global_position) < Tuning.SCATTER_CLEAR_RADIUS:
 			return false
 	return true
+
+
+## Tell a new player how to throw, once.
+##
+## The opening objective says "Catch pals 0/3" and nothing in the world says
+## how: the reticule only names its odds once you are already aiming, and the
+## contextual prompts deliberately skip wild pals. Keys come from InputMap,
+## never literals, so a rebind cannot leave this lying.
+##
+## Guarded on Party rather than on a local, because the guard has to outlive
+## the world: a death respawn or a return to the title and back rebuilds this
+## node, and being told the controls again on every one of those is nagging.
+## The guard also keeps the message out of the dozen test suites that
+## instantiate a world, where it queued ahead of the message under test.
+func _hint_how_to_throw() -> void:
+	if Party.seen_throw_hint:
+		return
+	Party.seen_throw_hint = true
+	Hud.flash.call_deferred(
+		"Hold %s to aim, %s to throw a pal cube" % [
+			Hud.key_name("aim"), Hud.key_name("throw")
+		]
+	)
