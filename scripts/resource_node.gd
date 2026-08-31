@@ -44,10 +44,22 @@ func _shake() -> void:
 
 
 func _deplete() -> void:
+	# A poof, because the last punch used to make a whole tree vanish between
+	# one frame and the next and it read as the tree being deleted by a bug.
+	# Parented to this node's own parent, not to current_scene, which is null
+	# whenever a world is instantiated rather than made the running scene.
+	var host := get_parent()
+	if host:
+		Pal.poof(host, global_position + Vector3.UP)
 	visible = false
 	collision_layer = 0
 	await get_tree().create_timer(Tuning.GATHER_RESPAWN_DELAY).timeout
 	_hits = 0
-	scale = _base_scale
 	collision_layer = 1
 	visible = true
+	# Grows back rather than popping in whole, the same shape of beat the
+	# respawning pals get.
+	scale = _base_scale * 0.01
+	var tween := create_tween()
+	tween.tween_property(self, "scale", _base_scale, Tuning.GATHER_REGROW_TIME) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
