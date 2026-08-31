@@ -94,7 +94,23 @@ func _ready() -> void:
 
 ## Shake moves the arm, not the pivot, so the arm's own collision cast still
 ## starts at the pivot and the player exclusion above keeps working.
+## Widen the lens as speed picks up, narrow it back as it drops.
+##
+## Nothing touched fov before, so sprinting read exactly like walking except
+## for ground covered, and riding a swimmer at RIDE_SWIM_SPEED read like
+## walking too. The lerp is frame-rate independent and always running, so
+## there is no state to get stuck at the wide end.
+func _update_fov(delta: float) -> void:
+	if _camera == null:
+		return
+	var speed := Vector2(velocity.x, velocity.z).length()
+	var wide := speed > Tuning.PLAYER_SPEED * Tuning.FOV_SPEED_THRESHOLD
+	var want := Tuning.FOV_FAST if wide else Tuning.FOV_BASE
+	_camera.fov = lerpf(_camera.fov, want, Tuning.FOV_LERP * delta)
+
+
 func _process(delta: float) -> void:
+	_update_fov(delta)
 	if _shake <= 0.0:
 		return
 	_shake = maxf(_shake - Tuning.SHAKE_DECAY * delta, 0.0)
