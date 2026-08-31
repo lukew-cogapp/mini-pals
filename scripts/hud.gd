@@ -39,6 +39,8 @@ var _hurt_tween: Tween
 var _fade_tween: Tween
 var _fading := false
 var _icon_cache := {}
+## Last level drawn, so _refresh can tell a level-up from any other change.
+var _shown_level := 1
 ## Catching a pal flashes the catch, the XP and sometimes a level in the same
 ## frame. One label showing the last of them meant the catch was never read,
 ## so they queue and take their turn instead.
@@ -149,6 +151,13 @@ func set_reticule(on: bool, text := "", locked := false) -> void:
 ## corner. Everything used to be one concatenated label, which grew sideways
 ## with every new drop until it ran off both ends of the screen.
 func _refresh() -> void:
+	# Player level gates the whole endgame, and levelling up used to be a
+	# queued message behind the catch and the XP that caused it: 1.4 s in the
+	# same small label as "+2 Pelt". Pulsing the label gives it a channel of
+	# its own that cannot be missed or queued behind anything.
+	if Party.player_level > _shown_level:
+		_shown_level = Party.player_level
+		_pulse_level()
 	_level.text = "Lv%d" % Party.player_level
 	# Progress to the next level reads as a bar; the raw numbers were noise.
 	var frac := clampf(float(Party.xp) / float(Tuning.PLAYER_XP_PER_LEVEL), 0.0, 1.0)
@@ -195,6 +204,10 @@ func _buff_text(pal: Pal) -> String:
 func _refresh_items() -> void:
 	var shown := CORE_ITEMS.duplicate()
 	for item in Inventory.items():
+		# Cubes have the bottom bar to themselves. Listing them here as well
+		# put the same count on screen twice, in two different styles.
+		if item == "cube":
+			continue
 		if item not in shown and Inventory.count(item) > 0:
 			shown.append(item)
 
@@ -281,7 +294,13 @@ func _objective_chain() -> Array[Dictionary]:
 	# one on a summon both count as crafted.
 	var key_made := Inventory.count("altar_key") > 0 or _boss_summoned()
 	chain.append({"text": "Craft the Altar Key at the bench", "done": key_made})
-	chain.append({"text": "Use the key at the altar (R)", "done": _boss_summoned()})
+	chain.append({
+		# The key comes from InputMap like every prompt does. This row named a
+		# literal R while `prompt_test` existed precisely because bindings
+		# have moved once already.
+		"text": "Use the key at the altar (%s)" % _key_name("interact"),
+		"done": _boss_summoned(),
+	})
 	# Catching wins; defeating is the consolation prize. Either finishes the
 	# line, so a player who killed him is not left with a permanent red tick
 	# on a fight they cannot fight again until they craft another key.
@@ -486,6 +505,36 @@ func _key_line(action: StringName, what: String) -> String:
 ## InputMap. The first keyboard event wins; a pad button is appended so a
 ## controller player is told their own button rather than a key they do not
 ## have.
+## Swell the level label and flash it gold, then settle back.
+##
+## `pivot_offset` is set from the label's own size each time rather than once
+## in _ready: the text is "Lv1" at the start and "Lv10" later, so a pivot
+## measured once grows wrong and the label scales off its own corner.
+func _pulse_level() -> void:
+	_level.pivot_offset = _level.size * 0.5
+	var tween := create_tween().set_parallel()
+	tween.tween_property(
+		_level, "scale", Vector2.ONE * Tuning.LEVEL_PULSE_SCALE,
+		Tuning.LEVEL_PULSE_TIME * 0.4
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(
+		_level, "modulate", Tuning.LEVEL_PULSE_COLOUR, Tuning.LEVEL_PULSE_TIME * 0.4
+	)
+	tween.chain().set_parallel()
+	tween.tween_property(
+		_level, "scale", Vector2.ONE, Tuning.LEVEL_PULSE_TIME * 0.6
+	).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(
+		_level, "modulate", Color.WHITE, Tuning.LEVEL_PULSE_TIME * 0.6
+	)
+
+
+## Public, because the world's opening hint names keys too and every one of
+## them has to come from InputMap rather than a literal.
+func key_name(action: StringName) -> String:
+	return _key_name(action)
+
+
 func _key_name(action: StringName) -> String:
 	var key := ""
 	var pad := ""
@@ -494,6 +543,11 @@ func _key_name(action: StringName) -> String:
 	for event in InputMap.action_get_events(action):
 		if key == "" and event is InputEventKey:
 			key = _key_event_name(event)
+		elif key == "" and event is InputEventMouseButton:
+			# Some actions are mouse-only: `aim` is right-click and nothing
+			# else. Without this the name came back empty and the prompt read
+			# "Hold  to aim".
+			key = _mouse_button_name(event.button_index)
 		elif pad == "" and event is InputEventJoypadButton:
 			pad = _pad_button_name(event.button_index)
 	if key == "":
@@ -503,6 +557,20 @@ func _key_name(action: StringName) -> String:
 	if pad == "" or pad == key:
 		return key
 	return "%s / %s" % [key, pad]
+
+
+## Named for the hand, not the API: a player looks for "right click", not for
+## BUTTON_RIGHT or an index.
+func _mouse_button_name(index: int) -> String:
+	match index:
+		MOUSE_BUTTON_LEFT:
+			return "left click"
+		MOUSE_BUTTON_RIGHT:
+			return "right click"
+		MOUSE_BUTTON_MIDDLE:
+			return "middle click"
+		_:
+			return "mouse %d" % index
 
 
 ## The project binds by physical keycode, so that is what is read. Reporting

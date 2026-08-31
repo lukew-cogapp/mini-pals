@@ -115,7 +115,11 @@ func test_objective_chain_advances_stage_by_stage() -> void:
 	_inv.add("altar_key", 1)
 	await wait_process_frames(1)
 	assert_eq(
-		_current(), "Use the key at the altar (R)", "holding a key advances to the altar"
+		# Built from InputMap, not spelled out: the row names whatever
+		# `interact` is bound to, and it carries the pad button too.
+		_current(),
+		"Use the key at the altar (%s)" % Hud.key_name("interact"),
+		"holding a key advances to the altar",
 	)
 	assert_true(
 		_rows()[-2].begins_with(_hud.MARK_DONE),
