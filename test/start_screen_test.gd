@@ -77,7 +77,12 @@ func test_focus_ring() -> void:
 		_quit_button.find_valid_focus_neighbor(SIDE_BOTTOM), _play,
 		"focus wraps down from Quit, so the menu is a ring",
 	)
-	var child_count: int = _screen.get_node("UI/Menu").get_child_count()
+	# Buttons, not children: the menu also carries a Loading label, which is
+	# not focusable and must not be expected in the ring.
+	var child_count := 0
+	for child in _screen.get_node("UI/Menu").get_children():
+		if child is Button:
+			child_count += 1
 	assert_eq(
 		_ring(_play, SIDE_BOTTOM).size(), child_count,
 		(

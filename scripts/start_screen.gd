@@ -30,6 +30,11 @@ const CONTROLS := [
 @onready var _play: Button = $UI/Menu/Play
 @onready var _debug: Button = $UI/Menu/Debug
 @onready var _quit: Button = $UI/Menu/Quit
+@onready var _loading: Label = $UI/Menu/Loading
+
+## Set once Play is pressed; `_process` then polls the load until it lands.
+var _loading_king := false
+var _loading_world := false
 
 
 func _ready() -> void:
@@ -61,6 +66,46 @@ func _set_hud_visible(on: bool) -> void:
 
 func _process(delta: float) -> void:
 	_turntable.rotate_y(deg_to_rad(TURN_SPEED) * delta)
+	if _loading_world:
+		_poll_load()
+
+
+## The world is ~300 ms of resource loading, and change_scene_to_file pays it
+## in one blocking lump at the end of the frame: on the web that reads as the
+## tab having hung, then the game appearing. Requested across frames instead,
+## so the title stays up and animating with a progress figure on it.
+##
+## load_threaded_request works without thread support, which the web export
+## cannot have (it needs cross-origin isolation headers, and Pages sets
+## none). It returns in slices rather than in parallel, which is the point:
+## the frames keep coming.
+func _begin_load() -> void:
+	_loading_world = true
+	_play.disabled = true
+	_debug.disabled = true
+	_play.visible = false
+	_debug.visible = false
+	_quit.visible = false
+	_loading.visible = true
+	ResourceLoader.load_threaded_request(WORLD)
+
+
+func _poll_load() -> void:
+	var progress := []
+	var status := ResourceLoader.load_threaded_get_status(WORLD, progress)
+	if status == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+		if progress.size() > 0:
+			_loading.text = "Loading... %d%%" % roundi(float(progress[0]) * 100.0)
+		return
+	_loading_world = false
+	if status != ResourceLoader.THREAD_LOAD_LOADED:
+		# Nothing to fall back to but the blocking path, which at least starts.
+		get_tree().change_scene_to_file(WORLD)
+		return
+	var packed: PackedScene = ResourceLoader.load_threaded_get(WORLD)
+	get_tree().change_scene_to_packed(packed)
+	if _loading_king:
+		Party.grant_king_when_world_ready.call_deferred()
 
 
 func _fill_controls() -> void:
@@ -91,21 +136,20 @@ func _cell(
 
 
 func _on_play() -> void:
-	get_tree().change_scene_to_file(WORLD)
+	_begin_load()
 
 
 ## Same start, plus a caught Mushroom King, for testing the endgame without
 ## playing to it.
 ##
-## The wait is deferred onto Party, NOT awaited here. change_scene_to_file
-## swaps the tree at the end of the frame and frees this node with it, so a
-## coroutine resuming on `await get_tree().process_frame` resumes inside a
-## freed start screen and the call after it never runs. That shipped, and the
-## debug start silently granted nothing. A deferred call belongs to Party,
-## which is an autoload and outlives the swap.
+## The grant is deferred onto Party, NOT awaited here. Swapping the scene
+## frees this node with it, so a coroutine resuming on process_frame resumes
+## inside a freed start screen and the call after it never runs. That
+## shipped, and the debug start silently granted nothing. A deferred call
+## belongs to Party, which is an autoload and outlives the swap.
 func _on_debug() -> void:
-	get_tree().change_scene_to_file(WORLD)
-	Party.grant_king_when_world_ready.call_deferred()
+	_loading_king = true
+	_begin_load()
 
 
 func _on_quit() -> void:
