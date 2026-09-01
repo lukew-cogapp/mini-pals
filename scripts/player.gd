@@ -133,7 +133,10 @@ func kick(strength: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _dead:
 		return
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	# Gated on our own flag, never on reading Input.mouse_mode back. Pointer
+	# lock is a request the browser grants a frame or more later, so the
+	# readback still says VISIBLE while the player is already playing.
+	if event is InputEventMouseMotion and not _mouse_free:
 		pivot.rotate_y(-event.relative.x * Tuning.MOUSE_SENSITIVITY)
 		pivot.rotation.x = clampf(
 			pivot.rotation.x - event.relative.y * Tuning.MOUSE_SENSITIVITY,
