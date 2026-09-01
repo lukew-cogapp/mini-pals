@@ -412,11 +412,61 @@ land tries straight back towards the island first (`_beach_dismount_position`)
 and the rider always ends up ashore. Death dismounts with `force`, which
 accepts an unsafe spot rather than trapping the player on a corpse.
 
+## The web build breaks in ways the editor cannot show
+
+Desktop loads resources straight off disk and ignores the export filter, so
+a file the web export excludes is present in the editor and absent in the
+browser. `pal_cube.tscn` instances `Mushroom_Common.gltf` and the llama the
+Alpaking, both of which the exclude list had swept up with the unused nature
+kit: on the web `$Mushroom` was null, `throw()` died after `Inventory.remove`
+had already spent the cube, and a throw drew nothing while the count fell.
+`test/export_filter_test.gd` now cross-checks every `res://` path the scenes
+name against the filter, and every shipped `.gltf` against its own `.bin` and
+textures. Add art, run that test.
+
+`Input.mouse_mode` is a request, not a state. Pointer lock is granted a frame
+or more after it is asked for, so reading the mode back says VISIBLE while
+the player is already playing. Gate on `player._mouse_free` instead, which
+is what the click branch already did.
+
+**A Control with the default mouse filter eats the game's input.** The aim
+reticule's five crosshair `ColorRect`s had no `mouse_filter` line, so they
+sat at `MOUSE_FILTER_STOP`, and a hit test visits children BEFORE it consults
+the parent's IGNORE: the parent being IGNORE covers nothing. The 8x8 `Dot`
+sits on the viewport centre, which is exactly where a captured pointer parks,
+so while the reticule was up it swallowed every motion and click and
+`_unhandled_input` never ran. The camera would not turn while aiming, and
+left and middle click died with it. WASD kept working, which is the tell:
+movement is polled, look is event-driven.
+
+Testing that needs `get_viewport().push_input(event, true)`, never a direct
+call to `_unhandled_input`, which skips the GUI stage that eats the event and
+passes green while the bug is live. Two harness traps go with it: headless
+never delivers a mouse-enter, so the GUI stage skips hit-testing until
+`get_viewport().notification(Viewport.NOTIFICATION_VP_MOUSE_ENTER)`, and the
+headless window is 64x64 under a content-scale transform, so push in LOCAL
+coords or a centre point lands off screen.
+
+**`change_scene_to_file` blocks for the whole load.** `world.tscn` is ~300 ms
+of resource work, paid in one lump at the end of the frame with nothing
+drawn, which on the web reads as the tab hanging and then the game appearing
+at once. `start_screen.gd` requests it with `ResourceLoader.load_threaded_request`
+and polls in `_process`, so the title keeps animating and shows a percentage.
+That works without thread support, which the web export cannot have: threads
+need cross-origin isolation headers and GitHub Pages sets none. Measured: the
+Play frame went from a 340 ms freeze to 0 ms, spread over 37 frames.
+
+Camera look is mouse AND right stick. The stick is polled in `_process`, not
+driven by events, because a stick held at full deflection emits nothing until
+it moves again; an event-driven version turns once and stops. Both go through
+`Player._look` so the pitch clamp cannot be applied to one and not the other.
+
 ## Screens, HUD and species art
 
-`scenes/start_screen.tscn` is the main scene; Play swaps in `world.tscn`. Its
+`scenes/start_screen.tscn` is the main scene; Play loads `world.tscn` in the
+background and swaps it in when it lands (see the loading note above). Its
 backdrop is a small 3D set of its own, not the real world, which loads in
-roughly measurably faster than world.tscn. The title reads
+measurably faster than world.tscn. The title reads
 `application/config/name` at runtime, so renaming the game is one edit in
 `project.godot`. The `Hud` autoload exists before any world does and draws
 over the title, so the start screen hides it and restores it in `_exit_tree`.
