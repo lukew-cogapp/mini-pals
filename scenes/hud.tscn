@@ -339,6 +339,7 @@ offset_top = 42.0
 offset_right = 68.0
 offset_bottom = 46.0
 color = Color(1, 1, 1, 1)
+mouse_filter = 2
 
 [node name="Right" type="ColorRect" parent="Reticule"]
 offset_left = 92.0
@@ -346,6 +347,7 @@ offset_top = 42.0
 offset_right = 120.0
 offset_bottom = 46.0
 color = Color(1, 1, 1, 1)
+mouse_filter = 2
 
 [node name="Top" type="ColorRect" parent="Reticule"]
 offset_left = 78.0
@@ -353,6 +355,7 @@ offset_top = 12.0
 offset_right = 82.0
 offset_bottom = 36.0
 color = Color(1, 1, 1, 1)
+mouse_filter = 2
 
 [node name="Bottom" type="ColorRect" parent="Reticule"]
 offset_left = 78.0
@@ -360,6 +363,7 @@ offset_top = 52.0
 offset_right = 82.0
 offset_bottom = 76.0
 color = Color(1, 1, 1, 1)
+mouse_filter = 2
 
 [node name="Dot" type="ColorRect" parent="Reticule"]
 offset_left = 76.0
@@ -367,6 +371,7 @@ offset_top = 40.0
 offset_right = 84.0
 offset_bottom = 48.0
 color = Color(1, 1, 1, 1)
+mouse_filter = 2
 
 [node name="Label" type="Label" parent="Reticule"]
 offset_top = 76.0
