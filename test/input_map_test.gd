@@ -36,6 +36,11 @@ const EXPECTED := {
 	# Middle click, T, and RB.
 	"pal_attack": 3,
 	"aim": 2,
+	# Right stick, one axis direction each.
+	"look_left": 1,
+	"look_right": 1,
+	"look_up": 1,
+	"look_down": 1,
 }
 
 

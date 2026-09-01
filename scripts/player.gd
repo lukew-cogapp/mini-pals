@@ -109,8 +109,33 @@ func _update_fov(delta: float) -> void:
 	_camera.fov = lerpf(_camera.fov, want, Tuning.FOV_LERP * delta)
 
 
+## Turn the camera by yaw and pitch in radians. Both the mouse and the right
+## stick come through here so the pitch clamp cannot be applied to one only.
+func _look(yaw: float, pitch: float) -> void:
+	pivot.rotate_y(yaw)
+	pivot.rotation.x = clampf(
+		pivot.rotation.x + pitch,
+		Tuning.CAMERA_PITCH_MIN,
+		Tuning.CAMERA_PITCH_MAX,
+	)
+
+
+## The right stick, polled rather than driven by events: a stick held at full
+## deflection emits nothing until it moves again, so an event-driven version
+## turns once and stops. Scaled by delta because the reading is a deflection,
+## not a distance already travelled.
+func _tick_stick_look(delta: float) -> void:
+	var look := Input.get_vector("look_left", "look_right", "look_up", "look_down")
+	if look == Vector2.ZERO:
+		return
+	var rate := Tuning.STICK_LOOK_SPEED * delta
+	_look(-look.x * rate, -look.y * rate)
+
+
 func _process(delta: float) -> void:
 	_update_fov(delta)
+	if not _dead:
+		_tick_stick_look(delta)
 	if _shake <= 0.0:
 		return
 	_shake = maxf(_shake - Tuning.SHAKE_DECAY * delta, 0.0)
@@ -137,12 +162,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	# lock is a request the browser grants a frame or more later, so the
 	# readback still says VISIBLE while the player is already playing.
 	if event is InputEventMouseMotion and not _mouse_free:
-		pivot.rotate_y(-event.relative.x * Tuning.MOUSE_SENSITIVITY)
-		pivot.rotation.x = clampf(
-			pivot.rotation.x - event.relative.y * Tuning.MOUSE_SENSITIVITY,
-			Tuning.CAMERA_PITCH_MIN,
-			Tuning.CAMERA_PITCH_MAX,
-		)
+		_look(-event.relative.x * Tuning.MOUSE_SENSITIVITY,
+			-event.relative.y * Tuning.MOUSE_SENSITIVITY)
 	elif event.is_action_pressed("ui_cancel"):
 		_cancel_throw_aim()
 		_free_mouse()
