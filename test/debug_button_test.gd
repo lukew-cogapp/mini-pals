@@ -41,9 +41,15 @@ func test_the_debug_button_grants_a_king() -> void:
 	await wait_process_frames(1)
 
 	screen._on_debug()
-	# Generously more frames than the handler waits, so a King that arrives
-	# late still counts as arrived and only a King that never arrives fails.
-	await wait_process_frames(14)
+	# Debug requests the world in the background and swaps it in when it
+	# lands, which took ~37 frames when it was measured, so a fixed wait is a
+	# race. Waited on Party, which is an autoload and outlives the swap that
+	# frees `screen`. A cap rather than a bare loop, so a King that never
+	# arrives fails the test instead of hanging the run.
+	for _i in 600:
+		if not Party.members.is_empty():
+			break
+		await wait_process_frames(1)
 	await wait_physics_frames(5)
 	if is_instance_valid(previous):
 		pass
