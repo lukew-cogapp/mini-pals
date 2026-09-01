@@ -61,27 +61,34 @@ func _ready() -> void:
 	# And the wad landing. Lower and wetter than "hit", which is a bite.
 	_bank["splat"] = _tone(420.0, 110.0, 0.13, "sine", 0.34)
 	# C-major pentatonic over a slow root-fifth bass: the overworld loop.
-	# Sixteen beats rather than the boss theme's eight, and half of the
-	# melody left as rests, because this one plays for the whole session and
-	# a busy phrase heard two hundred times becomes a nag. Pentatonic has no
-	# semitone in it, so no interval can sour against the bass however the
-	# loop lands.
+	# Thirty-two beats in two halves that do not repeat each other, so the
+	# ear cannot predict the phrase the way it could when sixteen beats
+	# looped identically. Half the melody is still rests: this plays for the
+	# whole session and a busy phrase heard two hundred times becomes a nag.
+	# Pentatonic has no semitone in it, so no interval can sour against the
+	# bass however the loop lands. The drum pattern is four beats and cycles.
 	_bank["world_music"] = _music(
 		[
 			65.41, 65.41, 98.0, 98.0, 87.31, 87.31, 98.0, 98.0,
 			65.41, 65.41, 98.0, 98.0, 110.0, 110.0, 98.0, 98.0,
+			87.31, 87.31, 110.0, 110.0, 98.0, 98.0, 65.41, 65.41,
+			87.31, 87.31, 130.81, 130.81, 98.0, 98.0, 98.0, 98.0,
 		],
 		[
 			392.0, 0.0, 523.25, 0.0, 440.0, 0.0, 0.0, 329.63,
 			392.0, 0.0, 587.33, 0.0, 523.25, 0.0, 440.0, 0.0,
+			523.25, 0.0, 440.0, 392.0, 0.0, 329.63, 0.0, 0.0,
+			659.25, 0.0, 587.33, 0.0, 523.25, 0.0, 392.0, 0.0,
 		],
 		0.5,
+		"k..hk..hk.hhk..h",
 	)
 	# A-minor bass under a sparse melody; loops seamlessly (see _music).
 	_bank["boss_music"] = _music(
 		[55.0, 55.0, 65.41, 55.0, 55.0, 55.0, 98.0, 82.41],
 		[220.0, 0.0, 261.63, 0.0, 329.63, 0.0, 246.94, 220.0],
 		0.42,
+		"khkhkhkh",
 	)
 
 	for i in VOICES:
@@ -125,22 +132,39 @@ func stop_music() -> void:
 
 ## One beat per entry; a 0.0 melody entry is a rest. The saw bass keeps
 ## running phase across beat boundaries, so the loop point never clicks.
-func _music(bass: Array, melody: Array, beat_secs: float) -> AudioStreamWAV:
+##
+## `drums` is one character per beat and may be shorter than the bass, in
+## which case it cycles: "k" kick, "h" hat, anything else silence. There are
+## no separators in it: a space would be a beat of rest and slide the pattern
+## against the phrase. The pulse is what
+## stops a slow phrase reading as ambience, and it is generated rather than
+## sequenced note-by-note so a longer melody costs nothing to write.
+##
+## The melody carries a fifth above each note at a third of the level. One
+## sine per note is a test tone; the interval gives it enough body to sit
+## over a saw bass without raising its volume against the effects.
+func _music(bass: Array, melody: Array, beat_secs: float, drums := "") -> AudioStreamWAV:
 	var frames := int(RATE * beat_secs * bass.size())
 	var data := PackedByteArray()
 	data.resize(frames * 2)
 	var bass_phase := 0.0
 	var mel_phase := 0.0
+	var fifth_phase := 0.0
 	for i in frames:
 		var beat_pos := float(i) / (RATE * beat_secs)
-		var b := int(beat_pos) % bass.size()
+		var beat := int(beat_pos)
+		var b := beat % bass.size()
 		var local := beat_pos - floorf(beat_pos)
 		bass_phase += TAU * float(bass[b]) / RATE
 		var s := _wave("saw", bass_phase) * 0.4 * pow(1.0 - local, 0.5)
 		var hz := float(melody[b])
 		if hz > 0.0:
+			var env := minf(local * 8.0, 1.0) * pow(1.0 - local, 1.2)
 			mel_phase += TAU * hz / RATE
-			s += sin(mel_phase) * 0.3 * minf(local * 8.0, 1.0) * pow(1.0 - local, 1.2)
+			fifth_phase += TAU * hz * 1.5 / RATE
+			s += (sin(mel_phase) + sin(fifth_phase) * 0.33) * 0.26 * env
+		if not drums.is_empty():
+			s += _drum(drums[beat % drums.length()], local, beat_secs)
 		_put(data, i, s * 0.8)
 	var w := _wav(data)
 	w.loop_mode = AudioStreamWAV.LOOP_FORWARD
@@ -148,6 +172,26 @@ func _music(bass: Array, melody: Array, beat_secs: float) -> AudioStreamWAV:
 	w.loop_end = frames
 	return w
 
+
+
+## One drum hit, `local` being how far through its beat we are. The kick is a
+## pitch drop rather than a fixed tone, which is what makes it read as a skin
+## being struck; the hat is noise, shaped short so it ticks.
+func _drum(kind: String, local: float, beat_secs: float) -> float:
+	match kind:
+		"k":
+			var t := local * beat_secs / 0.11
+			if t >= 1.0:
+				return 0.0
+			return sin(TAU * lerpf(110.0, 45.0, t) * local * beat_secs) \
+				* pow(1.0 - t, 2.2) * 0.5
+		"h":
+			var t := local * beat_secs / 0.045
+			if t >= 1.0:
+				return 0.0
+			return randf_range(-1.0, 1.0) * pow(1.0 - t, 3.0) * 0.09
+		_:
+			return 0.0
 
 func _tone(from_hz: float, to_hz: float, secs: float, wave: String, vol: float) -> AudioStreamWAV:
 	var frames := int(RATE * secs)
